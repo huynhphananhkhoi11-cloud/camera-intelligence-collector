@@ -751,6 +751,180 @@ function sectionField(
 }
 
 
+function resolveSpecs(
+  facts:
+    RawProductFacts
+): ResolvedField<string> {
+
+  /*
+   * Visible semantic section has first priority.
+   */
+  const section =
+    sectionField(
+      facts,
+      "SPECS"
+    );
+
+  if (
+    section.value
+  ) {
+    return section;
+  }
+
+
+  /*
+   * Structured fallback is deliberately scoped
+   * to Product.additionalProperty.
+   *
+   * Do not scan body/pageText for arbitrary
+   * label/value pairs.
+   */
+  const lines:
+    string[] = [];
+
+  const evidence:
+    FieldEvidence[] = [];
+
+
+  for (
+    const product
+    of objectsByType(
+      facts.jsonLd,
+      /product/i
+    )
+  ) {
+    const rawAdditional =
+      product.additionalProperty;
+
+    const properties =
+      Array.isArray(
+        rawAdditional
+      )
+        ? rawAdditional
+        : (
+            rawAdditional &&
+            typeof rawAdditional ===
+              "object"
+          )
+          ? [
+              rawAdditional
+            ]
+          : [];
+
+
+    for (
+      const rawProperty
+      of properties
+    ) {
+      if (
+        !rawProperty ||
+        typeof rawProperty !==
+          "object" ||
+        Array.isArray(
+          rawProperty
+        )
+      ) {
+        continue;
+      }
+
+      const property =
+        rawProperty as Record<
+          string,
+          unknown
+        >;
+
+      const name =
+        clean(
+          property.name
+        );
+
+      const rawValue =
+        property.value;
+
+      if (
+        !name ||
+        (
+          typeof rawValue !==
+            "string" &&
+          typeof rawValue !==
+            "number" &&
+          typeof rawValue !==
+            "boolean"
+        )
+      ) {
+        continue;
+      }
+
+      const value =
+        clean(
+          rawValue
+        );
+
+      if (!value) {
+        continue;
+      }
+
+      const line =
+        `${name}: ${value}`;
+
+      lines.push(
+        line
+      );
+
+      evidence.push({
+        source:
+          "JSON_LD",
+
+        raw:
+          JSON.stringify(
+            rawProperty
+          )
+      });
+    }
+  }
+
+
+  const uniqueLines =
+    uniqueBy(
+      lines,
+      value =>
+        value
+    );
+
+  const uniqueEvidence =
+    uniqueBy(
+      evidence,
+      item =>
+        `${item.source}|${item.raw}`
+    );
+
+
+  if (
+    uniqueLines.length ===
+      0
+  ) {
+    return emptyStringField();
+  }
+
+
+  return {
+    value:
+      uniqueLines.join(
+        "\n"
+      ),
+
+    evidence:
+      uniqueEvidence,
+
+    conflict:
+      false,
+
+    confidence:
+      1
+  };
+}
+
+
 function parseReviewCount(
   value:
     string
@@ -1149,6 +1323,14 @@ function resolveStock(
       visibleValue =
         "IN_STOCK";
     }
+
+    if (
+      /(?:^|[^\p{L}\p{N}_])(?:pre[\s-]?order|dat truoc|\u0111\u1eb7t tr\u01b0\u1edbc)(?![\p{L}\p{N}_])/iu
+        .test(raw)
+    ) {
+      visibleValue =
+        "PREORDER";
+    }
   }
 
 
@@ -1280,9 +1462,8 @@ export function resolveProductFields(
 
   return {
     specs:
-      sectionField(
-        facts,
-        "SPECS"
+      resolveSpecs(
+        facts
       ),
 
     rentalPrice,

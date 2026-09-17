@@ -102,6 +102,148 @@ function parseJsonLd(
 }
 
 
+function firstStructuredProductName(
+  values: unknown[]
+): string {
+
+  let found =
+    "";
+
+  const seen =
+    new Set<object>();
+
+  const walk = (
+    value: unknown
+  ): void => {
+
+    if (
+      found ||
+      value === null ||
+      value === undefined ||
+      typeof value !==
+        "object"
+    ) {
+      return;
+    }
+
+    if (
+      seen.has(
+        value
+      )
+    ) {
+      return;
+    }
+
+    seen.add(
+      value
+    );
+
+    if (
+      Array.isArray(
+        value
+      )
+    ) {
+      for (
+        const child
+        of value
+      ) {
+        walk(
+          child
+        );
+
+        if (found) {
+          return;
+        }
+      }
+
+      return;
+    }
+
+    const object =
+      value as Record<
+        string,
+        unknown
+      >;
+
+    const rawType =
+      object["@type"];
+
+    const types =
+      Array.isArray(
+        rawType
+      )
+        ? rawType.map(
+            item =>
+              clean(
+                item
+              )
+          )
+        : [
+            clean(
+              rawType
+            )
+          ];
+
+    const isProduct =
+      types.some(
+        type =>
+          type.toLowerCase() ===
+            "product" ||
+          /(?:^|[\/#:])product$/i
+            .test(
+              type
+            )
+      );
+
+    if (isProduct) {
+      const name =
+        clean(
+          object.name
+        );
+
+      if (name) {
+        found =
+          name;
+
+        return;
+      }
+    }
+
+    for (
+      const child
+      of Object.values(
+        object
+      )
+    ) {
+      walk(
+        child
+      );
+
+      if (found) {
+        return;
+      }
+    }
+  };
+
+
+  for (
+    const value
+    of values
+  ) {
+    walk(
+      value
+    );
+
+    if (found) {
+      break;
+    }
+  }
+
+
+  return found;
+}
+
+
 function extractVisiblePageText(
   html: string
 ): string {
@@ -149,24 +291,16 @@ export function extractRawProductFactsFromHtml(
    * -------------------------------------------
    */
 
-  const titleCandidates = [
+  const h1Title =
     clean(
       $("h1").first().text()
-    ),
+    );
 
+  const ogTitle =
     clean(
       $('meta[property="og:title"]')
         .attr("content")
-    ),
-
-    clean(
-      $("title").first().text()
-    )
-  ];
-
-  const title =
-    titleCandidates.find(Boolean) ??
-    "";
+    );
 
 
   /*
@@ -245,6 +379,25 @@ export function extractRawProductFactsFromHtml(
       );
     }
   );
+
+
+  /*
+   * -------------------------------------------
+   * CANONICAL PRODUCT TITLE
+   * -------------------------------------------
+   *
+   * This is factual source normalization, not
+   * product/business classification.
+   *
+   * Priority:
+   * h1 > JSON-LD Product.name > og:title
+   */
+  const title =
+    h1Title ||
+    firstStructuredProductName(
+      jsonLd
+    ) ||
+    ogTitle;
 
 
   /*
