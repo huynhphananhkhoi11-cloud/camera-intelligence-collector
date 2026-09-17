@@ -1,0 +1,668 @@
+﻿import * as cheerio from "cheerio";
+import type { Page } from "playwright";
+
+export interface ProductUrlCandidate {
+  url: string;
+  score: number;
+  reasons: string[];
+}
+
+export interface ProductUrlDiscoveryResult {
+  productUrls: string[];
+  candidates: ProductUrlCandidate[];
+  weakCandidates: ProductUrlCandidate[];
+  paginationUrls: string[];
+  totalAnchors: number;
+}
+
+function clean(value: unknown): string {
+  return String(value ?? "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function canonicalizeUrl(
+  raw: string,
+  baseUrl: string
+): string | null {
+
+  try {
+    const url = new URL(raw, baseUrl);
+
+    if (
+      url.protocol !== "http:" &&
+      url.protocol !== "https:"
+    ) {
+      return null;
+    }
+
+    url.hash = "";
+
+    const trackingParams = [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_term",
+      "utm_content",
+      "fbclid",
+      "gclid"
+    ];
+
+    for (const key of trackingParams) {
+      url.searchParams.delete(key);
+    }
+
+    if (
+      url.pathname !== "/" &&
+      url.pathname.endsWith("/")
+    ) {
+      url.pathname =
+        url.pathname.replace(/\/+$/, "");
+    }
+
+    return url.toString();
+  }
+  catch {
+    return null;
+  }
+}
+
+function isHardExcluded(url: URL): boolean {
+  return /\/(?:cart|gio-hang|checkout|login|dang-nhap|register|account|search|tim-kiem|contact|lien-he)(?:\/|$)/i
+    .test(url.pathname);
+}
+
+function looksLikePagination(
+  url: URL,
+  anchorText: string
+): boolean {
+
+  if (
+    /(?:^|[?&])(?:p|page)=\d+/i
+      .test(url.search)
+  ) {
+    return true;
+  }
+
+  if (
+    /\/page\/\d+(?:\/|$)/i
+      .test(url.pathname)
+  ) {
+    return true;
+  }
+
+  const text =
+    anchorText.toLowerCase();
+
+  if (
+    /^(?:next|prev|previous|sau|trước|truoc|›|»|‹|«)$/
+      .test(text)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function looksLikeProductPath(
+  pathname: string
+): boolean {
+
+  return /\/(?:equipment|product|products|san-pham|item|items)\/[^/?#]+/i
+    .test(pathname);
+}
+
+function parseJsonLd(
+  raw: string
+): unknown[] {
+
+  try {
+    const parsed =
+      JSON.parse(raw);
+
+    return Array.isArray(parsed)
+      ? parsed
+      : [parsed];
+  }
+  catch {
+    return [];
+  }
+}
+
+function typeNames(
+  value: unknown
+): string[] {
+
+  if (Array.isArray(value)) {
+    return value.map(clean);
+  }
+
+  const text = clean(value);
+
+  return text
+    ? [text]
+    : [];
+}
+
+export function discoverProductUrlsFromHtml(
+  html: string,
+  baseUrl: string
+): ProductUrlDiscoveryResult {
+
+  const $ =
+    cheerio.load(html);
+
+  const base =
+    new URL(baseUrl);
+
+  const candidateMap =
+    new Map<
+      string,
+      ProductUrlCandidate
+    >();
+
+  const pagination =
+    new Set<string>();
+
+  const addCandidate = (
+    rawUrl: string,
+    score: number,
+    reason: string
+  ) => {
+
+    const canonical =
+      canonicalizeUrl(
+        rawUrl,
+        baseUrl
+      );
+
+    if (!canonical) {
+      return;
+    }
+
+    const url =
+      new URL(canonical);
+
+    if (
+      url.origin !== base.origin
+    ) {
+      return;
+    }
+
+    if (
+      isHardExcluded(url)
+    ) {
+      return;
+    }
+
+    const existing =
+      candidateMap.get(
+        canonical
+      );
+
+    if (existing) {
+
+      existing.score += score;
+
+      if (
+        !existing.reasons.includes(
+          reason
+        )
+      ) {
+        existing.reasons.push(
+          reason
+        );
+      }
+
+      return;
+    }
+
+    candidateMap.set(
+      canonical,
+      {
+        url: canonical,
+        score,
+        reasons: [reason]
+      }
+    );
+  };
+
+
+  /*
+   * ==========================================
+   * 1. JSON-LD
+   * ==========================================
+   */
+
+  const walkJsonLd = (
+    value: unknown
+  ): void => {
+
+    if (
+      value === null ||
+      value === undefined
+    ) {
+      return;
+    }
+
+    if (
+      Array.isArray(value)
+    ) {
+      for (const child of value) {
+        walkJsonLd(child);
+      }
+
+      return;
+    }
+
+    if (
+      typeof value !== "object"
+    ) {
+      return;
+    }
+
+    const object =
+      value as Record<
+        string,
+        unknown
+      >;
+
+    const types =
+      typeNames(
+        object["@type"]
+      );
+
+    const isProduct =
+      types.some(
+        type =>
+          /product/i.test(type)
+      );
+
+    if (isProduct) {
+
+      const urls = [
+        object.url,
+        object["@id"]
+      ];
+
+      for (const raw of urls) {
+        if (
+          typeof raw === "string"
+        ) {
+          addCandidate(
+            raw,
+            100,
+            "JSON-LD Product"
+          );
+        }
+      }
+    }
+
+    /*
+     * ItemList entries can contain either
+     * direct URLs or nested item objects.
+     */
+    if (
+      types.some(
+        type =>
+          /itemlist/i.test(type)
+      )
+    ) {
+
+      const entries =
+        object.itemListElement;
+
+      if (
+        Array.isArray(entries)
+      ) {
+
+        for (const entry of entries) {
+
+          if (
+            entry &&
+            typeof entry ===
+              "object"
+          ) {
+
+            const item =
+              entry as Record<
+                string,
+                unknown
+              >;
+
+            const directUrl =
+              item.url;
+
+            if (
+              typeof directUrl ===
+                "string"
+            ) {
+              addCandidate(
+                directUrl,
+                90,
+                "JSON-LD ItemList"
+              );
+            }
+
+            if (
+              item.item &&
+              typeof item.item ===
+                "object"
+            ) {
+
+              const nested =
+                item.item as Record<
+                  string,
+                  unknown
+                >;
+
+              const nestedUrl =
+                nested.url ??
+                nested["@id"];
+
+              if (
+                typeof nestedUrl ===
+                  "string"
+              ) {
+                addCandidate(
+                  nestedUrl,
+                  90,
+                  "JSON-LD ItemList item"
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
+    for (
+      const child
+      of Object.values(object)
+    ) {
+      walkJsonLd(child);
+    }
+  };
+
+  $(
+    'script[type="application/ld+json"]'
+  ).each(
+    (_, element) => {
+
+      const raw =
+        $(element).html() ??
+        "";
+
+      for (
+        const root
+        of parseJsonLd(raw)
+      ) {
+        walkJsonLd(root);
+      }
+    }
+  );
+
+
+  /*
+   * ==========================================
+   * 2. DOM anchors
+   * ==========================================
+   *
+   * IMPORTANT:
+   * No CAMERA keyword filtering here.
+   *
+   * Lens, battery, printer, camera...
+   * all product detail URLs are discovered.
+   * Classification happens AFTER detail crawl.
+   */
+
+  const anchors =
+    $("a[href]");
+
+  anchors.each(
+    (_, element) => {
+
+      const anchor =
+        $(element);
+
+      const href =
+        clean(
+          anchor.attr("href")
+        );
+
+      if (
+        !href ||
+        href.startsWith("#") ||
+        href.startsWith("javascript:")
+      ) {
+        return;
+      }
+
+      const canonical =
+        canonicalizeUrl(
+          href,
+          baseUrl
+        );
+
+      if (!canonical) {
+        return;
+      }
+
+      const url =
+        new URL(canonical);
+
+      if (
+        url.origin !==
+        base.origin
+      ) {
+        return;
+      }
+
+      if (
+        isHardExcluded(url)
+      ) {
+        return;
+      }
+
+      const anchorText =
+        clean(anchor.text());
+
+      if (
+        looksLikePagination(
+          url,
+          anchorText
+        )
+      ) {
+
+        pagination.add(
+          canonical
+        );
+
+        return;
+      }
+
+      let score = 0;
+
+      const reasons:
+        string[] = [];
+
+      const card =
+        anchor.closest(
+          [
+            "article",
+            "li",
+            ".product",
+            ".product-item",
+            ".product-card",
+            "[data-product-id]",
+            '[itemtype*="Product"]',
+            '[class*="product-item"]',
+            '[class*="product-card"]'
+          ].join(",")
+        );
+
+      const contextRoot =
+        card.length
+          ? card
+          : anchor.parent();
+
+      const contextText =
+        clean(
+          contextRoot.text()
+        ).slice(
+          0,
+          1500
+        );
+
+      if (
+        card.length
+      ) {
+        score += 35;
+        reasons.push(
+          "product-card structure"
+        );
+      }
+
+      if (
+        /\d[\d.,\s]*\s*(?:đ|₫|vnd)(?![\p{L}\p{N}_])/iu
+          .test(contextText)
+      ) {
+        score += 30;
+
+        reasons.push(
+          "price near link"
+        );
+      }
+
+      if (
+        /\b(?:mua ngay|thue ngay|thuê ngay|buy now|rent now|add to cart|xem chi tiet|xem chi tiết)\b/iu
+          .test(contextText)
+      ) {
+        score += 20;
+
+        reasons.push(
+          "commercial CTA"
+        );
+      }
+
+      if (
+        looksLikeProductPath(
+          url.pathname
+        )
+      ) {
+        score += 25;
+
+        reasons.push(
+          "product-like URL"
+        );
+      }
+
+      const hasImage =
+        anchor.find("img").length >
+          0 ||
+        contextRoot.find("img").length >
+          0;
+
+      if (
+        hasImage
+      ) {
+        score += 10;
+
+        reasons.push(
+          "product image"
+        );
+      }
+
+      if (
+        score <= 0
+      ) {
+        return;
+      }
+
+      for (
+        const reason
+        of reasons
+      ) {
+        addCandidate(
+          canonical,
+          score ===
+            Math.max(
+              ...reasons.map(
+                () => score
+              )
+            )
+            ? score
+            : 0,
+          reason
+        );
+
+        /*
+         * Score must only be added once.
+         */
+        score = 0;
+      }
+    }
+  );
+
+
+  const all =
+    Array.from(
+      candidateMap.values()
+    )
+      .sort(
+        (a, b) =>
+          b.score -
+          a.score
+      );
+
+  /*
+   * Threshold deliberately low:
+   *
+   * Discovery maximizes RECALL.
+   * Classification later maximizes PRECISION.
+   */
+  const candidates =
+    all.filter(
+      item =>
+        item.score >= 25
+    );
+
+  const weakCandidates =
+    all.filter(
+      item =>
+        item.score > 0 &&
+        item.score < 25
+    );
+
+  return {
+    productUrls:
+      candidates.map(
+        item =>
+          item.url
+      ),
+
+    candidates,
+
+    weakCandidates,
+
+    paginationUrls:
+      Array.from(
+        pagination
+      ),
+
+    totalAnchors:
+      anchors.length
+  };
+}
+
+
+export async function discoverProductUrls(
+  page: Page
+): Promise<ProductUrlDiscoveryResult> {
+
+  return discoverProductUrlsFromHtml(
+    await page.content(),
+    page.url()
+  );
+}
