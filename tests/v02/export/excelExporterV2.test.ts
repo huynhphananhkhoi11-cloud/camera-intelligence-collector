@@ -1,4 +1,4 @@
-﻿import {
+import {
   afterEach,
   describe,
   expect,
@@ -139,6 +139,44 @@ describe(
             ],
 
             coverage,
+
+            runId:
+              "excel-export-test",
+
+            reconciliation: {
+              runId:
+                "excel-export-test",
+
+              discovered:
+                1,
+
+              accepted:
+                1,
+
+              review:
+                0,
+
+              excluded:
+                0,
+
+              error:
+                0,
+
+              inProgress:
+                0,
+
+              accounted:
+                1,
+
+              balanced:
+                true,
+
+              complete:
+                true
+            },
+
+            errors:
+              [],
 
             audit: []
           }

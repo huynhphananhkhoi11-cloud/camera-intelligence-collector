@@ -1,4 +1,4 @@
-﻿import ExcelJS from "exceljs";
+import ExcelJS from "exceljs";
 
 import {
   mkdir
@@ -15,6 +15,11 @@ import type {
 import type {
   CoverageReport
 } from "../coverage/coverageEngine.js";
+
+import type {
+  RunErrorRow,
+  RunReconciliationReport
+} from "../coverage/runReconciliation.js";
 
 import {
   buildAllEvidenceRows
@@ -41,10 +46,20 @@ export interface AuditRow {
 
 
 export interface ExportBundle {
-  results: PipelineResult[];
+  runId:
+    string;
+
+  results:
+    PipelineResult[];
 
   coverage:
     CoverageReport;
+
+  reconciliation:
+    RunReconciliationReport;
+
+  errors:
+    RunErrorRow[];
 
   audit:
     AuditRow[];
@@ -378,6 +393,11 @@ export async function exportWorkbookV2(
 
   evidenceSheet.columns = [
     {
+      header: "Run ID",
+      key: "runId",
+      width: 28
+    },
+    {
       header: "URL",
       key: "url",
       width: 55
@@ -398,8 +418,8 @@ export async function exportWorkbookV2(
       width: 24
     },
     {
-      header: "Value",
-      key: "value",
+      header: "Selected value",
+      key: "selectedValue",
       width: 30
     },
     {
@@ -421,13 +441,19 @@ export async function exportWorkbookV2(
       header: "Confidence",
       key: "confidence",
       width: 14
+    },
+    {
+      header: "Rule ID",
+      key: "ruleId",
+      width: 32
     }
   ];
 
   for (
     const row
     of buildAllEvidenceRows(
-      bundle.results
+      bundle.results,
+      bundle.runId
     )
   ) {
     evidenceSheet.addRow(
@@ -567,11 +593,137 @@ export async function exportWorkbookV2(
     bundle.coverage.excluded
   ]);
 
+
+  coverageSheet.addRow([]);
+
+  coverageSheet.addRow([
+    "Reconciliation",
+    bundle.reconciliation.complete
+      ? "PASS"
+      : "FAIL"
+  ]);
+
+  coverageSheet.addRow([
+    "Discovered URLs",
+    bundle.reconciliation.discovered
+  ]);
+
+  coverageSheet.addRow([
+    "Terminal ACCEPT",
+    bundle.reconciliation.accepted
+  ]);
+
+  coverageSheet.addRow([
+    "Terminal REVIEW",
+    bundle.reconciliation.review
+  ]);
+
+  coverageSheet.addRow([
+    "Terminal EXCLUDE",
+    bundle.reconciliation.excluded
+  ]);
+
+  coverageSheet.addRow([
+    "Terminal ERROR",
+    bundle.reconciliation.error
+  ]);
+
+  coverageSheet.addRow([
+    "In progress",
+    bundle.reconciliation.inProgress
+  ]);
+
+  coverageSheet.addRow([
+    "Accounted",
+    bundle.reconciliation.accounted
+  ]);
+
+  coverageSheet.addRow([
+    "Balanced",
+    bundle.reconciliation.balanced
+      ? "YES"
+      : "NO"
+  ]);
+
+  coverageSheet.addRow([
+    "Run complete",
+    bundle.reconciliation.complete
+      ? "YES"
+      : "NO"
+  ]);
+
   coverageSheet.getColumn(4).numFmt =
     "0.0%";
 
   styleSheet(
     coverageSheet
+  );
+
+
+  const errorsSheet =
+    workbook.addWorksheet(
+      "Errors"
+    );
+
+  errorsSheet.columns = [
+    {
+      header: "Run ID",
+      key: "runId",
+      width: 28
+    },
+    {
+      header: "URL",
+      key: "url",
+      width: 55
+    },
+    {
+      header: "Stage",
+      key: "stage",
+      width: 18
+    },
+    {
+      header: "Error class",
+      key: "errorClass",
+      width: 24
+    },
+    {
+      header: "Message",
+      key: "message",
+      width: 65
+    },
+    {
+      header: "Attempts",
+      key: "attempts",
+      width: 12
+    },
+    {
+      header: "Last status",
+      key: "lastStatus",
+      width: 14
+    },
+    {
+      header: "Retriable",
+      key: "retriable",
+      width: 12
+    },
+    {
+      header: "Diagnostic path",
+      key: "diagnosticPath",
+      width: 50
+    }
+  ];
+
+  for (
+    const error
+    of bundle.errors
+  ) {
+    errorsSheet.addRow(
+      error
+    );
+  }
+
+  styleSheet(
+    errorsSheet
   );
 
 

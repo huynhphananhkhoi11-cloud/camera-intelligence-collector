@@ -876,8 +876,18 @@ async function main(): Promise<void> {
     await exportWorkbookV2(
       outputPath,
       {
+        runId,
+
         results,
+
         coverage,
+
+        reconciliation:
+          reconciliationReport,
+
+        errors:
+          reconciliation.errorRows(),
+
         audit:
           auditRows
       }

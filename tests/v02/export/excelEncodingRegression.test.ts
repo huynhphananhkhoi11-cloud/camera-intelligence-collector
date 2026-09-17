@@ -67,6 +67,44 @@ describe(
               allRequiredEvidenceComplete: 0
             },
 
+            runId:
+              "encoding-test",
+
+            reconciliation: {
+              runId:
+                "encoding-test",
+
+              discovered:
+                0,
+
+              accepted:
+                0,
+
+              review:
+                0,
+
+              excluded:
+                0,
+
+              error:
+                0,
+
+              inProgress:
+                0,
+
+              accounted:
+                0,
+
+              balanced:
+                true,
+
+              complete:
+                true
+            },
+
+            errors:
+              [],
+
             audit: []
           }
         );
