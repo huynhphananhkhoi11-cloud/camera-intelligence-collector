@@ -46,11 +46,14 @@ export interface ResolvedPrice {
 
 
 export interface ResolvedProductFields {
-  specs: ResolvedField<string>;
+  specs:
+    ResolvedField<string>;
 
-  rentalPrice: ResolvedPrice;
+  rentalPrice:
+    ResolvedPrice;
 
-  salePrice: ResolvedPrice;
+  salePrice:
+    ResolvedPrice;
 
   rentalConditions:
     ResolvedField<string>;
@@ -72,6 +75,21 @@ export interface ResolvedProductFields {
 }
 
 
+interface PriceCandidate {
+  amount: number;
+  raw: string;
+  source:
+    | "VISIBLE"
+    | "JSON_LD"
+    | "LISTING";
+
+  kind:
+    | "RENTAL"
+    | "SALE"
+    | "UNKNOWN";
+}
+
+
 function clean(
   value: unknown
 ): string {
@@ -83,24 +101,43 @@ function clean(
 }
 
 
-function uniqueNumbers(
-  values: number[]
-): number[] {
+function uniqueBy<T>(
+  values: T[],
+  key:
+    (value: T) => string
+): T[] {
 
-  return Array.from(
-    new Set(
-      values.filter(
-        value =>
-          Number.isFinite(value) &&
-          value > 0
-      )
-    )
-  );
+  const output:
+    T[] = [];
+
+  const seen =
+    new Set<string>();
+
+  for (
+    const value
+    of values
+  ) {
+
+    const id =
+      key(value);
+
+    if (
+      seen.has(id)
+    ) {
+      continue;
+    }
+
+    seen.add(id);
+    output.push(value);
+  }
+
+  return output;
 }
 
 
-function getTypes(
-  object: Record<string, unknown>
+function typesOf(
+  object:
+    Record<string, unknown>
 ): string[] {
 
   const raw =
@@ -121,9 +158,9 @@ function getTypes(
 }
 
 
-function collectObjectsByType(
-  roots: unknown[],
-  typePattern: RegExp
+function walkObjects(
+  roots:
+    unknown[]
 ): Array<Record<string, unknown>> {
 
   const output:
@@ -134,13 +171,15 @@ function collectObjectsByType(
     new Set<unknown>();
 
   const walk = (
-    value: unknown
+    value:
+      unknown
   ): void => {
 
     if (
       value === null ||
       value === undefined ||
-      typeof value !== "object"
+      typeof value !==
+        "object"
     ) {
       return;
     }
@@ -173,24 +212,19 @@ function collectObjectsByType(
         unknown
       >;
 
-    if (
-      getTypes(object)
-        .some(
-          type =>
-            typePattern.test(type)
-        )
-    ) {
-      output.push(object);
-    }
+    output.push(
+      object
+    );
 
     for (
       const child
-      of Object.values(object)
+      of Object.values(
+        object
+      )
     ) {
       walk(child);
     }
   };
-
 
   for (
     const root
@@ -203,81 +237,291 @@ function collectObjectsByType(
 }
 
 
-function collectOfferObjects(
-  roots: unknown[]
+function objectsByType(
+  roots:
+    unknown[],
+  pattern:
+    RegExp
 ): Array<Record<string, unknown>> {
 
-  return collectObjectsByType(
-    roots,
-    /offer/i
+  return walkObjects(
+    roots
+  ).filter(
+    object =>
+      typesOf(object)
+        .some(
+          type => {
+
+            pattern.lastIndex = 0;
+
+            return pattern.test(
+              type
+            );
+          }
+        )
   );
 }
 
 
-function collectProductObjects(
-  roots: unknown[]
-): Array<Record<string, unknown>> {
+function inferBusinessKind(
+  value:
+    unknown
+):
+  | "RENTAL"
+  | "SALE"
+  | "UNKNOWN" {
 
-  return collectObjectsByType(
-    roots,
-    /product/i
-  );
+  const text =
+    clean(
+      typeof value === "object" &&
+      value !== null
+        ? JSON.stringify(value)
+        : value
+    ).toLowerCase();
+
+  if (
+    /leaseout|lease|rental|rent/
+      .test(text)
+  ) {
+    return "RENTAL";
+  }
+
+  if (
+    /(?:#|\/|\b)sell\b/
+      .test(text)
+  ) {
+    return "SALE";
+  }
+
+  return "UNKNOWN";
 }
 
 
-function structuredPrices(
-  facts: RawProductFacts
-): Array<{
-  amount: number;
-  raw: string;
-}> {
+function visibleCandidates(
+  facts:
+    RawProductFacts,
+  kind:
+    "RENTAL" |
+    "SALE"
+): PriceCandidate[] {
 
   const output:
-    Array<{
-      amount: number;
-      raw: string;
-    }> = [];
+    PriceCandidate[] = [];
+
+  for (
+    const raw
+    of facts.visiblePriceTexts
+  ) {
+
+    const amount =
+      kind === "RENTAL"
+        ? parseRentalPrice(
+            raw
+          )
+        : parseSalePrice(
+            raw
+          );
+
+    if (
+      amount === null
+    ) {
+      continue;
+    }
+
+    output.push({
+      amount,
+      raw,
+      source:
+        "VISIBLE",
+      kind
+    });
+  }
+
+  return uniqueBy(
+    output,
+    item =>
+      `${item.amount}|${item.raw}`
+  );
+}
+
+
+function structuredCandidates(
+  facts:
+    RawProductFacts
+): PriceCandidate[] {
+
+  const output:
+    PriceCandidate[] = [];
+
+  const offers =
+    objectsByType(
+      facts.jsonLd,
+      /offer/i
+    );
 
   for (
     const offer
-    of collectOfferObjects(
-      facts.jsonLd
-    )
+    of offers
   ) {
 
-    const candidates = [
+    const businessKind =
+      inferBusinessKind(
+        offer.businessFunction
+      );
+
+    const rawValues = [
       offer.price,
       offer.lowPrice
     ];
 
     for (
-      const value
-      of candidates
+      const rawValue
+      of rawValues
     ) {
 
-      const parsed =
+      const amount =
         parseStructuredPrice(
-          value
+          rawValue
         );
 
       if (
-        parsed !== null
+        amount === null
       ) {
-
-        output.push({
-          amount: parsed,
-          raw: clean(value)
-        });
+        continue;
       }
+
+      output.push({
+        amount,
+        raw:
+          clean(
+            rawValue
+          ),
+
+        source:
+          "JSON_LD",
+
+        kind:
+          businessKind
+      });
     }
   }
 
-  return output;
+  return uniqueBy(
+    output,
+    item =>
+      `${item.amount}|${item.raw}|${item.kind}`
+  );
+}
+
+
+function listingCandidate(
+  facts:
+    RawProductFacts,
+  kind:
+    "RENTAL" |
+    "SALE"
+): PriceCandidate | null {
+
+  const raw =
+    facts.listingPriceText;
+
+  if (!raw) {
+    return null;
+  }
+
+  const amount =
+    kind === "RENTAL"
+      ? parseRentalPrice(raw)
+      : parseSalePrice(raw);
+
+  if (
+    amount === null
+  ) {
+    return null;
+  }
+
+  return {
+    amount,
+    raw,
+    source:
+      "LISTING",
+    kind
+  };
+}
+
+
+function structuredComparableForKind(
+  candidates:
+    PriceCandidate[],
+  kind:
+    "RENTAL" |
+    "SALE",
+  analysis:
+    ProductAnalysis,
+  visible:
+    PriceCandidate[]
+): PriceCandidate[] {
+
+  const explicit =
+    candidates.filter(
+      candidate =>
+        candidate.kind ===
+        kind
+    );
+
+  const unknown =
+    candidates.filter(
+      candidate =>
+        candidate.kind ===
+        "UNKNOWN"
+    );
+
+  if (
+    explicit.length >
+    0
+  ) {
+    return [
+      ...explicit,
+      ...unknown
+    ];
+  }
+
+  /*
+   * Unknown structured Offer price can be used
+   * for this transaction only when context makes
+   * the mapping unambiguous enough:
+   *
+   * - this kind is proven and the opposite one is not, OR
+   * - we already have an explicit visible price for this kind.
+   */
+  const kindProven =
+    kind === "RENTAL"
+      ? analysis.offer.rental
+      : analysis.offer.sale;
+
+  const oppositeProven =
+    kind === "RENTAL"
+      ? analysis.offer.sale
+      : analysis.offer.rental;
+
+  if (
+    (
+      kindProven &&
+      !oppositeProven
+    ) ||
+    visible.length >
+      0
+  ) {
+    return unknown;
+  }
+
+  return [];
 }
 
 
 function detectContactPrice(
-  facts: RawProductFacts
+  facts:
+    RawProductFacts
 ): boolean {
 
   const text = [
@@ -285,180 +529,99 @@ function detectContactPrice(
     ...facts.buttons
   ].join(" ");
 
-  return /\b(?:lien he|liên hệ|contact|call for price)\b/iu
+  return /\b(?:lien he|liên hệ|contact|call for price)(?![\p{L}\p{N}_])/iu
     .test(text);
 }
 
 
 function resolvePrice(
-  facts: RawProductFacts,
-  analysis: ProductAnalysis,
+  facts:
+    RawProductFacts,
+  analysis:
+    ProductAnalysis,
   kind:
-    | "RENTAL"
-    | "SALE"
+    "RENTAL" |
+    "SALE"
 ): ResolvedPrice {
 
-  const visible:
-    Array<{
-      amount: number;
-      raw: string;
-    }> = [];
-
-  for (
-    const text
-    of facts.visiblePriceTexts
-  ) {
-
-    const parsed =
-      kind === "RENTAL"
-        ? parseRentalPrice(text)
-        : parseSalePrice(text);
-
-    if (
-      parsed !== null
-    ) {
-
-      visible.push({
-        amount: parsed,
-        raw: text
-      });
-    }
-  }
-
+  const visible =
+    visibleCandidates(
+      facts,
+      kind
+    );
 
   const structured =
-    structuredPrices(
-      facts
+    structuredComparableForKind(
+      structuredCandidates(
+        facts
+      ),
+      kind,
+      analysis,
+      visible
     );
 
+  const listing =
+    listingCandidate(
+      facts,
+      kind
+    );
 
-  const listingParsed =
-    kind === "RENTAL"
-      ? parseRentalPrice(
-          facts.listingPriceText
-        )
-      : parseSalePrice(
-          facts.listingPriceText
-        );
-
-
-  const evidence:
-    FieldEvidence[] = [];
-
-  let selected:
-    number | null =
-      null;
-
+  const allComparable =
+    [
+      ...visible,
+      ...structured,
+      ...(
+        listing
+          ? [listing]
+          : []
+      )
+    ];
 
   /*
-   * Priority:
-   * detail-visible > JSON-LD > listing
+   * Final value priority:
+   * visible detail > structured Offer > listing.
    */
-  if (
-    visible.length > 0
-  ) {
+  const selected =
+    visible[0] ??
+    structured[0] ??
+    listing ??
+    null;
 
-    selected =
-      visible[0].amount;
-
-    evidence.push(
-      ...visible.map(
-        item => ({
-          source:
-            "VISIBLE" as const,
-
-          raw:
-            item.raw
-        })
-      )
-    );
-
-  }
-  else if (
-    (
-      kind === "RENTAL" &&
-      analysis.offer.rental
-    ) ||
-    (
-      kind === "SALE" &&
-      analysis.offer.sale
-    )
-  ) {
-
-    if (
-      structured.length > 0
-    ) {
-
-      selected =
-        structured[0].amount;
-
-      evidence.push(
-        ...structured.map(
-          item => ({
+  /*
+   * Evidence is deliberately ALL comparable sources,
+   * not only the source chosen for the final value.
+   * This gives both traceability and conflict audit.
+   */
+  const evidence:
+    FieldEvidence[] =
+      uniqueBy(
+        allComparable.map(
+          candidate => ({
             source:
-              "JSON_LD" as const,
+              candidate.source,
 
             raw:
-              item.raw
+              candidate.raw
           })
-        )
-      );
-    }
-  }
-
-
-  if (
-    selected === null &&
-    listingParsed !== null
-  ) {
-
-    selected =
-      listingParsed;
-
-    evidence.push({
-      source:
-        "LISTING",
-
-      raw:
-        facts.listingPriceText
-    });
-  }
-
-
-  const comparableAmounts =
-    uniqueNumbers([
-      ...visible.map(
+        ),
         item =>
-          item.amount
-      ),
+          `${item.source}|${item.raw}`
+      );
 
-      ...(
-        (
-          kind === "RENTAL" &&
-          analysis.offer.rental
-        ) ||
-        (
-          kind === "SALE" &&
-          analysis.offer.sale
+  const amounts =
+    Array.from(
+      new Set(
+        allComparable.map(
+          candidate =>
+            candidate.amount
         )
-          ? structured.map(
-              item =>
-                item.amount
-            )
-          : []
-      ),
-
-      ...(
-        listingParsed !== null
-          ? [listingParsed]
-          : []
       )
-    ]);
-
+    );
 
   return {
     amount:
-      selected,
+      selected?.amount ??
+      null,
 
     contact:
       detectContactPrice(
@@ -468,17 +631,19 @@ function resolvePrice(
     evidence,
 
     conflict:
-      comparableAmounts.length >
+      amounts.length >
         1
   };
 }
 
 
 function sectionField(
-  facts: RawProductFacts,
-  key: Parameters<
-    typeof getSectionContent
-  >[1]
+  facts:
+    RawProductFacts,
+  key:
+    Parameters<
+      typeof getSectionContent
+    >[1]
 ): ResolvedField<string> {
 
   const value =
@@ -508,20 +673,10 @@ function sectionField(
 
 
 function parseReviewCount(
-  value: string
+  value:
+    string
 ): number | null {
 
-  /*
-   * Do not use \b after Vietnamese accented words.
-   *
-   * Supported examples:
-   *   127 đánh giá
-   *   127 danh gia
-   *   127 lượt đánh giá
-   *   127 luot danh gia
-   *   127 reviews
-   *   127 ratings
-   */
   const match =
     value.match(
       /\b(\d[\d.,\s]*)\s*(?:(?:luot|lượt)\s+)?(?:danh gia|đánh giá|reviews?|ratings?)(?![\p{L}\p{N}_])/iu
@@ -549,7 +704,8 @@ function parseReviewCount(
 
 
 function resolveRating(
-  facts: RawProductFacts
+  facts:
+    RawProductFacts
 ): {
   rating:
     ResolvedField<
@@ -562,67 +718,67 @@ function resolveRating(
     >;
 } {
 
-  const ratingEvidence:
-    FieldEvidence[] = [];
+  const ratingCandidates:
+    Array<{
+      value: number;
+      evidence: FieldEvidence;
+    }> = [];
 
-  const reviewEvidence:
-    FieldEvidence[] = [];
-
-  let rating:
-    number | null =
-      null;
-
-  let reviewCount:
-    number | null =
-      null;
+  const reviewCandidates:
+    Array<{
+      value: number;
+      evidence: FieldEvidence;
+    }> = [];
 
 
-  /*
-   * Prefer JSON-LD aggregateRating.
-   */
+  const products =
+    objectsByType(
+      facts.jsonLd,
+      /product/i
+    );
+
+
   for (
     const product
-    of collectProductObjects(
-      facts.jsonLd
-    )
+    of products
   ) {
 
-    const raw =
+    const rawAggregate =
       product.aggregateRating;
 
     if (
-      !raw ||
-      typeof raw !== "object"
+      !rawAggregate ||
+      typeof rawAggregate !==
+        "object"
     ) {
       continue;
     }
 
     const aggregate =
-      raw as Record<
+      rawAggregate as Record<
         string,
         unknown
       >;
 
 
+    const ratingValue =
+      Number(
+        aggregate.ratingValue
+      );
+
     if (
-      rating === null
+      Number.isFinite(
+        ratingValue
+      ) &&
+      ratingValue >= 0 &&
+      ratingValue <= 5
     ) {
 
-      const value =
-        Number(
-          aggregate.ratingValue
-        );
+      ratingCandidates.push({
+        value:
+          ratingValue,
 
-      if (
-        Number.isFinite(value) &&
-        value >= 0 &&
-        value <= 5
-      ) {
-
-        rating =
-          value;
-
-        ratingEvidence.push({
+        evidence: {
           source:
             "JSON_LD",
 
@@ -630,30 +786,29 @@ function resolveRating(
             clean(
               aggregate.ratingValue
             )
-        });
-      }
+        }
+      });
     }
 
 
+    const countValue =
+      Number(
+        aggregate.reviewCount ??
+        aggregate.ratingCount
+      );
+
     if (
-      reviewCount === null
+      Number.isFinite(
+        countValue
+      ) &&
+      countValue >= 0
     ) {
 
-      const value =
-        Number(
-          aggregate.reviewCount ??
-          aggregate.ratingCount
-        );
+      reviewCandidates.push({
+        value:
+          countValue,
 
-      if (
-        Number.isFinite(value) &&
-        value >= 0
-      ) {
-
-        reviewCount =
-          value;
-
-        reviewEvidence.push({
+        evidence: {
           source:
             "JSON_LD",
 
@@ -662,127 +817,163 @@ function resolveRating(
               aggregate.reviewCount ??
               aggregate.ratingCount
             )
-        });
-      }
+        }
+      });
     }
   }
 
 
-  /*
-   * Visible fallback.
-   */
   for (
-    const text
+    const raw
     of facts.ratingTexts
   ) {
 
-    if (
-      rating === null
-    ) {
-
-      const match =
-        text.match(
-          /\b([0-5](?:[.,]\d+)?)\s*\/\s*5\b/
-        );
-
-      if (match) {
-
-        const value =
-          Number(
-            match[1]
-              .replace(
-                ",",
-                "."
-              )
-          );
-
-        if (
-          Number.isFinite(value) &&
-          value >= 0 &&
-          value <= 5
-        ) {
-
-          rating =
-            value;
-
-          ratingEvidence.push({
-            source:
-              "VISIBLE",
-
-            raw:
-              text
-          });
-        }
-      }
-    }
-
+    const ratingMatch =
+      raw.match(
+        /\b([0-5](?:[.,]\d+)?)\s*\/\s*5\b/
+      );
 
     if (
-      reviewCount === null
+      ratingMatch
     ) {
 
       const value =
-        parseReviewCount(
-          text
+        Number(
+          ratingMatch[1]
+            .replace(
+              ",",
+              "."
+            )
         );
 
       if (
-        value !== null
+        Number.isFinite(
+          value
+        ) &&
+        value >= 0 &&
+        value <= 5
       ) {
 
-        reviewCount =
-          value;
+        ratingCandidates.push({
+          value,
 
-        reviewEvidence.push({
-          source:
-            "VISIBLE",
+          evidence: {
+            source:
+              "VISIBLE",
 
-          raw:
-            text
+            raw
+          }
         });
       }
     }
+
+
+    const reviewCount =
+      parseReviewCount(
+        raw
+      );
+
+    if (
+      reviewCount !==
+      null
+    ) {
+
+      reviewCandidates.push({
+        value:
+          reviewCount,
+
+        evidence: {
+          source:
+            "VISIBLE",
+
+          raw
+        }
+      });
+    }
   }
+
+
+  const ratingValues =
+    Array.from(
+      new Set(
+        ratingCandidates.map(
+          candidate =>
+            candidate.value
+        )
+      )
+    );
+
+  const reviewValues =
+    Array.from(
+      new Set(
+        reviewCandidates.map(
+          candidate =>
+            candidate.value
+        )
+      )
+    );
 
 
   return {
     rating: {
       value:
-        rating,
+        ratingCandidates[0]?.value ??
+        null,
 
       evidence:
-        ratingEvidence,
+        uniqueBy(
+          ratingCandidates.map(
+            candidate =>
+              candidate.evidence
+          ),
+          item =>
+            `${item.source}|${item.raw}`
+        ),
 
       conflict:
-        false
+        ratingValues.length >
+          1
     },
 
     reviewCount: {
       value:
-        reviewCount,
+        reviewCandidates[0]?.value ??
+        null,
 
       evidence:
-        reviewEvidence,
+        uniqueBy(
+          reviewCandidates.map(
+            candidate =>
+              candidate.evidence
+          ),
+          item =>
+            `${item.source}|${item.raw}`
+        ),
 
       conflict:
-        false
+        reviewValues.length >
+          1
     }
   };
 }
 
 
 function resolveStock(
-  facts: RawProductFacts
+  facts:
+    RawProductFacts
 ): ResolvedField<string> {
 
   const evidence:
     FieldEvidence[] = [];
 
+  let structuredValue =
+    "";
 
   for (
     const offer
-    of collectOfferObjects(
-      facts.jsonLd
+    of objectsByType(
+      facts.jsonLd,
+      /offer/i
     )
   ) {
 
@@ -803,51 +994,40 @@ function resolveStock(
     });
 
     if (
-      /instock/i.test(raw)
+      /outofstock/i.test(
+        raw
+      )
     ) {
-      return {
-        value:
-          "IN_STOCK",
-
-        evidence,
-
-        conflict:
-          false
-      };
+      structuredValue =
+        "OUT_OF_STOCK";
+      break;
     }
 
     if (
-      /outofstock/i.test(raw)
+      /instock/i.test(
+        raw
+      )
     ) {
-      return {
-        value:
-          "OUT_OF_STOCK",
-
-        evidence,
-
-        conflict:
-          false
-      };
+      structuredValue =
+        "IN_STOCK";
     }
 
     if (
-      /preorder/i.test(raw)
+      /preorder/i.test(
+        raw
+      )
     ) {
-      return {
-        value:
-          "PREORDER",
-
-        evidence,
-
-        conflict:
-          false
-      };
+      structuredValue =
+        "PREORDER";
     }
   }
 
 
+  let visibleValue =
+    "";
+
   for (
-    const text
+    const raw
     of facts.stockTexts
   ) {
 
@@ -855,55 +1035,63 @@ function resolveStock(
       source:
         "VISIBLE",
 
-      raw:
-        text
+      raw
     });
 
     if (
-      /\b(?:con hang|còn hàng|in stock)\b/iu
-        .test(text)
+      /\b(?:het hang|hết hàng|out of stock)(?![\p{L}\p{N}_])/iu
+        .test(raw)
     ) {
-
-      return {
-        value:
-          "IN_STOCK",
-
-        evidence,
-
-        conflict:
-          false
-      };
+      visibleValue =
+        "OUT_OF_STOCK";
+      break;
     }
 
     if (
-      /\b(?:het hang|hết hàng|out of stock)\b/iu
-        .test(text)
+      /\b(?:con hang|còn hàng|in stock)(?![\p{L}\p{N}_])/iu
+        .test(raw)
     ) {
-
-      return {
-        value:
-          "OUT_OF_STOCK",
-
-        evidence,
-
-        conflict:
-          false
-      };
+      visibleValue =
+        "IN_STOCK";
     }
   }
 
 
+  const values =
+    Array.from(
+      new Set(
+        [
+          structuredValue,
+          visibleValue
+        ].filter(Boolean)
+      )
+    );
+
+
   return {
-    value: "",
-    evidence,
-    conflict: false
+    value:
+      structuredValue ||
+      visibleValue,
+
+    evidence:
+      uniqueBy(
+        evidence,
+        item =>
+          `${item.source}|${item.raw}`
+      ),
+
+    conflict:
+      values.length >
+        1
   };
 }
 
 
 export function resolveProductFields(
-  facts: RawProductFacts,
-  analysis: ProductAnalysis
+  facts:
+    RawProductFacts,
+  analysis:
+    ProductAnalysis
 ): ResolvedProductFields {
 
   const rating =
@@ -989,4 +1177,3 @@ export function resolveProductFields(
       )
   };
 }
-
