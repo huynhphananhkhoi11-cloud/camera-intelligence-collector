@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 
 import { Command } from "commander";
 
@@ -29,6 +29,14 @@ import {
 import {
   crawlCatalogs
 } from "./discovery/catalogCrawler.js";
+
+import {
+  bootstrapSite
+} from "./v02/discovery/siteBootstrapper.js";
+
+import {
+  persistBootstrapSnapshot
+} from "./v02/discovery/bootstrapSnapshot.js";
 
 const program = new Command();
 
@@ -634,6 +642,150 @@ program
       await context.close();
     }
   });
+
+/* =========================================================
+   COLLECT — ROOT DOMAIN BOOTSTRAP
+========================================================= */
+
+program
+  .command("collect")
+  .description(
+    "Bootstrap collection from a root website URL"
+  )
+  .argument("<url>")
+  .action(
+    async (
+      url: string
+    ) => {
+
+      console.log("");
+      console.log(
+        "CAMERA INTELLIGENCE — SITE BOOTSTRAP"
+      );
+      console.log(
+        "------------------------------------"
+      );
+      console.log(
+        `Input: ${url}`
+      );
+      console.log("");
+
+
+      const result =
+        await bootstrapSite(
+          url
+        );
+
+
+      const persisted =
+        await persistBootstrapSnapshot(
+          result
+        );
+
+
+      console.log(
+        `Canonical origin: ${
+          result.canonicalOrigin
+        }`
+      );
+
+      console.log(
+        `Final entry URL:   ${
+          result.finalUrl
+        }`
+      );
+
+      console.log(
+        `Redirects:         ${
+          result.diagnostics
+            .redirectCount
+        }`
+      );
+
+      console.log(
+        `robots.txt:        ${
+          result.robots.available
+            ? "AVAILABLE"
+            : "NOT AVAILABLE"
+        }`
+      );
+
+      console.log(
+        `Sitemaps:          ${
+          result.diagnostics
+            .sitemapCount
+        }`
+      );
+
+      console.log(
+        `Sitemap URLs:      ${
+          result.diagnostics
+            .sitemapPageCount
+        }`
+      );
+
+      console.log(
+        `Menu seeds:        ${
+          result.diagnostics
+            .menuSeedCount
+        }`
+      );
+
+      console.log(
+        `Seed pool:         ${
+          result.diagnostics
+            .seedCount
+        }`
+      );
+
+
+      console.log("");
+      console.log(
+        "Top bootstrap seeds:"
+      );
+
+
+      for (
+        const seed
+        of result.seeds.slice(
+          0,
+          25
+        )
+      ) {
+
+        console.log(
+          `  [${
+            seed.confidence.toFixed(
+              2
+            )
+          }] ${
+            seed.sources.join(
+              "+"
+            )
+          } -> ${seed.url}`
+        );
+      }
+
+
+      console.log("");
+      console.log(
+        `Bootstrap run: ${
+          persisted.runId
+        }`
+      );
+
+      console.log(
+        `Snapshot: ${
+          persisted.path
+        }`
+      );
+
+      console.log("");
+      console.log(
+        "PHASE 2 BOOTSTRAP COMPLETE"
+      );
+    }
+  );
 
 await program.parseAsync(
   process.argv
