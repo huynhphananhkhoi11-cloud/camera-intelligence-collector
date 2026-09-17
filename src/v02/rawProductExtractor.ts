@@ -1,4 +1,4 @@
-﻿import * as cheerio from "cheerio";
+import * as cheerio from "cheerio";
 import type {
   Page
 } from "playwright";
@@ -7,6 +7,9 @@ import {
   sectionizeHtml,
   type ProductSection
 } from "./sectionizer.js";
+import type {
+  NetworkFact
+} from "./extraction/networkFactExtractor.js";
 
 
 export interface RawProductFacts {
@@ -31,6 +34,8 @@ export interface RawProductFacts {
   stockTexts: string[];
 
   listingPriceText: string;
+
+  networkFacts: NetworkFact[];
 
   pageText: string;
 }
@@ -96,6 +101,39 @@ function parseJsonLd(
   }
 }
 
+
+function extractVisiblePageText(
+  html: string
+): string {
+  const $ =
+    cheerio.load(html);
+
+  /*
+   * pageText is evidence used downstream.
+   *
+   * Script/style/noscript/svg text is implementation
+   * content rather than user-visible product evidence.
+   * JSON-LD is parsed independently before this point,
+   * so removing script nodes here does not discard
+   * structured data.
+   */
+  $(
+    "script,style,noscript,svg"
+  ).remove();
+
+  const bodyText =
+    clean(
+      $("body").text()
+    );
+
+  if (bodyText) {
+    return bodyText;
+  }
+
+  return clean(
+    $.root().text()
+  );
+}
 
 export function extractRawProductFactsFromHtml(
   html: string,
@@ -450,7 +488,12 @@ export function extractRawProductFactsFromHtml(
     listingPriceText:
       "",
 
-    pageText
+    networkFacts: [],
+
+    pageText:
+      extractVisiblePageText(
+        html
+      )
   };
 }
 
