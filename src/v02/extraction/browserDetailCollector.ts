@@ -17,6 +17,10 @@ import type {
   AcquisitionError,
   DetailAcquisitionResult
 } from "./detailAcquisitionTypes.js";
+import {
+  runInteractionFallback,
+  type InteractionFallbackOptions
+} from "./interactionFallback.js";
 
 const DEFAULT_NAVIGATION_TIMEOUT_MS =
   30_000;
@@ -31,6 +35,9 @@ export interface BrowserDetailCollectorOptions {
 
   networkObserverOptions?:
     NetworkObserverOptions;
+
+  interactionFallbackOptions?:
+    InteractionFallbackOptions;
 
   now?: () => Date;
 
@@ -311,6 +318,14 @@ export async function collectBrowserDetail(
   let settleMs =
     0;
 
+  let interactionMs =
+    0;
+
+  let interactions:
+    DetailAcquisitionResult[
+      "interactions"
+    ] = [];
+
   try {
     const navigationStartedAt =
       clock();
@@ -401,11 +416,9 @@ export async function collectBrowserDetail(
     }
 
     /*
-     * Complete body-inspection tasks already observed
-     * before reading the rendered DOM.
+     * Read initial rendered DOM before deciding whether
+     * semantic interaction fallback is necessary.
      */
-    await observer.flush();
-
     try {
       html =
         await page.content();
@@ -422,6 +435,68 @@ export async function collectBrowserDetail(
           now().toISOString()
       });
     }
+
+    if (html) {
+      const interactionStartedAt =
+        clock();
+
+      try {
+        const fallback =
+          await runInteractionFallback(
+            page,
+            html,
+            safePageUrl(page) ||
+              normalizedRequestedUrl,
+            {
+              ...options
+                .interactionFallbackOptions,
+
+              now
+            }
+          );
+
+        html =
+          fallback.html;
+
+        interactions =
+          fallback.interactions;
+      }
+      catch (error) {
+        errors.push({
+          stage:
+            "INTERACTION",
+
+          code:
+            "INTERACTION_FALLBACK_FAILED",
+
+          message:
+            errorMessage(error),
+
+          retriable:
+            true,
+
+          status:
+            null,
+
+          timestamp:
+            now().toISOString()
+        });
+      }
+      finally {
+        interactionMs =
+          Math.max(
+            0,
+            clock() -
+              interactionStartedAt
+          );
+      }
+    }
+
+    /*
+     * Interactions may trigger new API calls.
+     * Flush only after bounded fallback has finished.
+     */
+    await observer.flush();
   }
   finally {
     networkSnapshot =
@@ -447,11 +522,11 @@ export async function collectBrowserDetail(
     canonicalUrl,
     html,
     networkSnapshot,
-    interactions: [],
+    interactions,
     timing: {
       navigationMs,
       settleMs,
-      interactionMs: 0,
+      interactionMs,
       totalMs:
         Math.max(
           0,
