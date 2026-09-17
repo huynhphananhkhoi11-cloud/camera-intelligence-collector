@@ -17,3 +17,5 @@ data/*.sqlite-*
 coverage/
 .DS_Store
 Thumbs.db
+
+.vitest/
