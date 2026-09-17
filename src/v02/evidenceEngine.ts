@@ -1,4 +1,4 @@
-﻿import {
+import {
   classifyEntity,
   type EntityResult
 } from "./entityClassifier.js";
@@ -220,6 +220,62 @@ function collectPropertyValues(
 }
 
 
+function collectCorrelatedNetworkPropertyValues(
+  facts:
+    RawProductFacts,
+  property:
+    string
+): string[] {
+  const output:
+    string[] = [];
+
+  for (
+    const fact
+    of facts.networkFacts
+  ) {
+    /*
+     * NetworkFactExtractor intentionally keeps unrelated
+     * candidates for traceability. Product Intelligence
+     * must consume only product-correlated samples.
+     *
+     * SAMPLE_URL_MATCH and PRODUCT_ID_MATCH are strong
+     * product-identity evidence. Slug-only and response-
+     * URL-only candidates remain stored but are not allowed
+     * to determine product truth.
+     */
+    const stronglyCorrelated =
+      fact.correlation.reasons
+        .includes(
+          "SAMPLE_URL_MATCH"
+        ) ||
+      fact.correlation.reasons
+        .includes(
+          "PRODUCT_ID_MATCH"
+        );
+
+    if (
+      !stronglyCorrelated ||
+      !fact.sample
+    ) {
+      continue;
+    }
+
+    output.push(
+      ...collectPropertyValues(
+        fact.sample,
+        property
+      )
+    );
+  }
+
+  return Array.from(
+    new Set(
+      output.filter(Boolean)
+    )
+  );
+}
+
+
 export function analyzeRawProduct(
   facts: RawProductFacts,
   siteMode:
@@ -268,6 +324,12 @@ export function analyzeRawProduct(
       "businessFunction"
     );
 
+  const networkBusinessFunctions =
+    collectCorrelatedNetworkPropertyValues(
+      facts,
+      "businessFunction"
+    );
+
   const offerSectionText =
     getSectionEvidenceText(
       facts.sections,
@@ -305,6 +367,8 @@ export function analyzeRawProduct(
       jsonLdBusinessFunctions:
         businessFunctions,
 
+      networkBusinessFunctions,
+
       siteMode
     });
 
@@ -327,6 +391,12 @@ export function analyzeRawProduct(
     const itemConditions =
       collectPropertyValues(
         facts.jsonLd,
+        "itemCondition"
+      );
+
+    const networkItemConditions =
+      collectCorrelatedNetworkPropertyValues(
+        facts,
         "itemCondition"
       );
 
@@ -357,7 +427,9 @@ export function analyzeRawProduct(
           conditionText,
 
         jsonLdItemConditions:
-          itemConditions
+          itemConditions,
+
+        networkItemConditions
       });
 
   }

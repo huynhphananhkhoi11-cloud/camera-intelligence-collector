@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   PipelineResult
 } from "../pipeline/productPipeline.js";
 
@@ -88,7 +88,7 @@ export function buildEvidenceRows(
       source:
         "ENTITY_RULE",
 
-      raw,
+      raw: raw.raw,
 
       weight:
         null,

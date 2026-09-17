@@ -1,4 +1,4 @@
-﻿export type EntityType =
+export type EntityType =
   | "CAMERA"
   | "LENS"
   | "BATTERY"
@@ -17,11 +17,31 @@ export interface EntityInput {
   description?: string;
 }
 
+export type EntityEvidenceSource =
+  | "TITLE"
+  | "CATEGORY"
+  | "SCOPED_DETAIL";
+
+export interface EntityEvidence {
+  entity: EntityType;
+
+  source:
+    EntityEvidenceSource;
+
+  raw: string;
+
+  weight: number;
+
+  ruleId: string;
+
+  scope?: string;
+}
+
 export interface EntityResult {
   type: EntityType;
   isCamera: boolean;
   confidence: "HIGH" | "MEDIUM" | "LOW";
-  evidence: string[];
+  evidence: EntityEvidence[];
 }
 
 function norm(value: unknown): string {
@@ -42,14 +62,306 @@ function has(
   return pattern.test(text);
 }
 
+interface EntityEvidenceMeta {
+  source:
+    EntityEvidenceSource;
+
+  weight: number;
+
+  ruleId: string;
+
+  scope?: string;
+}
+
+const ENTITY_EVIDENCE_META:
+  Record<
+    string,
+    EntityEvidenceMeta
+  > = {
+    "explicit photobooth evidence": {
+      source: "TITLE",
+      weight: 100,
+      ruleId:
+        "entity.photobooth.explicit"
+    },
+
+    "printer title/model evidence": {
+      source: "TITLE",
+      weight: 100,
+      ruleId:
+        "entity.printer.title"
+    },
+
+    "multiple printer specification signals": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 90,
+      ruleId:
+        "entity.printer.spec_bundle",
+      scope:
+        "specs+description"
+    },
+
+    "charger product title": {
+      source: "TITLE",
+      weight: 100,
+      ruleId:
+        "entity.charger.title"
+    },
+
+    "battery product title": {
+      source: "TITLE",
+      weight: 100,
+      ruleId:
+        "entity.battery.title"
+    },
+
+    "battery specification bundle": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 90,
+      ruleId:
+        "entity.battery.spec_bundle",
+      scope:
+        "specs+description"
+    },
+
+    "explicit camera type": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 90,
+      ruleId:
+        "entity.camera.explicit_type",
+      scope:
+        "specs+description"
+    },
+
+    "image sensor": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 35,
+      ruleId:
+        "entity.camera.sensor",
+      scope:
+        "specs+description"
+    },
+
+    "ISO range": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 30,
+      ruleId:
+        "entity.camera.iso",
+      scope:
+        "specs+description"
+    },
+
+    "autofocus system": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 35,
+      ruleId:
+        "entity.camera.autofocus",
+      scope:
+        "specs+description"
+    },
+
+    "viewfinder": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 30,
+      ruleId:
+        "entity.camera.viewfinder",
+      scope:
+        "specs+description"
+    },
+
+    "continuous shooting": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 30,
+      ruleId:
+        "entity.camera.continuous_shooting",
+      scope:
+        "specs+description"
+    },
+
+    "video recording": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 25,
+      ruleId:
+        "entity.camera.video",
+      scope:
+        "specs+description"
+    },
+
+    "camera lens mount": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 30,
+      ruleId:
+        "entity.camera.mount",
+      scope:
+        "specs+description"
+    },
+
+    "explicit camera device class": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 90,
+      ruleId:
+        "entity.camera.device_class",
+      scope:
+        "specs+description"
+    },
+
+    "camera model family": {
+      source: "TITLE",
+      weight: 45,
+      ruleId:
+        "entity.camera.model_family"
+    },
+
+    "camera category": {
+      source: "CATEGORY",
+      weight: 30,
+      ruleId:
+        "entity.camera.category"
+    },
+
+    "lens category": {
+      source: "CATEGORY",
+      weight: 90,
+      ruleId:
+        "entity.lens.category"
+    },
+
+    "lens specification bundle": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 75,
+      ruleId:
+        "entity.lens.spec_bundle",
+      scope:
+        "specs+description"
+    },
+
+    "gimbal product title": {
+      source: "TITLE",
+      weight: 100,
+      ruleId:
+        "entity.gimbal.title"
+    },
+
+    "lighting specification bundle": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 85,
+      ruleId:
+        "entity.lighting.spec_bundle",
+      scope:
+        "specs+description"
+    },
+
+    "accessory category": {
+      source: "CATEGORY",
+      weight: 60,
+      ruleId:
+        "entity.accessory.category"
+    }
+  };
+
+function rawEntityEvidence(
+  source:
+    EntityEvidenceSource,
+  input:
+    EntityInput
+): string {
+  if (source === "TITLE") {
+    return String(
+      input.title ?? ""
+    );
+  }
+
+  if (source === "CATEGORY") {
+    return String(
+      input.category ?? ""
+    );
+  }
+
+  return [
+    input.specs,
+    input.description
+  ]
+    .filter(Boolean)
+    .map(value =>
+      String(value)
+    )
+    .join(" | ");
+}
+
 function result(
   type: EntityType,
-  confidence: EntityResult["confidence"],
-  evidence: string[]
+  confidence:
+    EntityResult["confidence"],
+  reasons: string[],
+  input: EntityInput
 ): EntityResult {
+  const evidence:
+    EntityEvidence[] =
+      reasons.map(
+        reason => {
+          const meta =
+            ENTITY_EVIDENCE_META[
+              reason
+            ] ?? {
+              source:
+                "SCOPED_DETAIL" as const,
+
+              weight:
+                1,
+
+              ruleId:
+                "entity.rule.unmapped",
+
+              scope:
+                "specs+description"
+            };
+
+          return {
+            entity:
+              type,
+
+            source:
+              meta.source,
+
+            raw:
+              rawEntityEvidence(
+                meta.source,
+                input
+              ),
+
+            weight:
+              meta.weight,
+
+            ruleId:
+              meta.ruleId,
+
+            ...(meta.scope
+              ? {
+                  scope:
+                    meta.scope
+                }
+              : {})
+          };
+        }
+      );
+
   return {
     type,
-    isCamera: type === "CAMERA",
+    isCamera:
+      type === "CAMERA",
     confidence,
     evidence
   };
@@ -70,6 +382,21 @@ export function classifyEntity(
   const full =
     `${title} ${category} ${detail}`.trim();
 
+  const makeResult = (
+    type:
+      EntityType,
+    confidence:
+      EntityResult["confidence"],
+    reasons:
+      string[]
+  ): EntityResult =>
+    result(
+      type,
+      confidence,
+      reasons,
+      input
+    );
+
   /*
    * =====================================================
    * 1. STRONG NON-CAMERA IDENTITIES
@@ -85,7 +412,7 @@ export function classifyEntity(
     has(title, /\bphotobooth\b/) ||
     has(detail, /\bphotobooth\b/)
   ) {
-    return result(
+    return makeResult(
       "PHOTOBOOTH",
       "HIGH",
       ["explicit photobooth evidence"]
@@ -100,7 +427,7 @@ export function classifyEntity(
 
   if (printerSignals >= 1 &&
       has(title, /\b(may in|printer|selphy)\b/)) {
-    return result(
+    return makeResult(
       "PRINTER",
       "HIGH",
       ["printer title/model evidence"]
@@ -108,7 +435,7 @@ export function classifyEntity(
   }
 
   if (printerSignals >= 2) {
-    return result(
+    return makeResult(
       "PRINTER",
       "HIGH",
       ["multiple printer specification signals"]
@@ -130,7 +457,7 @@ export function classifyEntity(
       /^(?:bo\s+)?sac\b|^charger\b|^sac\s+pin\b/
     )
   ) {
-    return result(
+    return makeResult(
       "CHARGER",
       "HIGH",
       ["charger product title"]
@@ -153,7 +480,7 @@ export function classifyEntity(
       /^(?:pin|battery)(?:\s|[-:])/
     )
   ) {
-    return result(
+    return makeResult(
       "BATTERY",
       "HIGH",
       ["battery product title"]
@@ -180,7 +507,7 @@ export function classifyEntity(
   if (
     batterySpecSignals >= 3
   ) {
-    return result(
+    return makeResult(
       "BATTERY",
       "HIGH",
       ["battery specification bundle"]
@@ -327,7 +654,7 @@ export function classifyEntity(
       cameraEvidence.length < 3
     )
   ) {
-    return result(
+    return makeResult(
       "LENS",
       lensCategory || lensTitle
         ? "HIGH"
@@ -350,7 +677,7 @@ export function classifyEntity(
     has(title, /\bgimbal\b/) &&
     cameraEvidence.length < 3
   ) {
-    return result(
+    return makeResult(
       "GIMBAL",
       "HIGH",
       ["gimbal product title"]
@@ -367,7 +694,7 @@ export function classifyEntity(
     lightingSignals >= 2 &&
     cameraEvidence.length < 3
   ) {
-    return result(
+    return makeResult(
       "LIGHTING",
       "HIGH",
       ["lighting specification bundle"]
@@ -384,7 +711,7 @@ export function classifyEntity(
    * Strong semantic camera bundle.
    */
   if (cameraEvidence.length >= 3) {
-    return result(
+    return makeResult(
       "CAMERA",
       "HIGH",
       cameraEvidence
@@ -398,7 +725,7 @@ export function classifyEntity(
     cameraCategory &&
     cameraEvidence.length >= 2
   ) {
-    return result(
+    return makeResult(
       "CAMERA",
       "HIGH",
       [
@@ -415,7 +742,7 @@ export function classifyEntity(
     cameraFamily &&
     cameraEvidence.length >= 1
   ) {
-    return result(
+    return makeResult(
       "CAMERA",
       "MEDIUM",
       [
@@ -432,7 +759,7 @@ export function classifyEntity(
     cameraCategory &&
     cameraFamily
   ) {
-    return result(
+    return makeResult(
       "CAMERA",
       "MEDIUM",
       [
@@ -452,14 +779,14 @@ export function classifyEntity(
     ) &&
     cameraEvidence.length === 0
   ) {
-    return result(
+    return makeResult(
       "ACCESSORY",
       "MEDIUM",
       ["accessory category"]
     );
   }
 
-  return result(
+  return makeResult(
     "UNCERTAIN",
     "LOW",
     []

@@ -1,4 +1,4 @@
-﻿export type OfferKind =
+export type OfferKind =
   | "RENTAL"
   | "SALE";
 
@@ -12,6 +12,8 @@ export interface OfferInput {
   visiblePriceTexts?: string[];
 
   jsonLdBusinessFunctions?: string[];
+
+  networkBusinessFunctions?: string[];
 
   /*
    * Site mode is ONLY weak context.
@@ -34,10 +36,22 @@ export interface OfferEvidence {
     | "PRICE"
     | "SECTION"
     | "CATEGORY"
+    | "NETWORK"
     | "SITE_PRIOR";
 
+  /*
+   * text is retained for compatibility with existing
+   * diagnostics. raw is the canonical evidence payload.
+   */
   text: string;
+
+  raw: string;
+
   weight: number;
+
+  ruleId: string;
+
+  scope?: string;
 }
 
 export interface OfferResult {
@@ -74,11 +88,31 @@ function add(
   text: string,
   weight: number
 ): void {
+  const scope =
+    source === "JSON_LD"
+      ? "jsonLd.businessFunction"
+      : source === "NETWORK"
+        ? "networkFacts.sample.businessFunction"
+        : source === "CTA"
+          ? "buttons"
+          : source === "PRICE"
+            ? "visiblePriceTexts"
+            : source === "SECTION"
+              ? "transaction_sections"
+              : source === "CATEGORY"
+                ? "title_or_listing_category"
+                : "siteMode";
+
   evidence.push({
     kind,
     source,
     text,
-    weight
+    raw:
+      text,
+    weight,
+    ruleId:
+      `offer.${kind.toLowerCase()}.${source.toLowerCase()}`,
+    scope
   });
 }
 
@@ -109,6 +143,14 @@ export function classifyOffers(
 
   const businessFunctions =
     (input.jsonLdBusinessFunctions ?? [])
+      .map(norm)
+      .filter(Boolean);
+
+  const networkBusinessFunctions =
+    (
+      input.networkBusinessFunctions ??
+      []
+    )
       .map(norm)
       .filter(Boolean);
 
@@ -153,6 +195,47 @@ export function classifyOffers(
         evidence,
         "SALE",
         "JSON_LD",
+        value,
+        100
+      );
+    }
+  }
+
+  /*
+   * Correlated network structured evidence.
+   *
+   * Network values reach this classifier only after
+   * product-level correlation in evidenceEngine.
+   */
+  for (
+    const value
+    of networkBusinessFunctions
+  ) {
+    if (
+      /leaseout|lease|rental|rent/
+        .test(value)
+    ) {
+      rentalScore += 100;
+
+      add(
+        evidence,
+        "RENTAL",
+        "NETWORK",
+        value,
+        100
+      );
+    }
+
+    if (
+      /#sell\b|\/sell\b|businessfunction.*sell/
+        .test(value)
+    ) {
+      saleScore += 100;
+
+      add(
+        evidence,
+        "SALE",
+        "NETWORK",
         value,
         100
       );
@@ -471,14 +554,17 @@ export function classifyOffers(
     "RENTAL"
   ) {
 
-    rentalScore += 5;
-
+    /*
+     * Diagnostic prior only.
+     *
+     * Product truth must not depend on siteMode.
+     */
     add(
       evidence,
       "RENTAL",
       "SITE_PRIOR",
       "site mode RENTAL",
-      5
+      0
     );
   }
 
@@ -491,8 +577,11 @@ export function classifyOffers(
       "SALE_MIXED"
   ) {
 
-    saleScore += 5;
-
+    /*
+     * Diagnostic prior only.
+     *
+     * Product truth must not depend on siteMode.
+     */
     add(
       evidence,
       "SALE",
@@ -500,7 +589,7 @@ export function classifyOffers(
       String(
         input.siteMode
       ),
-      5
+      0
     );
   }
 

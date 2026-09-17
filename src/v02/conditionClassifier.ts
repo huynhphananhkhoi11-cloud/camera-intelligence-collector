@@ -1,4 +1,4 @@
-﻿export type ItemCondition =
+export type ItemCondition =
   | "NEW"
   | "USED"
   | "REFURBISHED"
@@ -10,13 +10,25 @@ export type ConditionEvidenceSource =
   | "TITLE"
   | "DETAIL"
   | "CATEGORY"
-  | "BREADCRUMB";
+  | "BREADCRUMB"
+  | "NETWORK";
 
 export interface ConditionEvidence {
   condition: Exclude<ItemCondition, "UNKNOWN">;
   source: ConditionEvidenceSource;
+  /*
+   * text is retained for compatibility.
+   * raw is the canonical evidence payload.
+   */
   text: string;
+
+  raw: string;
+
   weight: number;
+
+  ruleId: string;
+
+  scope?: string;
 }
 
 export interface ConditionInput {
@@ -25,6 +37,7 @@ export interface ConditionInput {
   breadcrumbs?: string[];
   pageText?: string;
   jsonLdItemConditions?: string[];
+  networkItemConditions?: string[];
 }
 
 export interface ConditionResult {
@@ -71,11 +84,29 @@ function add(
   weight: number
 ): void {
 
+  const scope =
+    source === "JSON_LD"
+      ? "jsonLd.itemCondition"
+      : source === "NETWORK"
+        ? "networkFacts.sample.itemCondition"
+        : source === "TITLE"
+          ? "title"
+          : source === "DETAIL"
+            ? "condition_section"
+            : source === "BREADCRUMB"
+              ? "breadcrumbs"
+              : "listingCategory";
+
   evidence.push({
     condition,
     source,
     text,
-    weight
+    raw:
+      text,
+    weight,
+    ruleId:
+      `condition.${condition.toLowerCase()}.${source.toLowerCase()}`,
+    scope
   });
 }
 
@@ -103,6 +134,14 @@ export function classifyCondition(
   const structured =
     (
       input.jsonLdItemConditions ??
+      []
+    )
+      .map(norm)
+      .filter(Boolean);
+
+  const networkStructured =
+    (
+      input.networkItemConditions ??
       []
     )
       .map(norm)
@@ -189,6 +228,78 @@ export function classifyCondition(
         "JSON_LD",
         value,
         100
+      );
+    }
+  }
+
+  /*
+   * Strongly correlated API evidence.
+   *
+   * The evidence engine filters unrelated API samples
+   * before values are passed here.
+   */
+  for (
+    const value
+    of networkStructured
+  ) {
+    if (
+      /newcondition/
+        .test(value)
+    ) {
+      newScore += 95;
+
+      add(
+        evidence,
+        "NEW",
+        "NETWORK",
+        value,
+        95
+      );
+    }
+
+    if (
+      /usedcondition/
+        .test(value)
+    ) {
+      usedScore += 95;
+
+      add(
+        evidence,
+        "USED",
+        "NETWORK",
+        value,
+        95
+      );
+    }
+
+    if (
+      /refurbishedcondition/
+        .test(value)
+    ) {
+      refurbishedScore +=
+        95;
+
+      add(
+        evidence,
+        "REFURBISHED",
+        "NETWORK",
+        value,
+        95
+      );
+    }
+
+    if (
+      /damagedcondition/
+        .test(value)
+    ) {
+      damagedScore += 95;
+
+      add(
+        evidence,
+        "DAMAGED",
+        "NETWORK",
+        value,
+        95
       );
     }
   }
