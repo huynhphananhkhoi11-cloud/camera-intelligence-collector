@@ -38,6 +38,10 @@ import {
   persistBootstrapSnapshot
 } from "./v02/discovery/bootstrapSnapshot.js";
 
+import {
+  profileSiteLive
+} from "./v02/profiling/liveSiteProfiler.js";
+
 const program = new Command();
 
 program
@@ -675,6 +679,157 @@ program
         await bootstrapSite(
           url
         );
+
+      /*
+       * ======================================
+       * PHASE 3 — AUTOMATIC SITE PROFILE
+       * ======================================
+       *
+       * No --site-mode input.
+       * Site profile is observational prior only.
+       */
+      const liveProfile =
+        await profileSiteLive(
+          result.finalUrl,
+          {
+            headless:
+              true,
+
+            navigationTimeoutMs:
+              45000,
+
+            settleTimeoutMs:
+              3000
+          }
+        );
+
+
+      console.log("");
+      console.log(
+        "Automatic site profile:"
+      );
+
+      console.log(
+        `  Mode prior:     ${
+          liveProfile.profile
+            .suggestedSiteMode
+        }`
+      );
+
+      console.log(
+        `  Confidence:     ${
+          liveProfile.profile
+            .confidence
+        }`
+      );
+
+      console.log(
+        `  Rental score:   ${
+          liveProfile.profile
+            .rentalScore
+        }`
+      );
+
+      console.log(
+        `  Sale score:     ${
+          liveProfile.profile
+            .saleScore
+        }`
+      );
+
+      console.log(
+        `  New score:      ${
+          liveProfile.profile
+            .newScore
+        }`
+      );
+
+      console.log(
+        `  Used score:     ${
+          liveProfile.profile
+            .usedScore
+        }`
+      );
+
+      console.log(
+        `  Platform:       ${
+          liveProfile.profile
+            .platform
+        }`
+      );
+
+      console.log(
+        `  Network:        requests=${
+          liveProfile.profile
+            .network
+            .requestCount
+        }; responses=${
+          liveProfile.profile
+            .network
+            .responseCount
+        }; failed=${
+          liveProfile.profile
+            .network
+            .failedRequestCount
+        }`
+      );
+
+      console.log(
+        `  API candidates: ${
+          liveProfile.profile
+            .network
+            .apiCandidateCount
+        }`
+      );
+
+
+      if (
+        liveProfile.profile
+          .commercialEvidence
+          .length >
+        0
+      ) {
+
+        console.log(
+          "  Commercial evidence:"
+        );
+
+
+        for (
+          const evidence
+          of liveProfile.profile
+            .commercialEvidence
+            .slice(
+              0,
+              10
+            )
+        ) {
+
+          console.log(
+            `    [${
+              evidence.kind
+            }/${
+              evidence.source
+            } +${
+              evidence.weight
+            }] ${
+              evidence.text
+            }`
+          );
+        }
+      }
+
+
+      /*
+       * IMPORTANT:
+       * liveProfile.profile.suggestedSiteMode
+       * is NOT injected as product truth.
+       *
+       * Product-level ENTITY/OFFER/CONDITION
+       * remain authoritative later.
+       */
+
+
 
 
       const persisted =
