@@ -1,5 +1,13 @@
-﻿import * as cheerio from "cheerio";
+import * as cheerio from "cheerio";
 import type { Page } from "playwright";
+
+import {
+  canonicalizeUrl
+} from "./urlPolicy.js";
+
+export {
+  canonicalizeUrl
+};
 
 export interface ProductUrlCandidate {
   url: string;
@@ -20,52 +28,6 @@ function clean(value: unknown): string {
     .replace(/\u00a0/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-export function canonicalizeUrl(
-  raw: string,
-  baseUrl: string
-): string | null {
-
-  try {
-    const url = new URL(raw, baseUrl);
-
-    if (
-      url.protocol !== "http:" &&
-      url.protocol !== "https:"
-    ) {
-      return null;
-    }
-
-    url.hash = "";
-
-    const trackingParams = [
-      "utm_source",
-      "utm_medium",
-      "utm_campaign",
-      "utm_term",
-      "utm_content",
-      "fbclid",
-      "gclid"
-    ];
-
-    for (const key of trackingParams) {
-      url.searchParams.delete(key);
-    }
-
-    if (
-      url.pathname !== "/" &&
-      url.pathname.endsWith("/")
-    ) {
-      url.pathname =
-        url.pathname.replace(/\/+$/, "");
-    }
-
-    return url.toString();
-  }
-  catch {
-    return null;
-  }
 }
 
 function isHardExcluded(url: URL): boolean {
