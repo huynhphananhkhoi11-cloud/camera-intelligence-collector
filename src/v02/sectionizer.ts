@@ -1,4 +1,4 @@
-﻿import * as cheerio from "cheerio";
+import * as cheerio from "cheerio";
 
 export type SectionKey =
   | "SPECS"
@@ -46,7 +46,7 @@ export function classifySectionHeading(
   const text = norm(heading);
 
   if (
-    /^(thong so(?: ky thuat)?|tom tat san pham|specifications?|technical specifications?)$/
+    /^(thong so(?: ky thuat| noi bat)?|tom tat san pham|specifications?|technical specifications?)$/
       .test(text)
   ) {
     return "SPECS";

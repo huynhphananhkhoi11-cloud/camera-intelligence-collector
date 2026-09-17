@@ -249,13 +249,91 @@ export function extractRawProductFactsFromHtml(
 
   /*
    * -------------------------------------------
+   * PRIMARY PRODUCT SCOPE
+   * -------------------------------------------
+   *
+   * Fallback extraction must stay local to the
+   * current product. Related-product cards can
+   * contain their own prices and CTAs.
+   *
+   * This is structural scoping only. No sale or
+   * rental meaning is inferred in acquisition.
+   */
+  const baseActionSelector = [
+    "button",
+    "a.btn",
+    "a.button",
+    'input[type="submit"]',
+    'input[type="button"]'
+  ].join(",");
+
+  const fallbackActionSelector = [
+    'a[class*="btn"]',
+    '[role="button"]'
+  ].join(",");
+
+  const structuralActionSelector = [
+    baseActionSelector,
+    fallbackActionSelector
+  ].join(",");
+
+  const primaryHeading =
+    $("h1").first();
+
+  let primaryProductScope =
+    primaryHeading.parent();
+
+  let primaryProductScopeFound =
+    false;
+
+  if (
+    primaryHeading.length > 0
+  ) {
+    let cursor =
+      primaryHeading.parent();
+
+    for (
+      let depth = 0;
+      depth < 6 &&
+      cursor.length > 0;
+      depth++
+    ) {
+      if (
+        cursor.is(
+          "body,html"
+        )
+      ) {
+        break;
+      }
+
+      if (
+        cursor.find(
+          structuralActionSelector
+        ).length > 0
+      ) {
+        primaryProductScope =
+          cursor;
+
+        primaryProductScopeFound =
+          true;
+
+        break;
+      }
+
+      cursor =
+        cursor.parent();
+    }
+  }
+
+
+  /*
+   * -------------------------------------------
    * PRICE EVIDENCE
    * -------------------------------------------
    *
-   * Keep raw strings.
-   * Actual parsing belongs to priceResolver.
+   * Keep raw strings. Actual parsing belongs to
+   * priceResolver.
    */
-
   const priceTexts:
     string[] = [];
 
@@ -273,10 +351,8 @@ export function extractRawProductFactsFromHtml(
     const selector
     of priceSelectors
   ) {
-
     $(selector).each(
       (_, element) => {
-
         const text =
           clean(
             $(element).text() ||
@@ -291,7 +367,6 @@ export function extractRawProductFactsFromHtml(
         /*
          * Huge product containers sometimes
          * have "price" in their class name.
-         * Reject those here.
          */
         if (
           text &&
@@ -305,21 +380,81 @@ export function extractRawProductFactsFromHtml(
     );
   }
 
+  /*
+   * Structural fallback for detail layouts that
+   * render the primary price without a semantic
+   * price class/attribute.
+   *
+   * Only inspect short leaf nodes inside the
+   * bounded primary-product scope. If the short
+   * parent groups price + unit, preserve that
+   * raw parent text as one evidence candidate.
+   */
+  if (
+    primaryProductScopeFound
+  ) {
+    const currencyLike =
+      /[0-9][0-9.,\s]*\s*(?:\u0111|\u20ab|vnd)(?:\s|\/|$)/i;
+
+    primaryProductScope
+      .find("*")
+      .each(
+        (_, element) => {
+          const node =
+            $(element);
+
+          if (
+            node.children().length > 0
+          ) {
+            return;
+          }
+
+          const text =
+            clean(
+              node.text()
+            );
+
+          if (
+            !text ||
+            text.length > 80 ||
+            !currencyLike.test(
+              text
+            )
+          ) {
+            return;
+          }
+
+          const parentText =
+            clean(
+              node.parent().text()
+            );
+
+          const candidate =
+            parentText &&
+            parentText.length <= 160
+              ? parentText
+              : text;
+
+          priceTexts.push(
+            candidate
+          );
+        }
+      );
+  }
+
 
   /*
    * -------------------------------------------
    * CTA / BUTTONS
    * -------------------------------------------
    */
-
   const buttonTexts:
     string[] = [];
 
   $(
-    'button,a.btn,a.button,input[type="submit"],input[type="button"]'
+    baseActionSelector
   ).each(
     (_, element) => {
-
       const text =
         clean(
           $(element).text() ||
@@ -342,6 +477,45 @@ export function extractRawProductFactsFromHtml(
     }
   );
 
+  /*
+   * Some product CTAs are anchor elements with
+   * button-like classes rather than `.btn` as an
+   * exact class token. Collect those only inside
+   * the primary-product scope so navigation,
+   * footer and related-product actions do not
+   * become product-level evidence.
+   */
+  if (
+    primaryProductScopeFound
+  ) {
+    primaryProductScope
+      .find(
+        fallbackActionSelector
+      )
+      .each(
+        (_, element) => {
+          const text =
+            clean(
+              $(element).text() ||
+              $(element).attr(
+                "value"
+              ) ||
+              $(element).attr(
+                "aria-label"
+              )
+            );
+
+          if (
+            text &&
+            text.length <= 120
+          ) {
+            buttonTexts.push(
+              text
+            );
+          }
+        }
+      );
+  }
 
   /*
    * -------------------------------------------
