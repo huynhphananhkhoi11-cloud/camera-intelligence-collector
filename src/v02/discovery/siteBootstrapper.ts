@@ -16,6 +16,11 @@ import {
 } from "./sitemapDiscovery.js";
 
 import {
+  discoverMenuSeeds,
+  type MenuSeedCandidate
+} from "./menuSeedDiscovery.js";
+
+import {
   canonicalizeUrl,
   isUrlInScope
 } from "./urlPolicy.js";
@@ -24,22 +29,41 @@ import {
 export type BootstrapSeedSource =
   | "HOMEPAGE"
   | "ENTRY"
-  | "SITEMAP";
+  | "SITEMAP"
+  | "MENU";
 
 
 export interface SiteBootstrapSeed {
   url: string;
-  sources: BootstrapSeedSource[];
+
+  sources:
+    BootstrapSeedSource[];
+
+  /*
+   * Confidence describes reliability as
+   * a useful discovery seed.
+   *
+   * It is NOT camera/product classification.
+   */
+  confidence: number;
 }
 
 
 export interface SiteBootstrapDiagnostics {
   redirectCount: number;
+
   robotsAvailable: boolean;
+
   sitemapCount: number;
+
   sitemapPageCount: number;
+
+  menuSeedCount: number;
+
   seedCount: number;
+
   excludedByRobots: number;
+
   excludedOutOfScope: number;
 }
 
@@ -61,6 +85,9 @@ export interface SiteBootstrapResult {
 
   sitemaps:
     SitemapDiscoveryResult;
+
+  menuSeeds:
+    MenuSeedCandidate[];
 
   seeds:
     SiteBootstrapSeed[];
@@ -86,18 +113,35 @@ export interface SiteBootstrapOptions {
 }
 
 
+interface SeedState {
+  sources:
+    Set<BootstrapSeedSource>;
+
+  confidence: number;
+}
+
+
 interface SeedBuildResult {
-  seeds: SiteBootstrapSeed[];
-  excludedByRobots: number;
-  excludedOutOfScope: number;
+  seeds:
+    SiteBootstrapSeed[];
+
+  excludedByRobots:
+    number;
+
+  excludedOutOfScope:
+    number;
 }
 
 
 function buildSeedPool(
   canonicalOrigin: string,
   finalUrl: string,
-  sitemapUrls: readonly string[],
-  robots: RobotsPolicy,
+  sitemapUrls:
+    readonly string[],
+  menuSeeds:
+    readonly MenuSeedCandidate[],
+  robots:
+    RobotsPolicy,
   allowedOrigins:
     readonly string[],
   userAgent: string
@@ -106,7 +150,7 @@ function buildSeedPool(
   const seeds =
     new Map<
       string,
-      Set<BootstrapSeedSource>
+      SeedState
     >();
 
   let excludedByRobots =
@@ -125,7 +169,8 @@ function buildSeedPool(
   const add = (
     raw: string,
     source:
-      BootstrapSeedSource
+      BootstrapSeedSource,
+    confidence: number
   ): void => {
 
     const canonical =
@@ -154,13 +199,6 @@ function buildSeedPool(
     }
 
 
-    /*
-     * robots.txt retrieved from the primary
-     * canonical origin applies to that origin.
-     *
-     * Explicit alias origins are not evaluated
-     * against another host's robots policy.
-     */
     const candidateOrigin =
       new URL(
         canonical
@@ -184,48 +222,53 @@ function buildSeedPool(
     }
 
 
-    let sources =
+    const existing =
       seeds.get(
         canonical
       );
 
-    if (!sources) {
 
-      sources =
-        new Set<
-          BootstrapSeedSource
-        >();
+    if (existing) {
 
-      seeds.set(
-        canonical,
-        sources
+      existing.sources.add(
+        source
       );
+
+      existing.confidence =
+        Math.max(
+          existing.confidence,
+          confidence
+        );
+
+      return;
     }
 
-    sources.add(
-      source
+
+    seeds.set(
+      canonical,
+      {
+        sources:
+          new Set([
+            source
+          ]),
+
+        confidence
+      }
     );
   };
 
 
-  /*
-   * Homepage is always a useful generic
-   * discovery seed.
-   */
   add(
     canonicalOrigin,
-    "HOMEPAGE"
+    "HOMEPAGE",
+    1
   );
 
 
-  /*
-   * Preserve the final redirected entry path.
-   * A user may intentionally supply a useful
-   * catalog or storefront URL.
-   */
   add(
     finalUrl,
-    "ENTRY"
+    "ENTRY",
+    1
   );
 
 
@@ -236,7 +279,21 @@ function buildSeedPool(
 
     add(
       url,
-      "SITEMAP"
+      "SITEMAP",
+      0.80
+    );
+  }
+
+
+  for (
+    const menuSeed
+    of menuSeeds
+  ) {
+
+    add(
+      menuSeed.url,
+      "MENU",
+      menuSeed.confidence
     );
   }
 
@@ -250,15 +307,24 @@ function buildSeedPool(
           (
             [
               url,
-              sources
+              state
             ]
           ) => ({
             url,
+
             sources:
               Array.from(
-                sources
-              )
+                state.sources
+              ),
+
+            confidence:
+              state.confidence
           })
+        )
+        .sort(
+          (a, b) =>
+            b.confidence -
+            a.confidence
         ),
 
     excludedByRobots,
@@ -271,18 +337,8 @@ function buildSeedPool(
 /**
  * Generic site bootstrap.
  *
- * Input:
- *   one root/site URL
- *
- * Output:
- *   canonical origin
- *   redirect diagnostics
- *   robots policy
- *   sitemap inventory
- *   generic crawl seed pool
- *
- * Camera/product classification intentionally
- * happens later in the pipeline.
+ * No camera keyword filtering or
+ * product classification happens here.
  */
 export async function bootstrapSite(
   inputUrl: string,
@@ -303,9 +359,6 @@ export async function bootstrapSite(
     "CameraIntelligenceCollector";
 
 
-  /*
-   * 1. Resolve real site entry.
-   */
   const redirect =
     await resolveSiteEntry(
       inputUrl,
@@ -321,9 +374,6 @@ export async function bootstrapSite(
     );
 
 
-  /*
-   * 2. Fetch robots.txt from final origin.
-   */
   const robots =
     await fetchRobotsPolicy(
       redirect.canonicalOrigin,
@@ -336,9 +386,6 @@ export async function bootstrapSite(
     );
 
 
-  /*
-   * 3. Discover declared/fallback sitemaps.
-   */
   const sitemaps =
     await discoverSitemaps(
       redirect.canonicalOrigin,
@@ -357,14 +404,26 @@ export async function bootstrapSite(
     );
 
 
-  /*
-   * 4. Build generic seed pool.
-   */
+  const menuSeeds =
+    await discoverMenuSeeds(
+      redirect.finalUrl,
+      {
+        timeoutMs,
+
+        fetchFn:
+          options.fetchFn,
+
+        allowedOrigins
+      }
+    );
+
+
   const seedBuild =
     buildSeedPool(
       redirect.canonicalOrigin,
       redirect.finalUrl,
       sitemaps.pageUrls,
+      menuSeeds,
       robots,
       allowedOrigins,
       userAgent
@@ -389,6 +448,8 @@ export async function bootstrapSite(
 
     sitemaps,
 
+    menuSeeds,
+
     seeds:
       seedBuild.seeds,
 
@@ -404,6 +465,9 @@ export async function bootstrapSite(
 
       sitemapPageCount:
         sitemaps.pageUrls.length,
+
+      menuSeedCount:
+        menuSeeds.length,
 
       seedCount:
         seedBuild.seeds.length,
