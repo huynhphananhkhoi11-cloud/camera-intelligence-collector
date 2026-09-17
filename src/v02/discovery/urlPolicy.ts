@@ -1,12 +1,19 @@
 const TRACKING_PARAMS =
   new Set([
-    "utm_source",
-    "utm_medium",
-    "utm_campaign",
-    "utm_term",
-    "utm_content",
     "fbclid",
-    "gclid"
+    "gclid",
+    "dclid",
+    "msclkid",
+    "srsltid",
+    "gbraid",
+    "wbraid",
+    "yclid",
+    "ttclid",
+    "twclid",
+    "li_fat_id",
+    "mc_cid",
+    "mc_eid",
+    "_gl"
   ]);
 
 
@@ -63,6 +70,41 @@ function isHttpUrl(
 }
 
 
+function isTrackingParam(
+  rawKey: string
+): boolean {
+
+  const key =
+    rawKey
+      .trim()
+      .toLowerCase();
+
+
+  if (!key) {
+    return false;
+  }
+
+
+  /*
+   * UTM is an explicitly defined analytics namespace.
+   * Use the namespace rather than enumerating every
+   * present and future utm_* key.
+   */
+  if (
+    key.startsWith(
+      "utm_"
+    )
+  ) {
+    return true;
+  }
+
+
+  return TRACKING_PARAMS.has(
+    key
+  );
+}
+
+
 function removeTrackingParams(
   url: URL
 ): void {
@@ -72,16 +114,18 @@ function removeTrackingParams(
       url.searchParams.keys()
     );
 
+
   for (
     const key
     of keys
   ) {
 
     if (
-      TRACKING_PARAMS.has(
-        key.toLowerCase()
+      isTrackingParam(
+        key
       )
     ) {
+
       url.searchParams.delete(
         key
       );

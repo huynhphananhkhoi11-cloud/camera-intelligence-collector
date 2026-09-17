@@ -587,16 +587,26 @@ export function extractListingProductLinks(
             ".product-item",
             ".product",
             "[data-product-id]",
+            '[itemtype*="Product"]',
+            '[class*="product"]',
+            '[class*="card"]',
+            '[class*="item"]',
             "article",
-            "li",
-            "div"
+            "li"
           ].join(",")
         );
 
 
+      const localScope =
+        container.length >
+          0
+          ? container
+          : anchor.parent();
+
+
       const containerText =
         normalizedText(
-          container
+          localScope
             .text()
             .slice(
               0,
@@ -605,7 +615,19 @@ export function extractListingProductLinks(
         );
 
 
+      const hasLocalImage =
+        anchor.find(
+          "img"
+        ).length >
+          0 ||
+        localScope.find(
+          "a[href] img"
+        ).length >
+          0;
+
+
       const hasPrice =
+        hasLocalImage &&
         /(?:\d[\d.,\s]{2,})\s*(?:d|vnd|₫)(?:\b|\/)/i
           .test(
             containerText

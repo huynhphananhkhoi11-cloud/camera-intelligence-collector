@@ -75,6 +75,64 @@ describe(
 
 
     test(
+      "does not assign unrelated page price to a booking CTA",
+      () => {
+
+        const result =
+          extractListingProductLinks(
+            `
+              <main>
+                <div>
+                  <a href="/booking">
+                    Đặt thuê
+                  </a>
+                </div>
+
+                <section class="product-card">
+                  <a href="/equipment/1">
+                    <img src="1.jpg">
+                    Product
+                  </a>
+
+                  <span>
+                    300.000đ
+                  </span>
+                </section>
+              </main>
+            `,
+            "https://example.com/categories"
+          );
+
+
+        const bookingEvidence =
+          result.productLinks.filter(
+            item =>
+              item.url ===
+              "https://example.com/booking"
+          );
+
+
+        expect(
+          bookingEvidence.some(
+            item =>
+              item.source ===
+              "PRICE_LINK"
+          )
+        ).toBe(false);
+
+
+        expect(
+          bookingEvidence.some(
+            item =>
+              item.source ===
+              "CTA_LINK"
+          )
+        ).toBe(true);
+      }
+    );
+
+
+    test(
       "extracts Product and ItemList JSON-LD URLs",
       () => {
 
@@ -119,6 +177,7 @@ describe(
             "https://example.com/p/a"
           )
         ).toBe(true);
+
 
         expect(
           urls.has(

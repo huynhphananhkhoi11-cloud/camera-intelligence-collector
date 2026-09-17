@@ -46,6 +46,28 @@ import {
   discoverCommercialRootsLive
 } from "./v02/discovery/commercialRootDiscovery.js";
 
+import {
+  buildProductUrlGraphLive
+} from "./v02/discovery/liveProductUrlGraph.js";
+
+import {
+  runDiscoveryAudit
+} from "./v02/diagnostics/discoveryAuditEngine.js";
+
+import {
+  formatDiscoveryAuditReport
+} from "./v02/diagnostics/discoveryAuditReporter.js";
+
+import {
+  createDiscoveryBaseline
+} from "./v02/diagnostics/discoveryRegression.js";
+
+import {
+  loadDiscoveryBaseline,
+  persistDiscoveryBaseline,
+  shouldPromoteDiscoveryBaseline
+} from "./v02/diagnostics/discoveryBaselineStore.js";
+
 const program = new Command();
 
 program
@@ -679,14 +701,14 @@ program
       console.log("");
 
 
-      console.log("[1/3] Bootstrapping site...");
+      console.log("[1/4] Bootstrapping site...");
 
       const bootstrapStartedAt = Date.now();
 
       const result = await bootstrapSite(url);
 
       console.log(
-        `[1/3] Bootstrap complete in ${((Date.now() - bootstrapStartedAt) / 1000).toFixed(1)}s`
+        `[1/4] Bootstrap complete in ${((Date.now() - bootstrapStartedAt) / 1000).toFixed(1)}s`
       );
 
       /*
@@ -697,7 +719,7 @@ program
        * No --site-mode input.
        * Site profile is observational prior only.
        */
-      console.log("[2/3] Profiling site...");
+      console.log("[2/4] Profiling site...");
 
       const profileStartedAt = Date.now();
 
@@ -718,7 +740,7 @@ program
 
 
       console.log(
-        `[2/3] Profiling complete in ${((Date.now() - profileStartedAt) / 1000).toFixed(1)}s`
+        `[2/4] Profiling complete in ${((Date.now() - profileStartedAt) / 1000).toFixed(1)}s`
       );
 
       console.log("");
@@ -855,7 +877,7 @@ program
        * PHASE 4 — COMMERCIAL ROOT DISCOVERY
        * ======================================
        */
-      console.log("[3/3] Discovering commercial roots...");
+      console.log("[3/4] Discovering commercial roots...");
 
       const rootDiscoveryStartedAt = Date.now();
 
@@ -903,7 +925,7 @@ program
 
 
       console.log(
-        `[3/3] Root discovery complete in ${((Date.now() - rootDiscoveryStartedAt) / 1000).toFixed(1)}s`
+        `[3/4] Root discovery complete in ${((Date.now() - rootDiscoveryStartedAt) / 1000).toFixed(1)}s`
       );
 
       console.log("");
@@ -979,6 +1001,347 @@ program
        * Root candidates are catalog-region hints.
        * They DO NOT classify product entity.
        */
+
+      console.log(
+        "[4/4] Building Product URL Graph..."
+      );
+
+      const productGraphStartedAt =
+        Date.now();
+
+
+      const productGraph =
+        await buildProductUrlGraphLive(
+          result.canonicalOrigin,
+          rootDiscovery.roots,
+          result.sitemaps.pageUrls,
+          {
+            headless:
+              true,
+
+            maxRoots:
+              3,
+
+            maxPagesPerRoot:
+              5,
+
+            maxInteractionsPerPage:
+              3,
+
+            noNewUrlRounds:
+              2,
+
+            navigationTimeoutMs:
+              10000,
+
+            settleTimeoutMs:
+              1000,
+
+            interactionWaitMs:
+              500,
+
+            pageTimeoutMs:
+              20000,
+
+            onProgress:
+              message => {
+
+                console.log(
+                  `  ${message}`
+                );
+              }
+          }
+        );
+
+
+      console.log(
+        `[4/4] Product URL Graph complete in ${(
+          (
+            Date.now() -
+            productGraphStartedAt
+          ) /
+          1000
+        ).toFixed(1)}s`
+      );
+
+
+      console.log("");
+      console.log(
+        "Product URL Graph:"
+      );
+
+      console.log(
+        `  Nodes:          ${productGraph.nodes.length}`
+      );
+
+      console.log(
+        `  Roots:          ${productGraph.rootsProcessed}`
+      );
+
+      console.log(
+        `  Catalog pages:  ${productGraph.catalogPagesVisited}`
+      );
+
+      console.log(
+        `  Interactions:   ${productGraph.interactions}`
+      );
+
+      console.log(
+        `  Errors:         ${productGraph.errors.length}`
+      );
+
+
+      const sourceCounts =
+        new Map<
+          string,
+          number
+        >();
+
+
+      for (
+        const node
+        of productGraph.nodes
+      ) {
+
+        for (
+          const evidence
+          of node.evidence
+        ) {
+
+          sourceCounts.set(
+            evidence.source,
+            (
+              sourceCounts.get(
+                evidence.source
+              ) ??
+              0
+            ) +
+            1
+          );
+        }
+      }
+
+
+      if (
+        sourceCounts.size >
+        0
+      ) {
+
+        console.log(
+          "  Sources:"
+        );
+
+
+        for (
+          const [
+            source,
+            count
+          ]
+          of Array.from(
+            sourceCounts.entries()
+          )
+            .sort(
+              (
+                a,
+                b
+              ) =>
+                b[1] -
+                a[1]
+            )
+        ) {
+
+          console.log(
+            `    ${source}: ${count}`
+          );
+        }
+      }
+
+
+      console.log(
+        "  Top discovered URLs:"
+      );
+
+
+      for (
+        const node
+        of productGraph.nodes
+          .slice(
+            0,
+            20
+          )
+      ) {
+
+        console.log(
+          `    [${node.score}] ${node.url}`
+        );
+      }
+
+      /*
+       * ======================================
+       * PHASE 5.7 — DISCOVERY SELF-AUDIT
+       * Discovery Self-Audit integration
+       * ======================================
+       *
+       * No additional browser/network work.
+       * All checks run on structured facts
+       * already collected in this process.
+       */
+
+      const baselineLoad =
+        await loadDiscoveryBaseline(
+          result.canonicalOrigin
+        );
+
+
+      const discoveryAudit =
+        runDiscoveryAudit(
+          {
+            bootstrap:
+              result,
+
+            profile:
+              liveProfile.profile,
+
+            roots:
+              rootDiscovery,
+
+            graph:
+              productGraph,
+
+            timingsMs: {
+              bootstrapMs:
+                Math.max(
+                  0,
+                  profileStartedAt -
+                  bootstrapStartedAt
+                ),
+
+              profileMs:
+                Math.max(
+                  0,
+                  rootDiscoveryStartedAt -
+                  profileStartedAt
+                ),
+
+              rootDiscoveryMs:
+                Math.max(
+                  0,
+                  productGraphStartedAt -
+                  rootDiscoveryStartedAt
+                ),
+
+              productGraphMs:
+                Math.max(
+                  0,
+                  Date.now() -
+                  productGraphStartedAt
+                )
+            },
+
+            budgets: {
+              rootProbeLimit:
+                4,
+
+              minimumRootScore:
+                45,
+
+              maxGraphRoots:
+                3,
+
+              maxPagesPerRoot:
+                5,
+
+              maxInteractionsPerPage:
+                3,
+
+              noNewUrlRounds:
+                2
+            }
+          },
+          {
+            baseline:
+              baselineLoad.baseline
+          }
+        );
+
+
+      console.log("");
+
+
+      for (
+        const line
+        of formatDiscoveryAuditReport(
+          discoveryAudit
+        )
+      ) {
+
+        console.log(
+          line
+        );
+      }
+
+
+      console.log("");
+
+
+      console.log(
+        `Historical baseline: ${baselineLoad.status}`
+      );
+
+
+      if (
+        baselineLoad.status ===
+          "INVALID" &&
+        baselineLoad.error
+      ) {
+
+        console.log(
+          `  Baseline warning: ${baselineLoad.error}`
+        );
+      }
+
+
+      const baselineDecision =
+        shouldPromoteDiscoveryBaseline(
+          discoveryAudit,
+          baselineLoad.baseline !==
+            null
+        );
+
+
+      if (
+        baselineDecision.promote
+      ) {
+
+        const baseline =
+          createDiscoveryBaseline(
+            discoveryAudit.telemetry
+          );
+
+
+        const baselinePath =
+          await persistDiscoveryBaseline(
+            baseline
+          );
+
+
+        console.log(
+          `Baseline update: SAVED`
+        );
+
+        console.log(
+          `  ${baselinePath}`
+        );
+      }
+      else {
+
+        console.log(
+          `Baseline update: SKIPPED (${baselineDecision.reason})`
+        );
+      }
+
+
+      console.log("");
 
 const persisted =
         await persistBootstrapSnapshot(
@@ -1084,9 +1447,24 @@ const persisted =
       );
 
       console.log("");
-      console.log(
-        "PHASE 4 COMMERCIAL ROOT DISCOVERY COMPLETE"
-      );
+      if (
+        discoveryAudit.summary.status ===
+        "FAIL"
+      ) {
+
+        console.log(
+          "PHASE 5 SELF-AUDIT FAILED"
+        );
+
+        process.exitCode =
+          1;
+      }
+      else {
+
+        console.log(
+          "PHASE 5 PRODUCT URL GRAPH + SELF-AUDIT COMPLETE"
+        );
+      }
     }
   );
 

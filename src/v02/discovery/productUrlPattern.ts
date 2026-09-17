@@ -22,6 +22,12 @@ export interface ProductUrlPattern {
   evidenceCount:
     number;
 
+  strongEvidenceCount:
+    number;
+
+  mediumEvidenceCount:
+    number;
+
   score:
     number;
 }
@@ -37,6 +43,11 @@ export interface SitemapPatternCandidate {
   pattern:
     ProductUrlPattern;
 }
+
+
+type PatternSeedStrength =
+  | "STRONG"
+  | "MEDIUM";
 
 
 function tailKind(
@@ -66,22 +77,91 @@ function tailKind(
 }
 
 
-function isStrongSeed(
+/**
+ * Strong seeds are sources that directly look
+ * like product-detail discovery.
+ *
+ * IMAGE_LINK / PRICE_LINK are weaker, but a
+ * repeated structural cluster of them can still
+ * reveal a generic URL pattern.
+ *
+ * CTA_LINK is intentionally excluded because a
+ * site-wide booking/cart CTA can contaminate the
+ * graph.
+ */
+function patternSeedStrength(
   node:
     ProductUrlNode
-): boolean {
+): PatternSeedStrength | null {
 
-  return node.evidence.some(
-    evidence =>
-      [
-        "JSON_LD_PRODUCT",
-        "JSON_LD_ITEM_LIST",
-        "API_ITEM",
-        "REPEATED_CARD"
-      ].includes(
-        evidence.source
+  const sources =
+    new Set(
+      node.evidence.map(
+        evidence =>
+          evidence.source
       )
-  );
+    );
+
+
+  const hasStrong =
+    [
+      "JSON_LD_PRODUCT",
+      "JSON_LD_ITEM_LIST",
+      "API_ITEM",
+      "REPEATED_CARD"
+    ].some(
+      source =>
+        sources.has(
+          source as
+            | "JSON_LD_PRODUCT"
+            | "JSON_LD_ITEM_LIST"
+            | "API_ITEM"
+            | "REPEATED_CARD"
+        )
+    );
+
+
+  if (
+    hasStrong
+  ) {
+    return "STRONG";
+  }
+
+
+  if (
+    sources.has(
+      "IMAGE_LINK"
+    ) ||
+    sources.has(
+      "PRICE_LINK"
+    )
+  ) {
+    return "MEDIUM";
+  }
+
+
+  return null;
+}
+
+
+interface PatternGroup {
+  prefix:
+    string;
+
+  segmentCount:
+    number;
+
+  tailKind:
+    ProductTailKind;
+
+  count:
+    number;
+
+  strongCount:
+    number;
+
+  mediumCount:
+    number;
 }
 
 
@@ -93,19 +173,7 @@ export function inferProductUrlPatterns(
   const groups =
     new Map<
       string,
-      {
-        prefix:
-          string;
-
-        segmentCount:
-          number;
-
-        tailKind:
-          ProductTailKind;
-
-        count:
-          number;
-      }
+      PatternGroup
     >();
 
 
@@ -114,11 +182,13 @@ export function inferProductUrlPatterns(
     of nodes
   ) {
 
-    if (
-      !isStrongSeed(
+    const strength =
+      patternSeedStrength(
         node
-      )
-    ) {
+      );
+
+
+    if (!strength) {
       continue;
     }
 
@@ -178,33 +248,57 @@ export function inferProductUrlPatterns(
       ].join("|");
 
 
-    const existing =
+    let group =
       groups.get(
         key
       );
 
 
+    if (!group) {
+
+      group = {
+        prefix,
+
+        segmentCount:
+          segments.length,
+
+        tailKind:
+          kind,
+
+        count:
+          0,
+
+        strongCount:
+          0,
+
+        mediumCount:
+          0
+      };
+
+
+      groups.set(
+        key,
+        group
+      );
+    }
+
+
+    group.count +=
+      1;
+
+
     if (
-      existing
+      strength ===
+      "STRONG"
     ) {
 
-      existing.count +=
+      group.strongCount +=
         1;
     }
     else {
 
-      groups.set(
-        key,
-        {
-          prefix,
-          segmentCount:
-            segments.length,
-          tailKind:
-            kind,
-          count:
-            1
-        }
-      );
+      group.mediumCount +=
+        1;
     }
   }
 
@@ -213,33 +307,80 @@ export function inferProductUrlPatterns(
     groups.values()
   )
     .filter(
-      group =>
-        group.count >=
-        2
+      group => {
+
+        /*
+         * Two strong independent seeds are
+         * sufficient.
+         *
+         * Weak structural signals need at least
+         * three matching URLs before a pattern
+         * exists.
+         */
+        return (
+          group.strongCount >=
+            2 ||
+          group.mediumCount >=
+            3
+        );
+      }
     )
     .map(
       group => {
 
-        /*
-         * Root-level slug patterns are very broad.
-         * Keep them weak.
-         */
         const broadRoot =
           group.prefix ===
-          "/" &&
+            "/" &&
           group.tailKind ===
-          "SLUG";
+            "SLUG";
 
 
-        const score =
+        let score:
+          number;
+
+
+        if (
           broadRoot
-            ? 15
-            : Math.min(
-                40,
-                20 +
-                group.count *
-                5
-              );
+        ) {
+
+          /*
+           * Root-level slug patterns can match
+           * news/categories as well as products.
+           *
+           * Keep them intentionally weak.
+           */
+          score =
+            group.strongCount >=
+              2
+              ? 15
+              : 10;
+        }
+        else if (
+          group.strongCount >=
+          2
+        ) {
+
+          score =
+            Math.min(
+              40,
+              20 +
+              group.count *
+              5
+            );
+        }
+        else {
+
+          /*
+           * Repeated medium structural evidence.
+           */
+          score =
+            Math.min(
+              25,
+              10 +
+              group.count *
+              2
+            );
+        }
 
 
         return {
@@ -255,14 +396,38 @@ export function inferProductUrlPatterns(
           evidenceCount:
             group.count,
 
+          strongEvidenceCount:
+            group.strongCount,
+
+          mediumEvidenceCount:
+            group.mediumCount,
+
           score
         };
       }
     )
     .sort(
-      (a, b) =>
-        b.score -
-        a.score
+      (
+        a,
+        b
+      ) => {
+
+        if (
+          b.score !==
+          a.score
+        ) {
+          return (
+            b.score -
+            a.score
+          );
+        }
+
+
+        return (
+          b.evidenceCount -
+          a.evidenceCount
+        );
+      }
     );
 }
 
@@ -337,6 +502,10 @@ export function scoreSitemapProductCandidates(
     SitemapPatternCandidate[] = [];
 
 
+  const seen =
+    new Set<string>();
+
+
   for (
     const raw
     of sitemapUrls
@@ -347,6 +516,7 @@ export function scoreSitemapProductCandidates(
 
 
     try {
+
       url =
         new URL(
           raw,
@@ -366,6 +536,28 @@ export function scoreSitemapProductCandidates(
     }
 
 
+    /*
+     * Avoid duplicate sitemap entries before
+     * pattern scoring.
+     */
+    const canonical =
+      url.toString();
+
+
+    if (
+      seen.has(
+        canonical
+      )
+    ) {
+      continue;
+    }
+
+
+    seen.add(
+      canonical
+    );
+
+
     const matches =
       patterns
         .filter(
@@ -376,7 +568,10 @@ export function scoreSitemapProductCandidates(
             )
         )
         .sort(
-          (a, b) =>
+          (
+            a,
+            b
+          ) =>
             b.score -
             a.score
         );
@@ -393,7 +588,7 @@ export function scoreSitemapProductCandidates(
 
     results.push({
       url:
-        url.toString(),
+        canonical,
 
       score:
         best.score,

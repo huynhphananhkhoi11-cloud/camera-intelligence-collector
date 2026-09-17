@@ -163,19 +163,12 @@ export function ingestCatalogSnapshot(
     ) {
 
       /*
-       * Broad root-level slug pattern has score 15.
-       * Keep it diagnostic only.
+       * Recall-first:
        *
-       * More specific inferred patterns enter graph.
+       * even a weak inferred pattern remains in
+       * the graph with a low score. Later detail
+       * acquisition/classification decides truth.
        */
-      if (
-        candidate.score <
-        20
-      ) {
-        continue;
-      }
-
-
       sitemapPatternCandidates +=
         1;
 
@@ -186,8 +179,17 @@ export function ingestCatalogSnapshot(
           source:
             "SITEMAP_PATTERN",
 
+          /*
+           * Sitemap provenance belongs to the
+           * sitemap/pattern, not to the catalog
+           * page that happened to trigger this
+           * inference.
+           *
+           * null makes repeated ingestion of the
+           * same sitemap evidence idempotent.
+           */
           parentUrl:
-            input.pageUrl,
+            null,
 
           weight:
             candidate.score,
