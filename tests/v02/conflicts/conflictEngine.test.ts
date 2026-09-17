@@ -129,7 +129,7 @@ describe(
               row.field ===
                 "SALE_PRICE" &&
               row.severity ===
-                "REVIEW"
+                "HIGH"
           )
         ).toBe(true);
       }
