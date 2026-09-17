@@ -1,0 +1,1271 @@
+﻿import type {
+  BrowserContext,
+  Page
+} from "playwright";
+
+import type {
+  ProductCandidate,
+  CatalogIntent
+} from "../discovery/catalogCrawler.js";
+
+export type DetailDisposition =
+  | "accepted"
+  | "excluded"
+  | "review";
+
+export interface FieldEvidence {
+  field: string;
+  value: string | number;
+  source:
+    | "JSON_LD"
+    | "DOM"
+    | "LISTING";
+  evidence: string;
+  confidence: number;
+}
+
+export interface CameraDetailRecord {
+  website: string;
+  productName: string;
+  businessMode:
+    | "RENTAL"
+    | "SECOND_HAND"
+    | "NEW";
+
+  specs: string;
+
+  rentalPricePerDay:
+    | number
+    | null;
+
+  rentalConditions: string;
+
+  includedAccessories: string;
+
+  bundle: string;
+
+  rating:
+    | number
+    | null;
+
+  reviewCount:
+    | number
+    | null;
+
+  stock: string;
+
+  salePrice:
+    | number
+    | null;
+
+  url: string;
+
+  disposition:
+    DetailDisposition;
+
+  reason: string;
+
+  evidence:
+    FieldEvidence[];
+
+  listingPrice:
+    number | null;
+
+  detailPrice:
+    number | null;
+}
+
+export interface DetailCrawlResult {
+  accepted:
+    CameraDetailRecord[];
+
+  excluded:
+    CameraDetailRecord[];
+
+  review:
+    CameraDetailRecord[];
+
+  conflicts: {
+    url: string;
+    field: string;
+    listingValue: string;
+    detailValue: string;
+  }[];
+
+  checked: number;
+
+  errors: number;
+}
+
+function money(
+  value: unknown
+): number | null {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+  if (
+    typeof value === "number"
+  ) {
+    return (
+      Number.isFinite(value) &&
+      value > 0
+    )
+      ? value
+      : null;
+  }
+
+  const digits =
+    String(value)
+      .replace(/[^\d]/g, "");
+
+  if (!digits) {
+    return null;
+  }
+
+  const n =
+    Number(digits);
+
+  return (
+    Number.isFinite(n) &&
+    n > 0
+  )
+    ? n
+    : null;
+}
+
+function clean(
+  value: unknown
+): string {
+
+  return String(
+    value ?? ""
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hostOf(
+  url: string
+): string {
+
+  try {
+    return new URL(url)
+      .hostname
+      .replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function mapIntent(
+  intent: CatalogIntent,
+  bodyText: string
+):
+  | "RENTAL"
+  | "SECOND_HAND"
+  | "NEW"
+  | null {
+
+  if (
+    intent === "RENTAL" ||
+    intent === "SECOND_HAND" ||
+    intent === "NEW"
+  ) {
+    return intent;
+  }
+
+  const text =
+    bodyText.toLowerCase();
+
+  if (
+    /cho thuê|giá thuê|ngày nhận|ngày trả|rental/
+      .test(text)
+  ) {
+    return "RENTAL";
+  }
+
+  if (
+    /hàng cũ|máy ảnh cũ|99%|second hand|used/
+      .test(text)
+  ) {
+    return "SECOND_HAND";
+  }
+
+  if (
+    /chính hãng|new 100%|máy ảnh mới/
+      .test(text)
+  ) {
+    return "NEW";
+  }
+
+  return null;
+}
+
+async function extractDetail(
+  page: Page,
+  candidate: ProductCandidate
+): Promise<CameraDetailRecord> {
+
+  const raw =
+    await page.evaluate(`
+      (() => {
+
+        const clean = (value) =>
+          String(value || "")
+            .replace(/\\u00a0/g, " ")
+            .replace(/\\s+/g, " ")
+            .trim();
+
+        const bodyText =
+          document.body?.innerText || "";
+
+        const lines =
+          bodyText
+            .split(/\\r?\\n/)
+            .map(clean)
+            .filter(Boolean);
+
+        const findLabel = (
+          patterns
+        ) => {
+
+          for (
+            let i = 0;
+            i < lines.length;
+            i++
+          ) {
+
+            const line =
+              lines[i];
+
+            for (
+              const pattern
+              of patterns
+            ) {
+
+              if (
+                pattern.test(line)
+              ) {
+
+                const inline =
+                  line.replace(
+                    pattern,
+                    ""
+                  )
+                  .replace(/^\\s*[:：-]\\s*/, "")
+                  .trim();
+
+                if (inline) {
+                  return inline;
+                }
+
+                if (
+                  lines[i + 1]
+                ) {
+                  return lines[i + 1];
+                }
+              }
+            }
+          }
+
+          return "";
+        };
+
+        const h1 =
+          clean(
+            document
+              .querySelector("h1")
+              ?.textContent || ""
+          );
+
+        /*
+          ---------- JSON-LD ----------
+        */
+
+        let productJson = null;
+
+        const inspectJson = (
+          value
+        ) => {
+
+          if (!value) return null;
+
+          if (
+            Array.isArray(value)
+          ) {
+            for (
+              const item of value
+            ) {
+              const found =
+                inspectJson(item);
+
+              if (found) {
+                return found;
+              }
+            }
+
+            return null;
+          }
+
+          if (
+            typeof value !==
+            "object"
+          ) {
+            return null;
+          }
+
+          const type =
+            value["@type"];
+
+          const types =
+            Array.isArray(type)
+              ? type
+              : [type];
+
+          if (
+            types.some(
+              x =>
+                String(x)
+                  .toLowerCase() ===
+                "product"
+            )
+          ) {
+            return value;
+          }
+
+          if (
+            value["@graph"]
+          ) {
+            const found =
+              inspectJson(
+                value["@graph"]
+              );
+
+            if (found) {
+              return found;
+            }
+          }
+
+          return null;
+        };
+
+        for (
+          const script of
+          document.querySelectorAll(
+            'script[type="application/ld+json"]'
+          )
+        ) {
+
+          try {
+            const parsed =
+              JSON.parse(
+                script.textContent ||
+                ""
+              );
+
+            const found =
+              inspectJson(parsed);
+
+            if (found) {
+              productJson =
+                found;
+              break;
+            }
+
+          } catch {}
+        }
+
+        const offers =
+          productJson?.offers;
+
+        const offer =
+          Array.isArray(offers)
+            ? offers[0]
+            : offers;
+
+        const jsonName =
+          clean(
+            productJson?.name ||
+            ""
+          );
+
+        const jsonPrice =
+          offer?.price ??
+          offer?.lowPrice ??
+          "";
+
+        const jsonAvailability =
+          clean(
+            offer?.availability ||
+            ""
+          );
+
+        const aggregate =
+          productJson
+            ?.aggregateRating;
+
+        const jsonRating =
+          aggregate
+            ?.ratingValue ?? null;
+
+        const jsonReviewCount =
+          aggregate
+            ?.reviewCount ??
+          aggregate
+            ?.ratingCount ??
+          null;
+
+        /*
+          ---------- DOM ----------
+        */
+
+        const domPrice =
+          findLabel([
+            /^giá\\s*:?$/i,
+            /^giá\\s*:/i,
+            /^price\\s*:?$/i
+          ]);
+
+        const stock =
+          findLabel([
+            /^tình trạng\\s*:?$/i,
+            /^tình trạng\\s*:/i,
+            /^trạng thái\\s*:?$/i,
+            /^availability\\s*:?$/i
+          ]);
+
+        const accessories =
+          findLabel([
+            /^phụ kiện\\s*:?$/i,
+            /^phụ kiện\\s*:/i,
+            /^phụ kiện đi kèm\\s*:?$/i
+          ]);
+
+        const warranty =
+          findLabel([
+            /^bảo hành\\s*:?$/i,
+            /^bảo hành\\s*:/i
+          ]);
+
+        /*
+          Product summary.
+
+          Prefer the short summary near the
+          top instead of scraping the whole
+          SEO article.
+        */
+        let summary = "";
+
+        const summaryIndex =
+          lines.findIndex(
+            line =>
+              /^tóm tắt sản phẩm\\s*:?$/i
+                .test(line)
+          );
+
+        if (
+          summaryIndex >= 0
+        ) {
+
+          const items = [];
+
+          for (
+            let i =
+              summaryIndex + 1;
+            i <
+              Math.min(
+                lines.length,
+                summaryIndex + 25
+              );
+            i++
+          ) {
+
+            const line =
+              lines[i];
+
+            if (
+              /^(địa chỉ|sđt|làm việc|hỗ trợ|thông số kỹ thuật)/i
+                .test(line)
+            ) {
+              break;
+            }
+
+            if (
+              line.length <= 280
+            ) {
+              items.push(line);
+            }
+          }
+
+          summary =
+            items.join(" | ");
+        }
+
+        /*
+          Fallback: a product-spec table.
+        */
+        if (!summary) {
+
+          const rows =
+            Array.from(
+              document.querySelectorAll(
+                "table tr"
+              )
+            )
+            .map(row =>
+              clean(
+                row.textContent ||
+                ""
+              )
+            )
+            .filter(
+              text =>
+                text &&
+                text.length <= 300
+            )
+            .slice(0, 20);
+
+          if (rows.length) {
+            summary =
+              rows.join(" | ");
+          }
+        }
+
+        /*
+          Rental-specific conditions.
+        */
+        const rentalLines =
+          lines.filter(
+            line =>
+              /cọc|thời gian thuê|ngày nhận|ngày trả|giao nhận|giao hàng|phí trễ/i
+                .test(line)
+          )
+          .slice(0, 10);
+
+        /*
+          Only explicit bundle/combo labels.
+        */
+        const bundle =
+          findLabel([
+            /^combo\\s*:?$/i,
+            /^gói đi kèm\\s*:?$/i,
+            /^combo\\/gói đi kèm\\s*:?$/i
+          ]);
+
+        return {
+          h1,
+          bodyText:
+            clean(bodyText),
+
+          jsonName,
+          jsonPrice,
+          jsonAvailability,
+          jsonRating,
+          jsonReviewCount,
+
+          domPrice,
+          stock,
+          accessories,
+          warranty,
+          summary,
+          rentalConditions:
+            rentalLines.join(" | "),
+          bundle
+        };
+
+      })()
+    `) as {
+      h1: string;
+      bodyText: string;
+
+      jsonName: string;
+      jsonPrice:
+        string | number;
+      jsonAvailability: string;
+      jsonRating:
+        string | number | null;
+      jsonReviewCount:
+        string | number | null;
+
+      domPrice: string;
+      stock: string;
+      accessories: string;
+      warranty: string;
+      summary: string;
+      rentalConditions: string;
+      bundle: string;
+    };
+
+  const productName =
+    clean(
+      raw.h1 ||
+      raw.jsonName ||
+      candidate.title
+    );
+
+  const titleLower =
+    productName.toLowerCase();
+
+  /*
+    Strong accessory-only exclusion.
+    Camera kits containing a lens are kept.
+  */
+  const accessoryOnly =
+    /^(ống kính|lens\b|pin\b|sạc\b|charger\b|ngàm\b|adapter\b|filter\b|tripod\b|balo\b|túi\b|thẻ nhớ\b|flash\b)/
+      .test(titleLower);
+
+  const brandSignal =
+    /\b(canon|sony|nikon|fujifilm|fuji|lumix|panasonic|olympus|leica|ricoh|pentax|gopro|dji|insta360)\b/i
+      .test(productName);
+
+  const cameraSignal =
+    /máy ảnh|camera|body|eos|alpha|mirrorless|dslr|compact|zv-|powershot|instax/i
+      .test(productName);
+
+  const mode =
+    mapIntent(
+      candidate.intent,
+      raw.bodyText
+    );
+
+  const listingPrice =
+    money(
+      candidate.priceText
+    );
+
+  const jsonPrice =
+    money(
+      raw.jsonPrice
+    );
+
+  const domPrice =
+    money(
+      raw.domPrice
+    );
+
+  /*
+    Prefer structured detail data,
+    then visible detail price,
+    then listing price.
+  */
+  const detailPrice =
+    jsonPrice ??
+    domPrice;
+
+  const finalPrice =
+    detailPrice ??
+    listingPrice;
+
+  let disposition:
+    DetailDisposition =
+    "accepted";
+
+  let reason =
+    "camera detail confirmed";
+
+  if (accessoryOnly) {
+    disposition =
+      "excluded";
+
+    reason =
+      "accessory-only title";
+  }
+  else if (
+    !productName ||
+    (!brandSignal &&
+     !cameraSignal)
+  ) {
+    disposition =
+      "review";
+
+    reason =
+      "camera identity uncertain";
+  }
+  else if (!mode) {
+    disposition =
+      "review";
+
+    reason =
+      "business mode uncertain";
+  }
+
+  const evidence:
+    FieldEvidence[] = [];
+
+  if (productName) {
+    evidence.push({
+      field:
+        "Tên sản phẩm",
+      value:
+        productName,
+      source:
+        raw.h1
+          ? "DOM"
+          : raw.jsonName
+            ? "JSON_LD"
+            : "LISTING",
+      evidence:
+        productName.slice(
+          0,
+          280
+        ),
+      confidence:
+        raw.h1
+          ? 0.99
+          : 0.92
+    });
+  }
+
+  if (
+    detailPrice
+  ) {
+    evidence.push({
+      field:
+        mode === "RENTAL"
+          ? "Giá thuê/ngày"
+          : "Giá bán",
+      value:
+        detailPrice,
+      source:
+        jsonPrice
+          ? "JSON_LD"
+          : "DOM",
+      evidence:
+        String(
+          raw.jsonPrice ||
+          raw.domPrice
+        ).slice(
+          0,
+          280
+        ),
+      confidence:
+        0.99
+    });
+  }
+  else if (
+    listingPrice
+  ) {
+    evidence.push({
+      field:
+        mode === "RENTAL"
+          ? "Giá thuê/ngày"
+          : "Giá bán",
+      value:
+        listingPrice,
+      source:
+        "LISTING",
+      evidence:
+        candidate.priceText,
+      confidence:
+        0.90
+    });
+  }
+
+  if (
+    raw.stock ||
+    raw.jsonAvailability
+  ) {
+    evidence.push({
+      field:
+        "Tồn kho",
+      value:
+        raw.stock ||
+        raw.jsonAvailability,
+      source:
+        raw.stock
+          ? "DOM"
+          : "JSON_LD",
+      evidence:
+        (
+          raw.stock ||
+          raw.jsonAvailability
+        ).slice(
+          0,
+          280
+        ),
+      confidence:
+        0.97
+    });
+  }
+
+  if (
+    raw.accessories
+  ) {
+    evidence.push({
+      field:
+        "Phụ kiện đi kèm",
+      value:
+        raw.accessories,
+      source:
+        "DOM",
+      evidence:
+        raw.accessories.slice(
+          0,
+          280
+        ),
+      confidence:
+        0.97
+    });
+  }
+
+  const ratingNumber =
+    raw.jsonRating !== null &&
+    raw.jsonRating !== ""
+      ? Number(
+          raw.jsonRating
+        )
+      : null;
+
+  const rating =
+    ratingNumber !== null &&
+    Number.isFinite(
+      ratingNumber
+    ) &&
+    ratingNumber >= 0 &&
+    ratingNumber <= 5
+      ? ratingNumber
+      : null;
+
+  const reviewNumber =
+    raw.jsonReviewCount !== null &&
+    raw.jsonReviewCount !== ""
+      ? Number(
+          raw.jsonReviewCount
+        )
+      : null;
+
+  const reviewCount =
+    reviewNumber !== null &&
+    Number.isFinite(
+      reviewNumber
+    ) &&
+    reviewNumber >= 0
+      ? Math.round(
+          reviewNumber
+        )
+      : null;
+
+  let specs =
+    clean(
+      raw.summary
+    );
+
+  if (
+    raw.warranty
+  ) {
+    specs =
+      clean(
+        specs
+          ? `${specs} | Bảo hành: ${raw.warranty}`
+          : `Bảo hành: ${raw.warranty}`
+      );
+  }
+
+  const normalizedStock =
+    clean(
+      raw.stock ||
+      raw.jsonAvailability
+        .replace(
+          /^https?:\/\/schema.org\//i,
+          ""
+        )
+    );
+
+  return {
+    website:
+      hostOf(
+        candidate.url
+      ),
+
+    productName,
+
+    businessMode:
+      mode ??
+      "NEW",
+
+    specs,
+
+    rentalPricePerDay:
+      mode === "RENTAL"
+        ? finalPrice
+        : null,
+
+    rentalConditions:
+      mode === "RENTAL"
+        ? clean(
+            raw.rentalConditions
+          )
+        : "",
+
+    includedAccessories:
+      clean(
+        raw.accessories
+      ),
+
+    bundle:
+      clean(
+        raw.bundle
+      ),
+
+    rating,
+
+    reviewCount,
+
+    stock:
+      normalizedStock,
+
+    salePrice:
+      mode !== "RENTAL"
+        ? finalPrice
+        : null,
+
+    url:
+      candidate.url,
+
+    disposition,
+
+    reason,
+
+    evidence,
+
+    listingPrice,
+
+    detailPrice
+  };
+}
+
+export async function crawlProductDetails(
+  context: BrowserContext,
+  candidates:
+    ProductCandidate[],
+  concurrency = 3
+): Promise<DetailCrawlResult> {
+
+  const accepted:
+    CameraDetailRecord[] = [];
+
+  const excluded:
+    CameraDetailRecord[] = [];
+
+  const review:
+    CameraDetailRecord[] = [];
+
+  const conflicts:
+    DetailCrawlResult["conflicts"] =
+      [];
+
+  let checked = 0;
+  let errors = 0;
+  let cursor = 0;
+
+  const workers =
+    Math.max(
+      1,
+      Math.min(
+        concurrency,
+        5,
+        candidates.length
+      )
+    );
+
+  const runWorker =
+    async (
+      workerId: number
+    ) => {
+
+      const page =
+        await context.newPage();
+
+      /*
+        Detail extraction is text-first.
+        Skip heavy images/media/fonts.
+      */
+      await page.route(
+        "**/*",
+        async route => {
+
+          const type =
+            route.request()
+              .resourceType();
+
+          if (
+            type === "image" ||
+            type === "media" ||
+            type === "font"
+          ) {
+            await route.abort();
+            return;
+          }
+
+          await route.continue();
+        }
+      );
+
+      try {
+
+        while (true) {
+
+          const index =
+            cursor++;
+
+          if (
+            index >=
+            candidates.length
+          ) {
+            break;
+          }
+
+          const candidate =
+            candidates[index];
+
+          let loaded = false;
+          let lastError = "";
+
+          for (
+            let attempt = 1;
+            attempt <= 2;
+            attempt++
+          ) {
+
+            try {
+
+              await page.goto(
+                candidate.url,
+                {
+                  waitUntil:
+                    "domcontentloaded",
+                  timeout: 30000
+                }
+              );
+
+              await page.waitForTimeout(
+                200
+              );
+
+              loaded = true;
+              break;
+
+            } catch (error) {
+
+              lastError =
+                String(error);
+
+              if (
+                attempt < 2
+              ) {
+                await page.waitForTimeout(
+                  500
+                );
+              }
+            }
+          }
+
+          if (!loaded) {
+
+            errors++;
+            checked++;
+
+            review.push({
+              website:
+                hostOf(
+                  candidate.url
+                ),
+              productName:
+                candidate.title,
+              businessMode:
+                candidate.intent ===
+                "RENTAL"
+                  ? "RENTAL"
+                  : candidate.intent ===
+                    "SECOND_HAND"
+                      ? "SECOND_HAND"
+                      : "NEW",
+              specs: "",
+              rentalPricePerDay:
+                null,
+              rentalConditions:
+                "",
+              includedAccessories:
+                "",
+              bundle: "",
+              rating: null,
+              reviewCount: null,
+              stock: "",
+              salePrice: null,
+              url:
+                candidate.url,
+              disposition:
+                "review",
+              reason:
+                `detail fetch failed: ${lastError}`,
+              evidence: [],
+              listingPrice:
+                money(
+                  candidate.priceText
+                ),
+              detailPrice:
+                null
+            });
+
+            continue;
+          }
+
+          try {
+
+            const record =
+              await extractDetail(
+                page,
+                candidate
+              );
+
+            /*
+              Listing/detail disagreement
+              becomes explicit evidence.
+            */
+            if (
+              record.listingPrice &&
+              record.detailPrice &&
+              record.listingPrice !==
+              record.detailPrice
+            ) {
+
+              conflicts.push({
+                url:
+                  record.url,
+
+                field:
+                  record.businessMode ===
+                  "RENTAL"
+                    ? "Giá thuê/ngày"
+                    : "Giá bán",
+
+                listingValue:
+                  String(
+                    record.listingPrice
+                  ),
+
+                detailValue:
+                  String(
+                    record.detailPrice
+                  )
+              });
+            }
+
+            if (
+              record.disposition ===
+              "accepted"
+            ) {
+              accepted.push(
+                record
+              );
+            }
+            else if (
+              record.disposition ===
+              "excluded"
+            ) {
+              excluded.push(
+                record
+              );
+            }
+            else {
+              review.push(
+                record
+              );
+            }
+
+          } catch (error) {
+
+            errors++;
+
+            review.push({
+              website:
+                hostOf(
+                  candidate.url
+                ),
+              productName:
+                candidate.title,
+              businessMode:
+                candidate.intent ===
+                "RENTAL"
+                  ? "RENTAL"
+                  : candidate.intent ===
+                    "SECOND_HAND"
+                      ? "SECOND_HAND"
+                      : "NEW",
+              specs: "",
+              rentalPricePerDay:
+                null,
+              rentalConditions:
+                "",
+              includedAccessories:
+                "",
+              bundle: "",
+              rating: null,
+              reviewCount: null,
+              stock: "",
+              salePrice: null,
+              url:
+                candidate.url,
+              disposition:
+                "review",
+              reason:
+                `detail extraction error: ${String(error)}`,
+              evidence: [],
+              listingPrice:
+                money(
+                  candidate.priceText
+                ),
+              detailPrice:
+                null
+            });
+          }
+
+          checked++;
+
+          if (
+            checked % 10 === 0 ||
+            checked ===
+              candidates.length
+          ) {
+
+            console.log(
+              `[DETAIL] ${checked}/${candidates.length}` +
+              ` | accepted=${accepted.length}` +
+              ` excluded=${excluded.length}` +
+              ` review=${review.length}` +
+              ` errors=${errors}`
+            );
+          }
+        }
+
+      } finally {
+
+        await page.close();
+      }
+    };
+
+  await Promise.all(
+    Array.from(
+      {
+        length:
+          workers
+      },
+      (_, i) =>
+        runWorker(i + 1)
+    )
+  );
+
+  return {
+    accepted,
+    excluded,
+    review,
+    conflicts,
+    checked,
+    errors
+  };
+}

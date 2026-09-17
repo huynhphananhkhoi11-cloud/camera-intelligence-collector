@@ -1,0 +1,554 @@
+﻿import type {
+  BrowserContext,
+  Page
+} from "playwright";
+
+export type CatalogIntent =
+  | "RENTAL"
+  | "SECOND_HAND"
+  | "NEW"
+  | "CAMERA_GENERIC";
+
+export interface CatalogSeed {
+  url: string;
+  intent: CatalogIntent;
+  label: string;
+}
+
+export interface ProductCandidate {
+  url: string;
+  title: string;
+  intent: CatalogIntent;
+  catalogUrl: string;
+  priceText: string;
+}
+
+export interface CatalogCrawlResult {
+  visitedCatalogs: string[];
+  products: ProductCandidate[];
+  queueRemaining: number;
+  skippedBySafetyLimit: number;
+}
+
+function canonicalUrl(
+  value: string
+): string {
+
+  try {
+    const u = new URL(value);
+
+    u.hash = "";
+
+    for (
+      const key of [
+        "utm_source",
+        "utm_medium",
+        "utm_campaign",
+        "fbclid"
+      ]
+    ) {
+      u.searchParams.delete(key);
+    }
+
+    return u.href;
+
+  } catch {
+    return value;
+  }
+}
+
+async function scanCatalogPage(
+  page: Page,
+  intent: CatalogIntent
+): Promise<{
+  products: ProductCandidate[];
+  pagination: string[];
+}> {
+
+  /*
+    Raw JavaScript string intentionally used here.
+    It avoids the tsx/esbuild __name issue inside
+    Playwright browser context.
+  */
+  const raw = await page.evaluate(`
+    (() => {
+
+      const clean = (value) =>
+        String(value || "")
+          .replace(/\\s+/g, " ")
+          .trim();
+
+      const anchors =
+        Array.from(
+          document.querySelectorAll(
+            "a[href]"
+          )
+        );
+
+      const products = [];
+      const pagination = [];
+
+      const origin =
+        location.origin;
+
+      for (const a of anchors) {
+
+        const href =
+          a.href || "";
+
+        if (!href) continue;
+
+        let parsed;
+
+        try {
+          parsed = new URL(href);
+        } catch {
+          continue;
+        }
+
+        if (
+          parsed.origin !== origin
+        ) {
+          continue;
+        }
+
+        const title =
+          clean(
+            a.innerText ||
+            a.textContent ||
+            a.getAttribute("title") ||
+            ""
+          );
+
+        /*
+          Read a small local region around each
+          link so that product name and price can
+          be siblings inside the same card.
+        */
+        let container =
+          a.parentElement;
+
+        let nearby =
+          title;
+
+        for (
+          let depth = 0;
+          depth < 4 &&
+          container;
+          depth++
+        ) {
+
+          const text =
+            clean(
+              container.innerText ||
+              container.textContent ||
+              ""
+            );
+
+          if (
+            text.length >
+            nearby.length
+          ) {
+            nearby = text;
+          }
+
+          container =
+            container.parentElement;
+        }
+
+        const cameraBrand =
+          /\\b(canon|sony|nikon|fujifilm|fuji|lumix|panasonic|olympus|om system|leica|ricoh|pentax|gopro|dji|insta360)\\b/i
+            .test(
+              title + " " + nearby
+            );
+
+        const cameraWords =
+          /máy ảnh|camera|body|mirrorless|dslr|compact/i
+            .test(
+              title + " " + nearby
+            );
+
+        const priceMatch =
+          nearby.match(
+            /(?:\\d{1,3}(?:[.,]\\d{3})+|\\d+(?:[.,]\\d+)?)\\s*(?:đ|₫|vnd)/i
+          );
+
+        const irrelevant =
+          /ống kính|lens|pin|battery|sạc|charger|ngàm|adapter|filter|tripod|balo|túi máy ảnh|thẻ nhớ|flash/i
+            .test(title);
+
+        /*
+          Product candidate:
+          - camera-like title/context
+          - price in the same local block
+          - not an obvious accessory
+        */
+        if (
+          !irrelevant &&
+          priceMatch &&
+          (
+            cameraBrand ||
+            cameraWords
+          )
+        ) {
+          products.push({
+            url:
+              parsed.href,
+
+            title,
+
+            priceText:
+              priceMatch[0]
+          });
+        }
+
+        /*
+          Pagination:
+          only explicit pagination-like links.
+        */
+        const paginationText =
+          title.toLowerCase();
+
+        const isPagination =
+          /^(next|last|prev|previous|tiếp|trước|sau|\\d+|\\.\\.\\.)$/i
+            .test(
+              paginationText
+            ) ||
+          /[?&](p|page)=\\d+/i
+            .test(
+              parsed.href
+            ) ||
+          /\\/page\\/\\d+/i
+            .test(
+              parsed.pathname
+            );
+
+        if (isPagination) {
+          pagination.push(
+            parsed.href
+          );
+        }
+      }
+
+      return {
+        products,
+        pagination
+      };
+
+    })()
+  `) as {
+    products: {
+      url: string;
+      title: string;
+      priceText: string;
+    }[];
+    pagination: string[];
+  };
+
+  const products =
+    raw.products.map(
+      product => ({
+        url:
+          canonicalUrl(
+            product.url
+          ),
+
+        title:
+          product.title,
+
+        priceText:
+          product.priceText,
+
+        intent,
+
+        catalogUrl:
+          canonicalUrl(
+            page.url()
+          )
+      })
+    );
+
+  const pagination =
+    [
+      ...new Set(
+        raw.pagination.map(
+          canonicalUrl
+        )
+      )
+    ];
+
+  return {
+    products,
+    pagination
+  };
+}
+
+export async function crawlCatalogs(
+  context: BrowserContext,
+  seeds: CatalogSeed[]
+): Promise<CatalogCrawlResult> {
+
+  const queue =
+    seeds.map(
+      seed => ({
+        ...seed,
+        url:
+          canonicalUrl(
+            seed.url
+          )
+      })
+    );
+
+  const intentByUrl =
+    new Map<
+      string,
+      CatalogIntent
+    >();
+
+  for (const seed of queue) {
+    intentByUrl.set(
+      seed.url,
+      seed.intent
+    );
+  }
+
+  const visited =
+    new Set<string>();
+
+  const products =
+    new Map<
+      string,
+      ProductCandidate
+    >();
+
+  /*
+    Safety guard only.
+    Hitting this does NOT count as complete.
+  */
+  const SAFETY_MAX_PAGES =
+    2000;
+
+  let skippedBySafetyLimit =
+    0;
+
+  const page =
+    await context.newPage();
+
+  try {
+
+    while (
+      queue.length > 0
+    ) {
+
+      if (
+        visited.size >=
+        SAFETY_MAX_PAGES
+      ) {
+        skippedBySafetyLimit =
+          queue.length;
+
+        break;
+      }
+
+      const current =
+        queue.shift()!;
+
+      const currentUrl =
+        canonicalUrl(
+          current.url
+        );
+
+      if (
+        visited.has(
+          currentUrl
+        )
+      ) {
+        continue;
+      }
+
+      console.log("");
+      console.log(
+        `[CATALOG ${visited.size + 1}]`
+      );
+
+      console.log(
+        currentUrl
+      );
+
+      try {
+
+        await page.goto(
+          currentUrl,
+          {
+            waitUntil:
+              "domcontentloaded",
+            timeout: 45000
+          }
+        );
+
+        await page.waitForTimeout(
+          700
+        );
+
+      } catch (error) {
+
+        console.log(
+          `  ERROR: ${String(error)}`
+        );
+
+        /*
+          Do NOT silently mark a failed page
+          complete.
+        */
+        continue;
+      }
+
+      visited.add(
+        currentUrl
+      );
+
+      const inheritedIntent =
+        intentByUrl.get(
+          currentUrl
+        ) ??
+        current.intent;
+
+      const scan =
+        await scanCatalogPage(
+          page,
+          inheritedIntent
+        );
+
+      let newProducts = 0;
+
+      for (
+        const product
+        of scan.products
+      ) {
+
+        /*
+          Avoid treating the catalog itself
+          as a product.
+        */
+        if (
+          product.url ===
+          currentUrl
+        ) {
+          continue;
+        }
+
+        const existing =
+          products.get(
+            product.url
+          );
+
+        if (!existing) {
+
+          products.set(
+            product.url,
+            product
+          );
+
+          newProducts++;
+
+        } else if (
+          !existing.title &&
+          product.title
+        ) {
+
+          products.set(
+            product.url,
+            product
+          );
+        }
+      }
+
+      let newPages = 0;
+
+      for (
+        const nextUrlRaw
+        of scan.pagination
+      ) {
+
+        const nextUrl =
+          canonicalUrl(
+            nextUrlRaw
+          );
+
+        if (
+          visited.has(
+            nextUrl
+          )
+        ) {
+          continue;
+        }
+
+        if (
+          queue.some(
+            item =>
+              canonicalUrl(
+                item.url
+              ) ===
+              nextUrl
+          )
+        ) {
+          continue;
+        }
+
+        intentByUrl.set(
+          nextUrl,
+          inheritedIntent
+        );
+
+        queue.push({
+          url:
+            nextUrl,
+
+          intent:
+            inheritedIntent,
+
+          label:
+            current.label
+        });
+
+        newPages++;
+      }
+
+      console.log(
+        `  Products: +${newProducts}`
+      );
+
+      console.log(
+        `  Pagination: +${newPages}`
+      );
+
+      console.log(
+        `  Total products: ${
+          products.size
+        }`
+      );
+
+      console.log(
+        `  Queue: ${
+          queue.length
+        }`
+      );
+    }
+
+  } finally {
+    await page.close();
+  }
+
+  return {
+    visitedCatalogs:
+      [...visited],
+
+    products:
+      [...products.values()],
+
+    queueRemaining:
+      queue.length,
+
+    skippedBySafetyLimit
+  };
+}
