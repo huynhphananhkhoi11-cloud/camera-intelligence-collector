@@ -1,4 +1,4 @@
-﻿import {
+import {
   Command
 } from "commander";
 
@@ -28,6 +28,10 @@ import {
 import {
   computeCoverage
 } from "../coverage/coverageEngine.js";
+
+import {
+  RunReconciliation
+} from "../coverage/runReconciliation.js";
 
 import {
   exportWorkbookV2,
@@ -569,6 +573,25 @@ async function main(): Promise<void> {
       );
 
 
+    /*
+     * Phase 9 zero-silent-drop boundary.
+     *
+     * Every run-scope detail URL is registered before
+     * any detail worker can process it.
+     *
+     * Persistent DISCOVERED state/resume belongs to
+     * the Phase 10 SQLite ledger.
+     */
+    const runId =
+      stamp();
+
+    const reconciliation =
+      new RunReconciliation(
+        runId,
+        urls
+      );
+
+
     console.log("");
     console.log(
       `Catalog pages visited: ${catalogVisited.size}`
@@ -649,6 +672,11 @@ async function main(): Promise<void> {
                   siteMode
                 );
 
+              reconciliation.markDecision(
+                url,
+                result.validation.decision
+              );
+
               results.push(
                 result
               );
@@ -669,16 +697,52 @@ async function main(): Promise<void> {
               error
             ) {
 
+              const errorClass =
+                error instanceof Error
+                  ? error.name ||
+                    "Error"
+                  : "UnknownError";
+
+              const errorMessage =
+                error instanceof Error
+                  ? error.message
+                  : String(error);
+
+              reconciliation.markError(
+                url,
+                {
+                  stage:
+                    "DETAIL",
+
+                  errorClass,
+
+                  message:
+                    errorMessage,
+
+                  attempts:
+                    1,
+
+                  lastStatus:
+                    null,
+
+                  retriable:
+                    true,
+
+                  diagnosticPath:
+                    null
+                }
+              );
+
               audit(
                 auditRows,
                 url,
                 "DETAIL",
                 "ERROR",
-                String(error)
+                errorMessage
               );
 
               console.error(
-                `  ERROR: ${String(error)}`
+                `  ERROR: ${errorMessage}`
               );
             }
           }
@@ -715,6 +779,28 @@ async function main(): Promise<void> {
       )
     );
 
+
+    const reconciliationReport =
+      reconciliation.assertComplete();
+
+    audit(
+      auditRows,
+      startUrl,
+      "DETAIL",
+      "INFO",
+      [
+        "reconciliation=PASS",
+        `run=${runId}`,
+        `discovered=${reconciliationReport.discovered}`,
+        `accept=${reconciliationReport.accepted}`,
+        `review=${reconciliationReport.review}`,
+        `exclude=${reconciliationReport.excluded}`,
+        `error=${reconciliationReport.error}`,
+        `inProgress=${reconciliationReport.inProgress}`
+      ].join(
+        "; "
+      )
+    );
 
     /*
      * ======================================
@@ -783,7 +869,7 @@ async function main(): Promise<void> {
       startUrl,
       "EXPORT",
       "INFO",
-      `run=${stamp()}`
+      `run=${runId}`
     );
 
 
