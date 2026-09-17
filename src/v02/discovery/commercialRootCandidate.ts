@@ -11,7 +11,8 @@ export type RootEvidenceKind =
   | "SEED_SOURCE"
   | "COMMERCIAL_PATH"
   | "MENU_TEXT"
-  | "SITEMAP_CLUSTER";
+  | "SITEMAP_CLUSTER"
+  | "PROBE";
 
 
 export interface RootEvidence {
