@@ -307,5 +307,116 @@ describe(
       }
     );
 
+
+    test(
+      "handles a large sitemap cluster without rescanning per seed",
+      () => {
+
+        const fixture =
+          bootstrapFixture();
+
+
+        const pageUrls =
+          Array.from(
+            {
+              length:
+                3000
+            },
+            (
+              _,
+              index
+            ) =>
+              `https://example.com/store/item-${index + 1}`
+          );
+
+
+        fixture.sitemaps.pageUrls =
+          pageUrls;
+
+
+        fixture.seeds = [
+          {
+            url:
+              "https://example.com/store",
+
+            sources: [
+              "MENU",
+              "SITEMAP"
+            ],
+
+            confidence:
+              0.85
+          },
+
+          ...pageUrls.map(
+            url => ({
+              url,
+
+              sources: [
+                "SITEMAP" as const
+              ],
+
+              confidence:
+                0.8
+            })
+          )
+        ];
+
+
+        fixture.menuSeeds = [
+          {
+            url:
+              "https://example.com/store",
+
+            text:
+              "Store",
+
+            confidence:
+              0.85,
+
+            reasons: [
+              "navigation structure"
+            ]
+          }
+        ];
+
+
+        const candidates =
+          buildRootCandidates(
+            fixture
+          );
+
+
+        const store =
+          candidates.find(
+            candidate =>
+              candidate.url ===
+              "https://example.com/store"
+          );
+
+
+        expect(
+          store
+        ).toBeDefined();
+
+
+        expect(
+          store?.evidence.some(
+            evidence =>
+              evidence.kind ===
+                "SITEMAP_CLUSTER" &&
+              evidence.detail ===
+                "descendants=3000"
+          )
+        ).toBe(true);
+
+
+        expect(
+          store?.score
+        ).toBeGreaterThanOrEqual(
+          75
+        );
+      }
+    );
   }
 );

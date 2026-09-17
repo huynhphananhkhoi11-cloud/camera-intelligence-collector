@@ -1,5 +1,6 @@
 import {
-  chromium
+  chromium,
+  type BrowserContext
 } from "playwright";
 
 import type {
@@ -69,20 +70,86 @@ export interface CommercialRootDiscoveryOptions {
   navigationTimeoutMs?: number;
 
   settleTimeoutMs?: number;
+
+  candidateTimeoutMs?: number;
+
+  observerStopTimeoutMs?: number;
+
+  onProgress?: (
+    current: number,
+    total: number,
+    url: string
+  ) => void;
+}
+
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label: string
+): Promise<T> {
+
+  let timer:
+    ReturnType<
+      typeof setTimeout
+    > | undefined;
+
+
+  const timeout =
+    new Promise<never>(
+      (
+        _,
+        reject
+      ) => {
+
+        timer =
+          setTimeout(
+            () => {
+
+              reject(
+                new Error(
+                  `${label} timed out after ${timeoutMs}ms`
+                )
+              );
+            },
+            timeoutMs
+          );
+      }
+    );
+
+
+  try {
+
+    return await Promise.race([
+      promise,
+      timeout
+    ]);
+  }
+  finally {
+
+    if (
+      timer !==
+      undefined
+    ) {
+
+      clearTimeout(
+        timer
+      );
+    }
+  }
 }
 
 
 function mergeEvidence(
   root:
-    RootEvidence[],
+    readonly RootEvidence[],
   probe:
     CommercialRootProbeResult
 ): RootEvidence[] {
 
-  return [
-    ...root,
-
-    ...probe.evidence.map<RootEvidence>(
+  const probeEvidence:
+    RootEvidence[] =
+    probe.evidence.map(
       evidence => ({
         kind:
           "PROBE",
@@ -93,16 +160,20 @@ function mergeEvidence(
         detail:
           `${evidence.kind}: ${evidence.detail}`
       })
-    )
+    );
+
+
+  return [
+    ...root,
+    ...probeEvidence
   ];
 }
 
 
 /**
- * Combine seed evidence and live probe score.
- *
- * Probe evidence is deliberately stronger than
- * URL/menu hints but initial provenance remains.
+ * Live probe evidence is stronger than
+ * URL/menu hints, but initial provenance
+ * remains visible.
  */
 export function mergeCandidateAndProbe(
   candidate:
@@ -111,15 +182,10 @@ export function mergeCandidateAndProbe(
     CommercialRootProbeResult
 ): ProbedRootCandidate {
 
-  const combinedScore =
-    Math.min(
-      100,
-
-      candidate.score +
-      Math.round(
-        probe.score *
-        0.7
-      )
+  const probeContribution =
+    Math.round(
+      probe.score *
+      0.7
     );
 
 
@@ -130,7 +196,11 @@ export function mergeCandidateAndProbe(
       candidate.score,
 
     score:
-      combinedScore,
+      Math.min(
+        100,
+        candidate.score +
+        probeContribution
+      ),
 
     evidence:
       mergeEvidence(
@@ -164,6 +234,185 @@ export function selectCommercialRoots(
 }
 
 
+interface ProbeOneOptions {
+  navigationTimeoutMs:
+    number;
+
+  settleTimeoutMs:
+    number;
+
+  candidateTimeoutMs:
+    number;
+
+  observerStopTimeoutMs:
+    number;
+}
+
+
+/**
+ * Probe ONE root candidate with a fresh page.
+ *
+ * The whole candidate has a hard timeout.
+ * A hung response body therefore cannot block
+ * root discovery forever.
+ */
+async function probeOneCandidate(
+  context:
+    BrowserContext,
+  candidate:
+    RootCandidate,
+  options:
+    ProbeOneOptions
+): Promise<ProbedRootCandidate> {
+
+  const page =
+    await context.newPage();
+
+
+  const observer =
+    attachNetworkObserver(
+      page,
+      {
+        maxBodyBytes:
+          512 * 1024,
+
+        maxResponseBodies:
+          25,
+
+        maxRecordedEvents:
+          500
+      }
+    );
+
+
+  const work =
+    async (): Promise<
+      ProbedRootCandidate
+    > => {
+
+      await page.goto(
+        candidate.url,
+        {
+          waitUntil:
+            "domcontentloaded",
+
+          timeout:
+            options
+              .navigationTimeoutMs
+        }
+      );
+
+
+      if (
+        options.settleTimeoutMs >
+        0
+      ) {
+
+        try {
+
+          await page.waitForLoadState(
+            "networkidle",
+            {
+              timeout:
+                options
+                  .settleTimeoutMs
+            }
+          );
+        }
+        catch {
+          /*
+           * Analytics/polling/websocket can
+           * prevent networkidle.
+           *
+           * This is not fatal.
+           */
+        }
+      }
+
+
+      const html =
+        await page.content();
+
+
+      /*
+       * NetworkObserver may still have async
+       * response-body reads.
+       *
+       * Do not let those block root discovery.
+       */
+      let network =
+        observer.snapshot();
+
+
+      try {
+
+        network =
+          await withTimeout(
+            observer.stop(),
+            options
+              .observerStopTimeoutMs,
+            "network observer stop"
+          );
+      }
+      catch {
+
+        network =
+          observer.snapshot();
+      }
+
+
+      const probe =
+        probeCommercialRootHtml(
+          html,
+          page.url(),
+          network
+        );
+
+
+      return mergeCandidateAndProbe(
+        candidate,
+        probe
+      );
+    };
+
+
+  try {
+
+    return await withTimeout(
+      work(),
+      options.candidateTimeoutMs,
+      `root probe ${candidate.url}`
+    );
+  }
+  finally {
+
+    /*
+     * Closing the page cancels leftover page
+     * network work from this candidate.
+     */
+    await page.close({
+      runBeforeUnload:
+        false
+    })
+      .catch(
+        () => undefined
+      );
+
+
+    /*
+     * Do not await indefinitely here.
+     *
+     * observer.stop() removes listeners before
+     * its internal async flush.
+     */
+    void observer.stop()
+      .catch(
+        () => undefined
+      );
+  }
+}
+
+
 export async function discoverCommercialRootsLive(
   bootstrap:
     SiteBootstrapResult,
@@ -172,23 +421,40 @@ export async function discoverCommercialRootsLive(
 ): Promise<CommercialRootDiscoveryResult> {
 
   const maxCandidates =
-    options.maxCandidates ??
-    8;
+    Math.max(
+      1,
+      options.maxCandidates ??
+      4
+    );
+
 
   const minimumInitialScore =
     options.minimumInitialScore ??
     20;
 
+
   const minimumRootScore =
     options.minimumRootScore ??
     45;
 
+
   const navigationTimeoutMs =
     options.navigationTimeoutMs ??
-    30000;
+    10000;
+
 
   const settleTimeoutMs =
     options.settleTimeoutMs ??
+    750;
+
+
+  const candidateTimeoutMs =
+    options.candidateTimeoutMs ??
+    15000;
+
+
+  const observerStopTimeoutMs =
+    options.observerStopTimeoutMs ??
     1500;
 
 
@@ -222,12 +488,10 @@ export async function discoverCommercialRootsLive(
   const context =
     await browser.newContext();
 
-  const page =
-    await context.newPage();
-
 
   const probed:
     ProbedRootCandidate[] = [];
+
 
   const errors:
     CommercialRootError[] = [];
@@ -236,110 +500,74 @@ export async function discoverCommercialRootsLive(
   try {
 
     for (
-      const candidate
-      of queue
+      const [
+        index,
+        candidate
+      ]
+      of queue.entries()
     ) {
 
-      /*
-       * Attach observer before each candidate
-       * navigation.
-       */
-      const observer =
-        attachNetworkObserver(
-          page
-        );
+      options.onProgress?.(
+        index + 1,
+        queue.length,
+        candidate.url
+      );
 
 
       try {
 
-        await page.goto(
-          candidate.url,
-          {
-            waitUntil:
-              "domcontentloaded",
-
-            timeout:
-              navigationTimeoutMs
-          }
-        );
-
-
-        if (
-          settleTimeoutMs >
-          0
-        ) {
-
-          try {
-
-            await page.waitForLoadState(
-              "networkidle",
-              {
-                timeout:
-                  settleTimeoutMs
-              }
-            );
-          }
-          catch {
-            // Polling/analytics may prevent networkidle.
-          }
-        }
-
-
-        const html =
-          await page.content();
-
-
-        const network =
-          await observer.stop();
-
-
-        const probe =
-          probeCommercialRootHtml(
-            html,
-            page.url(),
-            network
+        const result =
+          await probeOneCandidate(
+            context,
+            candidate,
+            {
+              navigationTimeoutMs,
+              settleTimeoutMs,
+              candidateTimeoutMs,
+              observerStopTimeoutMs
+            }
           );
 
 
         probed.push(
-          mergeCandidateAndProbe(
-            candidate,
-            probe
-          )
+          result
         );
       }
       catch (
         error
       ) {
 
-        try {
-          await observer.stop();
-        }
-        catch {
-          // Preserve original error.
-        }
-
-
         errors.push({
           url:
             candidate.url,
 
           error:
-            String(
-              error
-            )
+            error instanceof Error
+              ? error.message
+              : String(
+                  error
+                )
         });
       }
     }
   }
   finally {
 
-    await context.close()
+    await withTimeout(
+      context.close(),
+      5000,
+      "browser context close"
+    )
       .catch(
         () => undefined
       );
 
-    await browser.close()
+
+    await withTimeout(
+      browser.close(),
+      5000,
+      "browser close"
+    )
       .catch(
         () => undefined
       );

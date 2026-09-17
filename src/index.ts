@@ -42,6 +42,10 @@ import {
   profileSiteLive
 } from "./v02/profiling/liveSiteProfiler.js";
 
+import {
+  discoverCommercialRootsLive
+} from "./v02/discovery/commercialRootDiscovery.js";
+
 const program = new Command();
 
 program
@@ -675,10 +679,15 @@ program
       console.log("");
 
 
-      const result =
-        await bootstrapSite(
-          url
-        );
+      console.log("[1/3] Bootstrapping site...");
+
+      const bootstrapStartedAt = Date.now();
+
+      const result = await bootstrapSite(url);
+
+      console.log(
+        `[1/3] Bootstrap complete in ${((Date.now() - bootstrapStartedAt) / 1000).toFixed(1)}s`
+      );
 
       /*
        * ======================================
@@ -688,6 +697,10 @@ program
        * No --site-mode input.
        * Site profile is observational prior only.
        */
+      console.log("[2/3] Profiling site...");
+
+      const profileStartedAt = Date.now();
+
       const liveProfile =
         await profileSiteLive(
           result.finalUrl,
@@ -703,6 +716,10 @@ program
           }
         );
 
+
+      console.log(
+        `[2/3] Profiling complete in ${((Date.now() - profileStartedAt) / 1000).toFixed(1)}s`
+      );
 
       console.log("");
       console.log(
@@ -832,7 +849,138 @@ program
 
 
 
-      const persisted =
+
+      /*
+       * ======================================
+       * PHASE 4 — COMMERCIAL ROOT DISCOVERY
+       * ======================================
+       */
+      console.log("[3/3] Discovering commercial roots...");
+
+      const rootDiscoveryStartedAt = Date.now();
+
+      const rootDiscovery =
+        await discoverCommercialRootsLive(
+          result,
+          {
+            headless:
+              true,
+
+            maxCandidates:
+              4,
+
+            minimumInitialScore:
+              20,
+
+            minimumRootScore:
+              45,
+
+            navigationTimeoutMs:
+              10000,
+
+            settleTimeoutMs:
+              750,
+
+            candidateTimeoutMs:
+              15000,
+
+            observerStopTimeoutMs:
+              1500,
+
+            onProgress:
+              (
+                current,
+                total,
+                candidateUrl
+              ) => {
+
+                console.log(
+                  `  Root probe ${current}/${total}: ${candidateUrl}`
+                );
+              }
+          }
+        );
+
+
+      console.log(
+        `[3/3] Root discovery complete in ${((Date.now() - rootDiscoveryStartedAt) / 1000).toFixed(1)}s`
+      );
+
+      console.log("");
+      console.log(
+        "Commercial root discovery:"
+      );
+
+      console.log(
+        `  Candidates: ${
+          rootDiscovery
+            .candidates
+            .length
+        }`
+      );
+
+      console.log(
+        `  Probed:     ${
+          rootDiscovery
+            .probed
+            .length
+        }`
+      );
+
+      console.log(
+        `  Roots:      ${
+          rootDiscovery
+            .roots
+            .length
+        }`
+      );
+
+      console.log(
+        `  Errors:     ${
+          rootDiscovery
+            .errors
+            .length
+        }`
+      );
+
+
+      for (
+        const root
+        of rootDiscovery.roots
+          .slice(
+            0,
+            10
+          )
+      ) {
+
+        console.log(
+          `  [${
+            root.score
+          }] ${root.url}`
+        );
+
+        console.log(
+          `       initial=${
+            root.initialScore
+          }; probe=${
+            root.probe.score
+          }; cards=${
+            root.probe
+              .repeatedCardCount
+          }; api=${
+            root.probe
+              .apiCandidateCount
+          }`
+        );
+      }
+
+
+      /*
+       * Root candidates are catalog-region hints.
+       * They DO NOT classify product entity.
+       */
+
+const persisted =
         await persistBootstrapSnapshot(
           result
         );
@@ -937,7 +1085,7 @@ program
 
       console.log("");
       console.log(
-        "PHASE 2 BOOTSTRAP COMPLETE"
+        "PHASE 4 COMMERCIAL ROOT DISCOVERY COMPLETE"
       );
     }
   );

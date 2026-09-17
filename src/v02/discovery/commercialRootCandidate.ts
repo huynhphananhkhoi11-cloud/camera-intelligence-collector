@@ -62,6 +62,32 @@ function normalizeText(
 }
 
 
+function normalizePath(
+  pathname: string
+): string {
+
+  if (
+    pathname ===
+    "/"
+  ) {
+    return "/";
+  }
+
+
+  const normalized =
+    pathname.replace(
+      /\/+$/,
+      ""
+    );
+
+
+  return (
+    normalized ||
+    "/"
+  );
+}
+
+
 export function isHardExcludedRootUrl(
   rawUrl: string
 ): boolean {
@@ -72,6 +98,7 @@ export function isHardExcludedRootUrl(
       new URL(
         rawUrl
       );
+
 
     return /\/(?:cart|gio-hang|checkout|login|dang-nhap|register|account|search|tim-kiem|contact|lien-he)(?:\/|$)/i
       .test(
@@ -93,6 +120,7 @@ function hasCommercialPathSignal(
       pathname
     );
 
+
   return /\/(?:products?|san-pham|shop|store|catalog|categories?|category|danh-muc|equipment|equipments|thiet-bi|rental|rent|thue|collections?)(?:\/|$)/i
     .test(
       normalized
@@ -109,6 +137,7 @@ function hasCommercialMenuSignal(
       text
     );
 
+
   return /\b(?:san pham|products?|shop|store|catalog|danh muc|category|categories|equipment|thiet bi|cho thue|thue|rental|collections?)\b/i
     .test(
       normalized
@@ -116,65 +145,202 @@ function hasCommercialMenuSignal(
 }
 
 
-function descendantCount(
-  candidateUrl: string,
+/**
+ * Build descendant counts in ONE pass over
+ * sitemap URLs.
+ *
+ * Example:
+ *
+ * /categories/4
+ *
+ * contributes one descendant to:
+ *
+ * /categories
+ *
+ *
+ * /shop/cameras/canon-r50
+ *
+ * contributes one descendant to:
+ *
+ * /shop
+ * /shop/cameras
+ *
+ *
+ * This avoids rescanning the entire sitemap
+ * for every bootstrap seed.
+ */
+function buildSitemapClusterIndex(
+  canonicalOrigin: string,
   sitemapUrls:
     readonly string[]
-): number {
+): Map<string, number> {
 
-  const candidate =
+  const counts =
+    new Map<
+      string,
+      number
+    >();
+
+
+  const origin =
     new URL(
-      candidateUrl
-    );
+      canonicalOrigin
+    ).origin;
 
-  if (
-    candidate.pathname ===
-    "/"
-  ) {
-    return 0;
-  }
 
-  const prefix =
-    candidate.pathname
-      .replace(
-        /\/+$/,
-        ""
-      ) +
-    "/";
+  /*
+   * Avoid duplicate sitemap URLs inflating
+   * cluster evidence.
+   */
+  const uniqueUrls =
+    new Set<string>();
 
-  let count =
-    0;
 
   for (
     const raw
     of sitemapUrls
   ) {
 
+    const canonical =
+      canonicalizeUrl(
+        raw,
+        canonicalOrigin
+      );
+
+
+    if (!canonical) {
+      continue;
+    }
+
+
+    if (
+      uniqueUrls.has(
+        canonical
+      )
+    ) {
+      continue;
+    }
+
+
+    uniqueUrls.add(
+      canonical
+    );
+
+
+    let parsed:
+      URL;
+
+
     try {
 
-      const item =
+      parsed =
         new URL(
-          raw
+          canonical
         );
-
-      if (
-        item.origin ===
-          candidate.origin &&
-        item.pathname.startsWith(
-          prefix
-        )
-      ) {
-
-        count +=
-          1;
-      }
     }
     catch {
-      // Ignore malformed sitemap URL.
+      continue;
+    }
+
+
+    if (
+      parsed.origin !==
+      origin
+    ) {
+      continue;
+    }
+
+
+    const segments =
+      parsed.pathname
+        .split(
+          "/"
+        )
+        .filter(
+          Boolean
+        );
+
+
+    /*
+     * The full URL is not its own descendant.
+     *
+     * Therefore stop before segments.length.
+     */
+    for (
+      let depth = 1;
+      depth <
+        segments.length;
+      depth += 1
+    ) {
+
+      const prefix =
+        "/" +
+        segments
+          .slice(
+            0,
+            depth
+          )
+          .join(
+            "/"
+          );
+
+
+      counts.set(
+        prefix,
+        (
+          counts.get(
+            prefix
+          ) ??
+          0
+        ) +
+        1
+      );
     }
   }
 
-  return count;
+
+  return counts;
+}
+
+
+function clusterCountForUrl(
+  rawUrl: string,
+  clusterIndex:
+    ReadonlyMap<string, number>
+): number {
+
+  try {
+
+    const url =
+      new URL(
+        rawUrl
+      );
+
+
+    const path =
+      normalizePath(
+        url.pathname
+      );
+
+
+    if (
+      path ===
+      "/"
+    ) {
+      return 0;
+    }
+
+
+    return (
+      clusterIndex.get(
+        path
+      ) ??
+      0
+    );
+  }
+  catch {
+    return 0;
+  }
 }
 
 
@@ -182,6 +348,19 @@ export function buildRootCandidates(
   bootstrap:
     SiteBootstrapResult
 ): RootCandidate[] {
+
+  /*
+   * ======================================
+   * PRECOMPUTE ONCE
+   * ======================================
+   */
+
+  const clusterIndex =
+    buildSitemapClusterIndex(
+      bootstrap.canonicalOrigin,
+      bootstrap.sitemaps.pageUrls
+    );
+
 
   const menuText =
     new Map<
@@ -201,6 +380,7 @@ export function buildRootCandidates(
         bootstrap.canonicalOrigin
       );
 
+
     if (
       canonical
     ) {
@@ -213,8 +393,15 @@ export function buildRootCandidates(
   }
 
 
-  const candidates:
-    RootCandidate[] = [];
+  /*
+   * Deduplicate bootstrap seed URLs while
+   * preserving all source provenance.
+   */
+  const seedMap =
+    new Map<
+      string,
+      Set<string>
+    >();
 
 
   for (
@@ -228,6 +415,7 @@ export function buildRootCandidates(
         bootstrap.canonicalOrigin
       );
 
+
     if (
       !canonical ||
       isHardExcludedRootUrl(
@@ -238,11 +426,22 @@ export function buildRootCandidates(
     }
 
 
-    const evidence:
-      RootEvidence[] = [];
+    let sources =
+      seedMap.get(
+        canonical
+      );
 
-    let score =
-      0;
+
+    if (!sources) {
+
+      sources =
+        new Set<string>();
+
+      seedMap.set(
+        canonical,
+        sources
+      );
+    }
 
 
     for (
@@ -250,8 +449,53 @@ export function buildRootCandidates(
       of seed.sources
     ) {
 
+      sources.add(
+        source
+      );
+    }
+  }
+
+
+  /*
+   * ======================================
+   * SCORE EACH UNIQUE SEED
+   * ======================================
+   */
+
+  const candidates:
+    RootCandidate[] = [];
+
+
+  for (
+    const [
+      canonical,
+      sourceSet
+    ]
+    of seedMap
+  ) {
+
+    const evidence:
+      RootEvidence[] = [];
+
+
+    let score =
+      0;
+
+
+    const sources =
+      Array.from(
+        sourceSet
+      );
+
+
+    for (
+      const source
+      of sources
+    ) {
+
       let weight =
         0;
+
 
       switch (
         source
@@ -287,6 +531,7 @@ export function buildRootCandidates(
         score +=
           weight;
 
+
         evidence.push({
           kind:
             "SEED_SOURCE",
@@ -314,6 +559,7 @@ export function buildRootCandidates(
 
       score +=
         20;
+
 
       evidence.push({
         kind:
@@ -345,6 +591,7 @@ export function buildRootCandidates(
       score +=
         15;
 
+
       evidence.push({
         kind:
           "MENU_TEXT",
@@ -361,10 +608,13 @@ export function buildRootCandidates(
     }
 
 
+    /*
+     * O(1) lookup instead of full sitemap scan.
+     */
     const descendants =
-      descendantCount(
+      clusterCountForUrl(
         canonical,
-        bootstrap.sitemaps.pageUrls
+        clusterIndex
       );
 
 
@@ -375,6 +625,7 @@ export function buildRootCandidates(
 
       score +=
         25;
+
 
       evidence.push({
         kind:
@@ -394,6 +645,7 @@ export function buildRootCandidates(
 
       score +=
         15;
+
 
       evidence.push({
         kind:
@@ -418,8 +670,7 @@ export function buildRootCandidates(
           100
         ),
 
-      sources:
-        [...seed.sources],
+      sources,
 
       evidence
     });
@@ -428,11 +679,15 @@ export function buildRootCandidates(
 
   return candidates
     .sort(
-      (a, b) => {
+      (
+        a,
+        b
+      ) => {
 
         const scoreDifference =
           b.score -
           a.score;
+
 
         if (
           scoreDifference !==
@@ -440,6 +695,7 @@ export function buildRootCandidates(
         ) {
           return scoreDifference;
         }
+
 
         return (
           a.url.length -
