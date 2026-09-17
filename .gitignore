@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 dist/
 output/
 
@@ -14,7 +14,7 @@ data/*.sqlite-*
 *.backup
 *.before-*
 
-coverage/
+/coverage/
 .DS_Store
 Thumbs.db
 
