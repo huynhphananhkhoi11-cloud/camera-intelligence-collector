@@ -1,4 +1,4 @@
-﻿import {
+import {
   parseRentalPrice,
   parseSalePrice,
   parseStructuredPrice
@@ -34,6 +34,7 @@ export interface ResolvedField<T> {
   value: T;
   evidence: FieldEvidence[];
   conflict: boolean;
+  confidence: number;
 }
 
 
@@ -42,6 +43,7 @@ export interface ResolvedPrice {
   contact: boolean;
   evidence: FieldEvidence[];
   conflict: boolean;
+  confidence: number;
 }
 
 
@@ -534,6 +536,62 @@ function detectContactPrice(
 }
 
 
+function resolutionConfidence(
+  hasEvidence: boolean,
+  conflict: boolean
+): number {
+
+  if (!hasEvidence) {
+    return 0;
+  }
+
+  return conflict
+    ? 0.5
+    : 1;
+}
+
+
+function emptyResolvedPrice():
+  ResolvedPrice {
+
+  return {
+    amount:
+      null,
+
+    contact:
+      false,
+
+    evidence:
+      [],
+
+    conflict:
+      false,
+
+    confidence:
+      0
+  };
+}
+
+
+function emptyStringField():
+  ResolvedField<string> {
+
+  return {
+    value:
+      "",
+
+    evidence:
+      [],
+
+    conflict:
+      false,
+
+    confidence:
+      0
+  };
+}
+
+
 function resolvePrice(
   facts:
     RawProductFacts,
@@ -618,21 +676,32 @@ function resolvePrice(
       )
     );
 
+  const contact =
+    detectContactPrice(
+      facts
+    );
+
+  const conflict =
+    amounts.length >
+      1;
+
   return {
     amount:
       selected?.amount ??
       null,
 
-    contact:
-      detectContactPrice(
-        facts
-      ),
+    contact,
 
     evidence,
 
-    conflict:
-      amounts.length >
-        1
+    conflict,
+
+    confidence:
+      resolutionConfidence(
+        selected !== null ||
+          contact,
+        conflict
+      )
   };
 }
 
@@ -652,10 +721,8 @@ function sectionField(
       key
     );
 
-  return {
-    value,
-
-    evidence:
+  const evidence:
+    FieldEvidence[] =
       value
         ? [{
             source:
@@ -664,10 +731,22 @@ function sectionField(
             raw:
               value
           }]
-        : [],
+        : [];
+
+  return {
+    value,
+
+    evidence,
 
     conflict:
-      false
+      false,
+
+    confidence:
+      resolutionConfidence(
+        evidence.length >
+          0,
+        false
+      )
   };
 }
 
@@ -932,7 +1011,15 @@ function resolveRating(
 
       conflict:
         ratingValues.length >
-          1
+          1,
+
+      confidence:
+        resolutionConfidence(
+          ratingCandidates.length >
+            0,
+          ratingValues.length >
+            1
+        )
     },
 
     reviewCount: {
@@ -952,7 +1039,15 @@ function resolveRating(
 
       conflict:
         reviewValues.length >
-          1
+          1,
+
+      confidence:
+        resolutionConfidence(
+          reviewCandidates.length >
+            0,
+          reviewValues.length >
+            1
+        )
     }
   };
 }
@@ -1068,21 +1163,37 @@ function resolveStock(
     );
 
 
+  const selected =
+    structuredValue ||
+    visibleValue;
+
+  const resolvedEvidence =
+    uniqueBy(
+      evidence,
+      item =>
+        `${item.source}|${item.raw}`
+    );
+
+  const conflict =
+    values.length >
+      1;
+
   return {
     value:
-      structuredValue ||
-      visibleValue,
+      selected,
 
     evidence:
-      uniqueBy(
-        evidence,
-        item =>
-          `${item.source}|${item.raw}`
-      ),
+      resolvedEvidence,
 
-    conflict:
-      values.length >
-        1
+    conflict,
+
+    confidence:
+      resolutionConfidence(
+        Boolean(selected) &&
+          resolvedEvidence.length >
+            0,
+        conflict
+      )
   };
 }
 
@@ -1100,17 +1211,71 @@ export function resolveProductFields(
     );
 
 
+  /*
+   * ==========================================
+   * TRANSACTION-SCOPED FIELDS
+   * ==========================================
+   *
+   * Resolver does not infer transaction type.
+   *
+   * Phase 7 owns RENTAL / SALE truth.
+   * Phase 8 may only resolve transaction-specific
+   * fields after that truth is proven.
+   */
+  const rentalPrice =
+    analysis.offer.rental
+      ? resolvePrice(
+          facts,
+          analysis,
+          "RENTAL"
+        )
+      : emptyResolvedPrice();
+
+  const salePrice =
+    analysis.offer.sale
+      ? resolvePrice(
+          facts,
+          analysis,
+          "SALE"
+        )
+      : emptyResolvedPrice();
+
+
   const rentalConditions =
-    getSectionEvidenceText(
-      facts.sections,
-      [
-        "RENTAL_CONDITIONS",
-        "RENTAL_TIME",
-        "DOCUMENTS",
-        "DELIVERY",
-        "PAYMENT"
-      ]
-    );
+    analysis.offer.rental
+      ? getSectionEvidenceText(
+          facts.sections,
+          [
+            "RENTAL_CONDITIONS",
+            "RENTAL_TIME",
+            "DOCUMENTS",
+            "DELIVERY",
+            "PAYMENT"
+          ]
+        )
+      : "";
+
+  const rentalConditionField =
+    rentalConditions
+      ? {
+          value:
+            rentalConditions,
+
+          evidence: [{
+            source:
+              "SECTION" as const,
+
+            raw:
+              rentalConditions
+          }],
+
+          conflict:
+            false,
+
+          confidence:
+            1
+        }
+      : emptyStringField();
 
 
   return {
@@ -1120,38 +1285,12 @@ export function resolveProductFields(
         "SPECS"
       ),
 
-    rentalPrice:
-      resolvePrice(
-        facts,
-        analysis,
-        "RENTAL"
-      ),
+    rentalPrice,
 
-    salePrice:
-      resolvePrice(
-        facts,
-        analysis,
-        "SALE"
-      ),
+    salePrice,
 
-    rentalConditions: {
-      value:
-        rentalConditions,
-
-      evidence:
-        rentalConditions
-          ? [{
-              source:
-                "SECTION",
-
-              raw:
-                rentalConditions
-            }]
-          : [],
-
-      conflict:
-        false
-    },
+    rentalConditions:
+      rentalConditionField,
 
     accessories:
       sectionField(

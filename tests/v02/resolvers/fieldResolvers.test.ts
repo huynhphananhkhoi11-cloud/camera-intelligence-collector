@@ -1,4 +1,4 @@
-﻿import {
+import {
   describe,
   expect,
   test
@@ -185,6 +185,14 @@ describe(
         const html = `
           <h1>Canon R50</h1>
 
+          <div class="price">
+            288.000&#273;/ng&#224;y
+          </div>
+
+          <button>
+            THU&#202; NGAY
+          </button>
+
           <h2>
             THÔNG SỐ KỸ THUẬT
           </h2>
@@ -214,6 +222,10 @@ describe(
             facts,
             "UNKNOWN"
           );
+
+        expect(
+          analysis.offer.rental
+        ).toBe(true);
 
         const fields =
           resolveProductFields(
@@ -346,6 +358,487 @@ describe(
         ).toContain(
           "Body + Lens Kit"
         );
+      }
+    );
+  }
+);
+
+
+describe(
+  "Phase 8 resolver contract",
+  () => {
+
+    test(
+      "rental-only product cannot leak a sale listing price",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <h1>
+                Sony A6400
+              </h1>
+
+              <div class="price">
+                360.000&#273;/ng&#224;y
+              </div>
+
+              <button>
+                THU&#202; NGAY
+              </button>
+
+              <h2>
+                TH&#212;NG S&#7888; K&#7928; THU&#7852;T
+              </h2>
+
+              <div>
+                Mirrorless.
+                Cam bien APS-C 24.2MP.
+                ISO 100-32000.
+                AF 425 diem.
+                EVF.
+                Video 4K.
+              </div>
+            </body>
+          </html>
+        `;
+
+        const facts =
+          extractRawProductFactsFromHtml(
+            html,
+            "https://example.com/rental/a6400"
+          );
+
+        const analysis =
+          analyzeRawProduct(
+            facts,
+            "UNKNOWN"
+          );
+
+        expect(
+          analysis.offer.rental
+        ).toBe(true);
+
+        expect(
+          analysis.offer.sale
+        ).toBe(false);
+
+        const fields =
+          resolveProductFields(
+            {
+              ...facts,
+
+              /*
+               * Simulate stale / unrelated listing context.
+               * Resolver must not promote it into SALE truth.
+               */
+              listingPriceText:
+                "18.000.000\u0111"
+            },
+            analysis
+          );
+
+        expect(
+          fields.rentalPrice.amount
+        ).toBe(360000);
+
+        expect(
+          fields.rentalPrice.confidence
+        ).toBe(1);
+
+        expect(
+          fields.salePrice.amount
+        ).toBeNull();
+
+        expect(
+          fields.salePrice.contact
+        ).toBe(false);
+
+        expect(
+          fields.salePrice.evidence
+        ).toEqual([]);
+
+        expect(
+          fields.salePrice.confidence
+        ).toBe(0);
+      }
+    );
+
+
+    test(
+      "sale-only product cannot leak rental-only fields",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <h1>
+                Canon Camera H&#192;NG C&#360;
+              </h1>
+
+              <div class="price">
+                18.000.000&#273;
+              </div>
+
+              <button>
+                MUA NGAY
+              </button>
+
+              <h2>
+                TH&#212;NG S&#7888; K&#7928; THU&#7852;T
+              </h2>
+
+              <div>
+                Mirrorless.
+                Cam bien APS-C.
+                ISO 100-32000.
+                AF.
+                EVF.
+                Video 4K.
+              </div>
+
+              <h2>
+                &#272;I&#7872;U KI&#7878;N THU&#202;
+              </h2>
+
+              <div>
+                This section is stray rental content.
+              </div>
+            </body>
+          </html>
+        `;
+
+        const facts =
+          extractRawProductFactsFromHtml(
+            html,
+            "https://example.com/sale/camera"
+          );
+
+        const analysis =
+          analyzeRawProduct(
+            facts,
+            "UNKNOWN"
+          );
+
+        expect(
+          analysis.offer.sale
+        ).toBe(true);
+
+        expect(
+          analysis.offer.rental
+        ).toBe(false);
+
+        const fields =
+          resolveProductFields(
+            {
+              ...facts,
+
+              /*
+               * Simulate an unrelated rental-looking raw fact.
+               * Phase 8 must still obey Phase 7 transaction truth.
+               */
+              visiblePriceTexts: [
+                ...facts.visiblePriceTexts,
+                "288.000\u0111/ng\u00e0y"
+              ]
+            },
+            analysis
+          );
+
+        expect(
+          fields.salePrice.amount
+        ).toBe(18000000);
+
+        expect(
+          fields.rentalPrice.amount
+        ).toBeNull();
+
+        expect(
+          fields.rentalPrice.evidence
+        ).toEqual([]);
+
+        expect(
+          fields.rentalPrice.confidence
+        ).toBe(0);
+
+        expect(
+          fields.rentalConditions.value
+        ).toBe("");
+
+        expect(
+          fields.rentalConditions.evidence
+        ).toEqual([]);
+
+        expect(
+          fields.rentalConditions.confidence
+        ).toBe(0);
+      }
+    );
+
+
+    test(
+      "price conflict keeps priority value and lowers confidence",
+      () => {
+
+        const html = `
+          <html>
+            <head>
+              <script type="application/ld+json">
+              {
+                "@context":
+                  "https://schema.org",
+
+                "@type":
+                  "Product",
+
+                "name":
+                  "Canon Camera",
+
+                "offers": {
+                  "@type":
+                    "Offer",
+
+                  "price":
+                    "19000000.00",
+
+                  "priceCurrency":
+                    "VND"
+                }
+              }
+              </script>
+            </head>
+
+            <body>
+              <h1>
+                Canon Camera H&#192;NG C&#360;
+              </h1>
+
+              <div class="price">
+                18.000.000&#273;
+              </div>
+
+              <button>
+                MUA NGAY
+              </button>
+
+              <h2>
+                TH&#212;NG S&#7888; K&#7928; THU&#7852;T
+              </h2>
+
+              <div>
+                Mirrorless.
+                Cam bien APS-C.
+                ISO 100-32000.
+                AF.
+                EVF.
+                Video 4K.
+              </div>
+            </body>
+          </html>
+        `;
+
+        const facts =
+          extractRawProductFactsFromHtml(
+            html,
+            "https://example.com/conflict"
+          );
+
+        const analysis =
+          analyzeRawProduct(
+            facts,
+            "UNKNOWN"
+          );
+
+        expect(
+          analysis.offer.sale
+        ).toBe(true);
+
+        const fields =
+          resolveProductFields(
+            facts,
+            analysis
+          );
+
+        /*
+         * Priority remains:
+         * visible detail > structured Offer > listing.
+         */
+        expect(
+          fields.salePrice.amount
+        ).toBe(18000000);
+
+        expect(
+          fields.salePrice.conflict
+        ).toBe(true);
+
+        expect(
+          fields.salePrice.confidence
+        ).toBe(0.5);
+
+        expect(
+          fields.salePrice.evidence.some(
+            evidence =>
+              evidence.source ===
+                "VISIBLE"
+          )
+        ).toBe(true);
+
+        expect(
+          fields.salePrice.evidence.some(
+            evidence =>
+              evidence.source ===
+                "JSON_LD"
+          )
+        ).toBe(true);
+      }
+    );
+
+
+    test(
+      "spec numbers never populate unrelated fields",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <h1>
+                Camera Body
+              </h1>
+
+              <h2>
+                TH&#212;NG S&#7888; K&#7928; THU&#7852;T
+              </h2>
+
+              <div>
+                Mirrorless.
+                Cam bien APS-C.
+                ISO 100-32000.
+                91 diem AF.
+                16 fps.
+                17 custom modes.
+                EVF.
+                Video 4K.
+              </div>
+            </body>
+          </html>
+        `;
+
+        const facts =
+          extractRawProductFactsFromHtml(
+            html,
+            "https://example.com/spec-only"
+          );
+
+        const analysis =
+          analyzeRawProduct(
+            facts,
+            "UNKNOWN"
+          );
+
+        const fields =
+          resolveProductFields(
+            facts,
+            analysis
+          );
+
+        expect(
+          fields.specs.value
+        ).toContain(
+          "91"
+        );
+
+        expect(
+          fields.specs.value
+        ).toContain(
+          "16 fps"
+        );
+
+        expect(
+          fields.specs.confidence
+        ).toBe(1);
+
+        expect(
+          fields.rentalPrice.amount
+        ).toBeNull();
+
+        expect(
+          fields.salePrice.amount
+        ).toBeNull();
+
+        expect(
+          fields.rentalConditions.value
+        ).toBe("");
+
+        expect(
+          fields.combo.value
+        ).toBe("");
+
+        expect(
+          fields.accessories.value
+        ).toBe("");
+
+        expect(
+          fields.stock.value
+        ).toBe("");
+
+        expect(
+          fields.combo.confidence
+        ).toBe(0);
+
+        expect(
+          fields.stock.confidence
+        ).toBe(0);
+      }
+    );
+
+
+    test(
+      "view count is not review count",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <h1>
+                Sony A6400
+              </h1>
+
+              <div class="review-count">
+                127 luot xem
+              </div>
+            </body>
+          </html>
+        `;
+
+        const facts =
+          extractRawProductFactsFromHtml(
+            html,
+            "https://example.com/views"
+          );
+
+        const analysis =
+          analyzeRawProduct(
+            facts,
+            "UNKNOWN"
+          );
+
+        const fields =
+          resolveProductFields(
+            facts,
+            analysis
+          );
+
+        expect(
+          fields.reviewCount.value
+        ).toBeNull();
+
+        expect(
+          fields.reviewCount.evidence
+        ).toEqual([]);
+
+        expect(
+          fields.reviewCount.confidence
+        ).toBe(0);
       }
     );
   }

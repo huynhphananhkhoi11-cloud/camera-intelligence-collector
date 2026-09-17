@@ -1,4 +1,4 @@
-﻿import {
+import {
   describe,
   expect,
   test
@@ -68,6 +68,7 @@ describe("Price Parser V2 — rental", () => {
   test.each([
     ["651 điểm lấy nét"],
     ["49 điểm AF"],
+    ["91 \u0111i\u1ec3m AF"],
     ["17"],
     ["16"],
     ["14.500.000đ"],
@@ -104,6 +105,7 @@ describe("Price Parser V2 — sale", () => {
     ["288.000đ/ngày"],
     ["651 điểm lấy nét"],
     ["49 điểm AF"],
+    ["91 \u0111i\u1ec3m AF"],
     ["17"],
     ["16"],
     ["24.2 MP"],
