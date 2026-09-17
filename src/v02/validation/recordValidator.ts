@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   ProductAnalysis
 } from "../evidenceEngine.js";
 
@@ -9,6 +9,10 @@ import type {
 import type {
   ResolvedProductFields
 } from "../resolvers/fieldResolvers.js";
+
+import type {
+  ConflictRow
+} from "../conflicts/conflictEngine.js";
 
 
 export type FinalDecision =
@@ -38,7 +42,10 @@ export interface ValidationResult {
 export function validateProductRecord(
   facts: RawProductFacts,
   analysis: ProductAnalysis,
-  fields: ResolvedProductFields
+  fields: ResolvedProductFields,
+  conflicts:
+    ConflictRow[] =
+      []
 ): ValidationResult {
 
   const reasons:
@@ -79,6 +86,38 @@ export function validateProductRecord(
   let decision:
     FinalDecision =
       "ACCEPT";
+
+
+  /*
+   * ==========================================
+   * PHASE 9 AUDIT CONFLICTS
+   * ==========================================
+   *
+   * ConflictEngine owns detection/severity.
+   * Validator owns the final decision.
+   *
+   * HIGH conflicts require human review.
+   * MEDIUM conflicts remain visible in audit
+   * output but do not automatically block.
+   */
+  for (
+    const conflict
+    of conflicts
+  ) {
+    if (
+      conflict.severity !==
+        "HIGH"
+    ) {
+      continue;
+    }
+
+    decision =
+      "REVIEW";
+
+    reasons.push(
+      `high severity conflict: ${conflict.field}`
+    );
+  }
 
 
   if (

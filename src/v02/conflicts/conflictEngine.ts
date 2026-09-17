@@ -5,8 +5,28 @@ import {
 } from "../priceParser.js";
 
 import type {
-  PipelineResult
-} from "../pipeline/productPipeline.js";
+  ProductAnalysis
+} from "../evidenceEngine.js";
+
+import type {
+  RawProductFacts
+} from "../rawProductExtractor.js";
+
+import type {
+  ResolvedProductFields
+} from "../resolvers/fieldResolvers.js";
+
+
+export interface ConflictInput {
+  facts:
+    RawProductFacts;
+
+  analysis:
+    ProductAnalysis;
+
+  fields:
+    ResolvedProductFields;
+}
 
 
 export type ConflictSeverity =
@@ -397,7 +417,7 @@ function stockCandidates(
 
 function conditionCandidates(
   result:
-    PipelineResult
+    ConflictInput
 ): ComparableCandidate<string>[] {
 
   return result.analysis.condition.evidence.map(
@@ -650,7 +670,7 @@ function materiallyDifferentName(
 
 function nameConflictCandidates(
   result:
-    PipelineResult
+    ConflictInput
 ): ComparableCandidate<string>[] {
 
   const canonical =
@@ -712,7 +732,7 @@ function pushConflict(
   rows:
     ConflictRow[],
   result:
-    PipelineResult,
+    ConflictInput,
   field:
     string,
   severity:
@@ -743,7 +763,7 @@ function pushConflict(
 
 export function detectConflicts(
   result:
-    PipelineResult
+    ConflictInput
 ): ConflictRow[] {
 
   const rows:
@@ -930,7 +950,7 @@ export function detectConflicts(
 
 export function detectAllConflicts(
   results:
-    PipelineResult[]
+    ConflictInput[]
 ): ConflictRow[] {
 
   return results.flatMap(

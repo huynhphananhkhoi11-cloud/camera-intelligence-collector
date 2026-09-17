@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   Page
 } from "playwright";
 
@@ -17,6 +17,10 @@ import {
   resolveProductFields,
   type ResolvedProductFields
 } from "../resolvers/fieldResolvers.js";
+
+import {
+  detectConflicts
+} from "../conflicts/conflictEngine.js";
 
 import {
   validateProductRecord,
@@ -174,11 +178,19 @@ function runPipeline(
       analysis
     );
 
+  const conflicts =
+    detectConflicts({
+      facts,
+      analysis,
+      fields
+    });
+
   const validation =
     validateProductRecord(
       facts,
       analysis,
-      fields
+      fields,
+      conflicts
     );
 
 
