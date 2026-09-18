@@ -67,6 +67,14 @@ import {
 } from "../runtime/runCoordinator.js";
 
 import {
+  BrowserObserverPolicy
+} from "../browser/observerPolicy.js";
+
+import {
+  prepareWorkerPages
+} from "../browser/workerPagePool.js";
+
+import {
   RunEventBus,
   publishRunEventSafely,
   type RunEventPayload
@@ -701,6 +709,16 @@ export async function runCollectV2(
     runtimeOptions.onEventError;
 
 
+  const observerPolicy =
+    new BrowserObserverPolicy({
+      headless:
+        options.headless,
+
+      requestedWorkers:
+        options.concurrency
+    });
+
+
   const publishEvent =
     (
       payload:
@@ -1111,13 +1129,7 @@ export async function runCollectV2(
           options.headless,
 
         workers:
-          Math.max(
-            1,
-            Math.min(
-              options.concurrency,
-              8
-            )
-          ),
+          observerPolicy.workerCount,
 
         fresh:
           runIntent.fresh,
@@ -1278,12 +1290,11 @@ export async function runCollectV2(
       const worker =
         async (
           workerId:
-            number
+            number,
+
+          page:
+            Page
         ): Promise<void> => {
-
-          const page =
-            await context.newPage();
-
 
           try {
             while (
@@ -1596,31 +1607,39 @@ coordinator.terminalizeProduct(
         };
 
 
-      const concurrency =
-        Math.max(
-          1,
-          Math.min(
-            options.concurrency,
-            8
-          )
-        );
-
-
+      /*
+       * BrowserObserverPolicy is the single worker-count authority.
+       * Worker pages are created deterministically before launch.
+       */
       try {
-        await Promise.all(
-          Array.from(
+        const preparedWorkerPages =
+          await prepareWorkerPages(
+            context,
+            observerPolicy,
             {
-              length:
-                concurrency
-            },
+              onFocusError:
+                error => {
 
+                  diagnostics.error(
+                    "Observer focus failed:",
+                    error
+                  );
+                }
+            }
+          );
+
+
+        await Promise.all(
+          preparedWorkerPages.map(
             (
-              _,
-              index
+              {
+                workerId,
+                page
+              }
             ) =>
               worker(
-                index +
-                1
+                workerId,
+                page
               )
           )
         );
