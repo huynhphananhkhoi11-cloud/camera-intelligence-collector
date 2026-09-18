@@ -109,13 +109,14 @@ describe(
           '.command("collect")'
         );
 
-        expect(
-          source
-        ).toContain(
-          '.argument("<url>")'
-        );
+        /*
+         * URL cardinality moved to Phase 11B.
+         *
+         * Phase 11A owns command existence and delegation only.
+         * Phase 11B separately verifies the optional URL contract.
+         */
 
-        expect(
+expect(
           source
         ).toContain(
           "runCollectV2"

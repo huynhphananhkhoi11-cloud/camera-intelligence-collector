@@ -8,6 +8,10 @@ import {
   runCollectV2
 } from "./collectV2.js";
 
+import {
+  resolveCollectUrl
+} from "./interactiveUrl.js";
+
 
 interface CollectOptions {
   siteMode?:
@@ -141,7 +145,7 @@ program
   .description(
     "Collect camera product intelligence from a website"
   )
-  .argument("<url>")
+  .argument("[url]")
   .option(
     "--site-mode <mode>",
     "Weak site prior only"
@@ -175,14 +179,21 @@ program
   .action(
     async (
       url:
-        string,
+        string |
+        undefined,
       options:
         CollectOptions
     ) => {
 
+      const resolvedUrl =
+        await resolveCollectUrl(
+          url
+        );
+
+
       await runCollectV2(
         collectArgv(
-          url,
+          resolvedUrl,
           options
         )
       );
@@ -190,4 +201,25 @@ program
   );
 
 
-await program.parseAsync();
+try {
+  await program.parseAsync();
+}
+catch (
+  error
+) {
+  const message =
+    error instanceof
+      Error
+      ? error.message
+      : String(
+          error
+        );
+
+
+  console.error(
+    `ERROR: ${message}`
+  );
+
+  process.exitCode =
+    1;
+}
