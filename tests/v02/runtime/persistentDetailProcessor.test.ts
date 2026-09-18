@@ -192,6 +192,22 @@ function acquisition(
 }
 
 
+function acquisitionWithErrors(
+  url:
+    string,
+  errors:
+    DetailAcquisitionResult["errors"]
+): DetailAcquisitionResult {
+  return {
+    ...acquisition(
+      url
+    ),
+
+    errors
+  };
+}
+
+
 function seedInProgress(
   databasePath:
     string,
@@ -995,6 +1011,410 @@ describe(
           ).toBe(
             0
           );
+        }
+        finally {
+          runtime.close();
+          temp.cleanup();
+        }
+      }
+    );
+
+
+    test(
+      "non-retriable structured acquisition error becomes failed fetch with no raw facts or audit",
+      async () => {
+        const temp =
+          tempDatabase();
+
+        const runId =
+          "run-http-404";
+
+        const url =
+          "https://example.com/p/missing";
+
+        seedInProgress(
+          temp.path,
+          runId,
+          url
+        );
+
+
+        const runtime =
+          processor(
+            temp.path,
+            runId
+          );
+
+        let caught:
+          unknown =
+            null;
+
+        try {
+          try {
+            await runtime.process(
+              url,
+              async () =>
+                acquisitionWithErrors(
+                  url,
+                  [
+                    {
+                      stage:
+                        "NAVIGATION",
+
+                      code:
+                        "HTTP_NOT_FOUND",
+
+                      message:
+                        "Product detail page returned HTTP 404.",
+
+                      retriable:
+                        false,
+
+                      status:
+                        404,
+
+                      timestamp:
+                        NOW
+                    }
+                  ]
+                )
+            );
+          }
+          catch (error) {
+            caught =
+              error;
+          }
+
+
+          expect(
+            caught
+          ).toMatchObject({
+            name:
+              "DetailAcquisitionFailure",
+
+            stage:
+              "NAVIGATION",
+
+            code:
+              "HTTP_NOT_FOUND",
+
+            retriable:
+              false,
+
+            status:
+              404
+          });
+        }
+        finally {
+          runtime.close();
+        }
+
+
+        const runStore =
+          new SQLiteRunStore(
+            temp.path
+          );
+
+        try {
+          expect(
+            runStore.listDetailFetches(
+              runId,
+              url
+            )
+          ).toMatchObject([
+            {
+              status:
+                "FAILED",
+
+              httpStatus:
+                404,
+
+              errorClass:
+                "HTTP_NOT_FOUND",
+
+              errorMessage:
+                "Product detail page returned HTTP 404.",
+
+              contentHash:
+                null
+            }
+          ]);
+
+
+          expect(
+            runStore.listRawFacts(
+              runId,
+              url
+            )
+          ).toEqual(
+            []
+          );
+        }
+        finally {
+          runStore.close();
+        }
+
+
+        const audit =
+          new SQLiteIntelligenceAuditStore(
+            temp.path
+          );
+
+        try {
+          expect(
+            audit.getProductAudit(
+              runId,
+              url,
+              VERSIONS.auditVersion
+            )
+          ).toBeNull();
+        }
+        finally {
+          audit.close();
+          temp.cleanup();
+        }
+      }
+    );
+
+
+    test(
+      "retriable structured acquisition failure remains explicitly retriable for caller error ledger",
+      async () => {
+        const temp =
+          tempDatabase();
+
+        const runId =
+          "run-navigation-timeout";
+
+        const url =
+          "https://example.com/p/timeout";
+
+        seedInProgress(
+          temp.path,
+          runId,
+          url
+        );
+
+
+        const runtime =
+          processor(
+            temp.path,
+            runId
+          );
+
+        let caught:
+          unknown =
+            null;
+
+        try {
+          try {
+            await runtime.process(
+              url,
+              async () =>
+                acquisitionWithErrors(
+                  url,
+                  [
+                    {
+                      stage:
+                        "NAVIGATION",
+
+                      code:
+                        "NAVIGATION_TIMEOUT",
+
+                      message:
+                        "synthetic navigation timeout",
+
+                      retriable:
+                        true,
+
+                      status:
+                        null,
+
+                      timestamp:
+                        NOW
+                    }
+                  ]
+                )
+            );
+          }
+          catch (error) {
+            caught =
+              error;
+          }
+
+
+          expect(
+            caught
+          ).toMatchObject({
+            name:
+              "DetailAcquisitionFailure",
+
+            stage:
+              "NAVIGATION",
+
+            code:
+              "NAVIGATION_TIMEOUT",
+
+            retriable:
+              true,
+
+            status:
+              null
+          });
+        }
+        finally {
+          runtime.close();
+        }
+
+
+        const runStore =
+          new SQLiteRunStore(
+            temp.path
+          );
+
+        try {
+          expect(
+            runStore.listDetailFetches(
+              runId,
+              url
+            )
+          ).toMatchObject([
+            {
+              status:
+                "FAILED",
+
+              httpStatus:
+                null,
+
+              errorClass:
+                "NAVIGATION_TIMEOUT",
+
+              errorMessage:
+                "synthetic navigation timeout"
+            }
+          ]);
+
+
+          expect(
+            runStore.listRawFacts(
+              runId,
+              url
+            )
+          ).toEqual(
+            []
+          );
+        }
+        finally {
+          runStore.close();
+          temp.cleanup();
+        }
+      }
+    );
+
+
+    test(
+      "non-retriable acquisition error dominates mixed structured errors",
+      async () => {
+        const temp =
+          tempDatabase();
+
+        const runId =
+          "run-mixed-errors";
+
+        const url =
+          "https://example.com/p/gone";
+
+        seedInProgress(
+          temp.path,
+          runId,
+          url
+        );
+
+
+        const runtime =
+          processor(
+            temp.path,
+            runId
+          );
+
+        let caught:
+          unknown =
+            null;
+
+        try {
+          try {
+            await runtime.process(
+              url,
+              async () =>
+                acquisitionWithErrors(
+                  url,
+                  [
+                    {
+                      stage:
+                        "SETTLE",
+
+                      code:
+                        "SETTLE_FAILED",
+
+                      message:
+                        "synthetic settle failure",
+
+                      retriable:
+                        true,
+
+                      status:
+                        null,
+
+                      timestamp:
+                        NOW
+                    },
+                    {
+                      stage:
+                        "NAVIGATION",
+
+                      code:
+                        "HTTP_GONE",
+
+                      message:
+                        "Product detail page returned HTTP 410.",
+
+                      retriable:
+                        false,
+
+                      status:
+                        410,
+
+                      timestamp:
+                        NOW
+                    }
+                  ]
+                )
+            );
+          }
+          catch (error) {
+            caught =
+              error;
+          }
+
+
+          expect(
+            caught
+          ).toMatchObject({
+            name:
+              "DetailAcquisitionFailure",
+
+            stage:
+              "NAVIGATION",
+
+            code:
+              "HTTP_GONE",
+
+            retriable:
+              false,
+
+            status:
+              410
+          });
         }
         finally {
           runtime.close();

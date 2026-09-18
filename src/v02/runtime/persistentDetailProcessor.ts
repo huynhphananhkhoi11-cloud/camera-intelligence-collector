@@ -1,4 +1,5 @@
 import type {
+  AcquisitionError,
   DetailAcquisitionResult
 } from "../extraction/detailAcquisitionTypes.js";
 
@@ -209,6 +210,146 @@ function latestCompatibleFacts(
  * - persist versioned intelligence/audit;
  * - never decide product lifecycle state itself.
  */
+/**
+ * Structured acquisition failures are returned by collectBrowserDetail()
+ * rather than necessarily being thrown.
+ *
+ * Keep the original technical metadata available to the orchestration
+ * layer so Phase 10 can write an accurate ERROR ledger.
+ */
+export class DetailAcquisitionFailure
+extends Error {
+
+  readonly stage:
+    AcquisitionError["stage"];
+
+  readonly code:
+    string;
+
+  readonly retriable:
+    boolean;
+
+  readonly status:
+    number |
+    null;
+
+
+  constructor(
+    failure:
+      AcquisitionError
+  ) {
+    super(
+      failure.message
+    );
+
+    this.name =
+      "DetailAcquisitionFailure";
+
+    this.stage =
+      failure.stage;
+
+    this.code =
+      failure.code;
+
+    this.retriable =
+      failure.retriable;
+
+    this.status =
+      failure.status;
+  }
+}
+
+
+function primaryAcquisitionError(
+  errors:
+    readonly AcquisitionError[]
+): AcquisitionError | null {
+  /*
+   * Permanent failure dominates a retriable/partial failure.
+   * This prevents a 404/410 from being hidden behind an earlier
+   * settle/network warning.
+   */
+  for (
+    const error
+    of errors
+  ) {
+    if (
+      !error.retriable
+    ) {
+      return error;
+    }
+  }
+
+
+  return errors.length >
+    0
+      ? errors[0]!
+      : null;
+}
+
+
+function failedAcquisitionDuration(
+  acquisition:
+    DetailAcquisitionResult |
+    null
+): number {
+  if (
+    acquisition ===
+    null
+  ) {
+    return 0;
+  }
+
+
+  const value =
+    acquisition.timing.totalMs;
+
+
+  if (
+    !Number.isFinite(
+      value
+    ) ||
+    value < 0
+  ) {
+    return 0;
+  }
+
+
+  return Math.round(
+    value
+  );
+}
+
+
+function failedAcquisitionFinalUrl(
+  acquisition:
+    DetailAcquisitionResult |
+    null
+): string | null {
+  if (
+    acquisition ===
+    null
+  ) {
+    return null;
+  }
+
+
+  const finalUrl =
+    acquisition.finalUrl.trim();
+
+  if (finalUrl) {
+    return finalUrl;
+  }
+
+
+  const canonicalUrl =
+    acquisition.canonicalUrl.trim();
+
+  return canonicalUrl ||
+    null;
+}
+
+
 export class PersistentDetailProcessor {
 
   private readonly runStore:
@@ -512,14 +653,39 @@ export class PersistentDetailProcessor {
     let fetchFinished =
       false;
 
+    let acquisitionResult:
+      DetailAcquisitionResult |
+      null =
+        null;
+
 
     try {
       /*
        * No SQLite transaction is open while acquisition performs
        * browser/network work.
        */
-      const acquisition =
+      acquisitionResult =
         await acquire();
+
+
+      const structuredFailure =
+        primaryAcquisitionError(
+          acquisitionResult.errors
+        );
+
+
+      if (
+        structuredFailure !==
+        null
+      ) {
+        throw new DetailAcquisitionFailure(
+          structuredFailure
+        );
+      }
+
+
+      const acquisition =
+        acquisitionResult;
 
 
       const facts =
@@ -668,18 +834,28 @@ export class PersistentDetailProcessor {
                 "FAILED",
 
               finalUrl:
-                null,
+                failedAcquisitionFinalUrl(
+                  acquisitionResult
+                ),
 
               httpStatus:
-                null,
+                error instanceof
+                  DetailAcquisitionFailure
+                  ? error.status
+                  : null,
 
               durationMs:
-                0,
+                failedAcquisitionDuration(
+                  acquisitionResult
+                ),
 
               errorClass:
-                errorClass(
-                  error
-                ),
+                error instanceof
+                  DetailAcquisitionFailure
+                  ? error.code
+                  : errorClass(
+                      error
+                    ),
 
               errorMessage:
                 errorMessage(
