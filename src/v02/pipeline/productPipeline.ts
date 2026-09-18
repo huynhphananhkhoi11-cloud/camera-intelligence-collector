@@ -279,6 +279,25 @@ export function processProductHtml(
 }
 
 
+export function processRawProductFacts(
+  facts:
+    RawProductFacts,
+
+  siteMode:
+    OfferInput["siteMode"] =
+      "UNKNOWN",
+
+  listingContext?:
+    ListingContext
+): PipelineResult {
+  return runPipeline(
+    facts,
+    siteMode,
+    listingContext
+  );
+}
+
+
 export async function processProductPage(
   page: Page,
 
