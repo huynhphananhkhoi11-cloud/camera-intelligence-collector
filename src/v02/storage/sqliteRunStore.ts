@@ -1,0 +1,1001 @@
+import {
+  DatabaseSync
+} from "node:sqlite";
+
+import {
+  runMigrations
+} from "./sqliteMigrations.js";
+
+import type {
+  CreateRunInput,
+  ProductTerminalState,
+  ProductUrlRecord,
+  RegisterProductUrlInput,
+  RunRecord,
+  RunStore
+} from "./runStore.js";
+
+
+export interface SQLiteRunStoreOptions {
+  timeoutMs?: number;
+
+  now?: () => string;
+}
+
+
+type PreparedStatement =
+  ReturnType<
+    DatabaseSync["prepare"]
+  >;
+
+
+interface SqlRunRow {
+  run_id: string;
+
+  input_url: string;
+
+  canonical_origin: string;
+
+  started_at: string;
+
+  finished_at:
+    string |
+    null;
+
+  code_version: string;
+
+  config_hash: string;
+
+  status: string;
+}
+
+
+interface SqlProductUrlRow {
+  run_id: string;
+
+  canonical_url: string;
+
+  discovery_score:
+    number |
+    null;
+
+  sources_json: string;
+
+  state: string;
+
+  attempts: number;
+
+  discovered_at: string;
+
+  updated_at: string;
+}
+
+
+const TERMINAL_STATES =
+  new Set<ProductTerminalState>([
+    "ACCEPT",
+    "REVIEW",
+    "EXCLUDE",
+    "ERROR"
+  ]);
+
+
+function requiredText(
+  value:
+    string,
+  label:
+    string
+): string {
+  const normalized =
+    value.trim();
+
+  if (!normalized) {
+    throw new Error(
+      `${label} must not be blank.`
+    );
+  }
+
+  return normalized;
+}
+
+
+function normalizeTimeout(
+  value:
+    number
+): number {
+  if (
+    !Number.isInteger(
+      value
+    ) ||
+    value < 0
+  ) {
+    throw new Error(
+      "SQLite timeoutMs must be a non-negative integer."
+    );
+  }
+
+  return value;
+}
+
+
+function closeStatement(
+  statement:
+    PreparedStatement
+): void {
+  /*
+   * StatementSync.close() exists on current Node 24,
+   * but keeping this runtime-safe avoids coupling
+   * compilation to one exact @types/node declaration.
+   */
+  const candidate =
+    statement as
+      PreparedStatement & {
+        close?:
+          () => void;
+      };
+
+  if (
+    typeof candidate.close ===
+    "function"
+  ) {
+    candidate.close();
+  }
+}
+
+
+function pragmaScalar(
+  db:
+    DatabaseSync,
+  sql:
+    string
+): unknown {
+  const statement =
+    db.prepare(
+      sql
+    );
+
+  try {
+    const row =
+      statement.get();
+
+    if (
+      !row ||
+      typeof row !==
+        "object"
+    ) {
+      return undefined;
+    }
+
+    return Object.values(
+      row
+    )[0];
+  }
+  finally {
+    closeStatement(
+      statement
+    );
+  }
+}
+
+
+function withImmediateTransaction<T>(
+  db:
+    DatabaseSync,
+  work:
+    () => T
+): T {
+  db.exec(
+    "BEGIN IMMEDIATE"
+  );
+
+  try {
+    const result =
+      work();
+
+    db.exec(
+      "COMMIT"
+    );
+
+    return result;
+  }
+  catch (error) {
+    try {
+      db.exec(
+        "ROLLBACK"
+      );
+    }
+    catch {
+      /*
+       * Keep the original application/SQLite error.
+       * Rollback cleanup must not replace it.
+       */
+    }
+
+    throw error;
+  }
+}
+
+
+/**
+ * Apply and verify SQLite connection policy.
+ *
+ * This is runtime connection policy, not schema migration.
+ * It must run before any explicit transaction begins.
+ */
+export function configureSqliteConnection(
+  db:
+    DatabaseSync,
+  timeoutMs:
+    number = 5000
+): void {
+  const timeout =
+    normalizeTimeout(
+      timeoutMs
+    );
+
+  /*
+   * Set busy timeout before journal-mode conversion because
+   * switching to WAL may itself need to wait for a lock.
+   */
+  db.exec(
+    `PRAGMA busy_timeout = ${timeout};`
+  );
+
+  /*
+   * foreign_keys cannot be meaningfully enabled from inside
+   * a pending transaction, so configure it at connection open.
+   */
+  db.exec(
+    "PRAGMA foreign_keys = ON;"
+  );
+
+  /*
+   * WAL is required for the local persistent run ledger.
+   * SQLite may refuse WAL on an unsupported filesystem/VFS,
+   * therefore verify instead of assuming success.
+   */
+  db.exec(
+    "PRAGMA journal_mode = WAL;"
+  );
+
+  db.exec(
+    "PRAGMA synchronous = FULL;"
+  );
+
+
+  const journalMode =
+    String(
+      pragmaScalar(
+        db,
+        "PRAGMA journal_mode"
+      )
+    )
+      .toLowerCase();
+
+  if (
+    journalMode !==
+    "wal"
+  ) {
+    throw new Error(
+      `SQLite WAL mode required, got: ${journalMode || "<unknown>"}`
+    );
+  }
+
+
+  const foreignKeys =
+    Number(
+      pragmaScalar(
+        db,
+        "PRAGMA foreign_keys"
+      )
+    );
+
+  if (
+    foreignKeys !==
+    1
+  ) {
+    throw new Error(
+      `SQLite foreign_keys must be ON, got: ${String(foreignKeys)}`
+    );
+  }
+
+
+  const synchronous =
+    Number(
+      pragmaScalar(
+        db,
+        "PRAGMA synchronous"
+      )
+    );
+
+  if (
+    synchronous !==
+    2
+  ) {
+    throw new Error(
+      `SQLite synchronous must be FULL (2), got: ${String(synchronous)}`
+    );
+  }
+
+
+  const busyTimeout =
+    Number(
+      pragmaScalar(
+        db,
+        "PRAGMA busy_timeout"
+      )
+    );
+
+  if (
+    busyTimeout !==
+    timeout
+  ) {
+    throw new Error(
+      `SQLite busy_timeout mismatch: expected ${timeout}, got ${String(busyTimeout)}`
+    );
+  }
+}
+
+
+/**
+ * Persistent implementation of the Phase 10 RunStore lifecycle.
+ *
+ * Storage owns lifecycle persistence only.
+ * Business truth remains in:
+ * acquisition -> classification -> resolution -> validation.
+ */
+export class SQLiteRunStore
+implements RunStore {
+
+  private readonly db:
+    DatabaseSync;
+
+  private readonly now:
+    () => string;
+
+  private closed =
+    false;
+
+
+  constructor(
+    databasePath:
+      string,
+    options:
+      SQLiteRunStoreOptions = {}
+  ) {
+    const path =
+      requiredText(
+        databasePath,
+        "databasePath"
+      );
+
+    const timeoutMs =
+      normalizeTimeout(
+        options.timeoutMs ??
+        5000
+      );
+
+    this.db =
+      new DatabaseSync(
+        path,
+        {
+          timeout:
+            timeoutMs
+        }
+      );
+
+    this.now =
+      options.now ??
+      (() =>
+        new Date()
+          .toISOString()
+      );
+
+    try {
+      configureSqliteConnection(
+        this.db,
+        timeoutMs
+      );
+
+      runMigrations(
+        this.db
+      );
+    }
+    catch (error) {
+      try {
+        this.db.close();
+      }
+      catch {
+        /*
+         * Constructor failure cleanup only.
+         * Preserve the original failure.
+         */
+      }
+
+      throw error;
+    }
+  }
+
+
+  private ensureOpen():
+    void {
+    if (this.closed) {
+      throw new Error(
+        "SQLiteRunStore is closed."
+      );
+    }
+  }
+
+
+  private timestamp():
+    string {
+    return requiredText(
+      this.now(),
+      "now()"
+    );
+  }
+
+
+  private productState(
+    runId:
+      string,
+    canonicalUrl:
+      string
+  ): ProductUrlRecord | null {
+    const rows =
+      this.listProductUrls(
+        runId
+      );
+
+    return (
+      rows.find(
+        row =>
+          row.canonicalUrl ===
+          canonicalUrl
+      ) ??
+      null
+    );
+  }
+
+
+  createRun(
+    input:
+      CreateRunInput
+  ): void {
+    this.ensureOpen();
+
+    const statement =
+      this.db.prepare(`
+        INSERT INTO runs (
+          run_id,
+          input_url,
+          canonical_origin,
+          started_at,
+          finished_at,
+          code_version,
+          config_hash,
+          status
+        )
+        VALUES (
+          ?,
+          ?,
+          ?,
+          ?,
+          NULL,
+          ?,
+          ?,
+          'CREATED'
+        )
+      `);
+
+    try {
+      statement.run(
+        requiredText(
+          input.runId,
+          "runId"
+        ),
+
+        requiredText(
+          input.inputUrl,
+          "inputUrl"
+        ),
+
+        requiredText(
+          input.canonicalOrigin,
+          "canonicalOrigin"
+        ),
+
+        requiredText(
+          input.startedAt,
+          "startedAt"
+        ),
+
+        requiredText(
+          input.codeVersion,
+          "codeVersion"
+        ),
+
+        requiredText(
+          input.configHash,
+          "configHash"
+        )
+      );
+    }
+    finally {
+      closeStatement(
+        statement
+      );
+    }
+  }
+
+
+  getRun(
+    rawRunId:
+      string
+  ): RunRecord | null {
+    this.ensureOpen();
+
+    const runId =
+      requiredText(
+        rawRunId,
+        "runId"
+      );
+
+    const statement =
+      this.db.prepare(`
+        SELECT
+          run_id,
+          input_url,
+          canonical_origin,
+          started_at,
+          finished_at,
+          code_version,
+          config_hash,
+          status
+        FROM runs
+        WHERE run_id = ?
+      `);
+
+    try {
+      const row =
+        statement.get(
+          runId
+        ) as
+          | SqlRunRow
+          | undefined;
+
+      if (!row) {
+        return null;
+      }
+
+      return {
+        runId:
+          row.run_id,
+
+        inputUrl:
+          row.input_url,
+
+        canonicalOrigin:
+          row.canonical_origin,
+
+        startedAt:
+          row.started_at,
+
+        finishedAt:
+          row.finished_at,
+
+        codeVersion:
+          row.code_version,
+
+        configHash:
+          row.config_hash,
+
+        status:
+          row.status as
+            RunRecord["status"]
+      };
+    }
+    finally {
+      closeStatement(
+        statement
+      );
+    }
+  }
+
+
+  registerProductUrls(
+    rawRunId:
+      string,
+    urls:
+      readonly RegisterProductUrlInput[]
+  ): void {
+    this.ensureOpen();
+
+    const runId =
+      requiredText(
+        rawRunId,
+        "runId"
+      );
+
+    if (
+      !this.getRun(
+        runId
+      )
+    ) {
+      throw new Error(
+        `Run was not registered: ${runId}`
+      );
+    }
+
+    /*
+     * First occurrence wins inside one registration batch.
+     * Repeated calls are additionally protected by the PK.
+     */
+    const unique =
+      new Map<
+        string,
+        RegisterProductUrlInput
+      >();
+
+    for (
+      const input
+      of urls
+    ) {
+      const canonicalUrl =
+        requiredText(
+          input.canonicalUrl,
+          "canonicalUrl"
+        );
+
+      if (
+        unique.has(
+          canonicalUrl
+        )
+      ) {
+        continue;
+      }
+
+      unique.set(
+        canonicalUrl,
+        {
+          ...input,
+          canonicalUrl
+        }
+      );
+    }
+
+    if (
+      unique.size ===
+      0
+    ) {
+      return;
+    }
+
+    const timestamp =
+      this.timestamp();
+
+    withImmediateTransaction(
+      this.db,
+      () => {
+        const statement =
+          this.db.prepare(`
+            INSERT INTO product_urls (
+              run_id,
+              canonical_url,
+              discovery_score,
+              sources_json,
+              state,
+              attempts,
+              discovered_at,
+              updated_at
+            )
+            VALUES (
+              ?,
+              ?,
+              ?,
+              ?,
+              'DISCOVERED',
+              0,
+              ?,
+              ?
+            )
+            ON CONFLICT (
+              run_id,
+              canonical_url
+            )
+            DO NOTHING
+          `);
+
+        try {
+          for (
+            const input
+            of unique.values()
+          ) {
+            statement.run(
+              runId,
+              input.canonicalUrl,
+              input.discoveryScore,
+              requiredText(
+                input.sourcesJson,
+                "sourcesJson"
+              ),
+              timestamp,
+              timestamp
+            );
+          }
+        }
+        finally {
+          closeStatement(
+            statement
+          );
+        }
+      }
+    );
+  }
+
+
+  listProductUrls(
+    rawRunId:
+      string
+  ): ProductUrlRecord[] {
+    this.ensureOpen();
+
+    const runId =
+      requiredText(
+        rawRunId,
+        "runId"
+      );
+
+    const statement =
+      this.db.prepare(`
+        SELECT
+          run_id,
+          canonical_url,
+          discovery_score,
+          sources_json,
+          state,
+          attempts,
+          discovered_at,
+          updated_at
+        FROM product_urls
+        WHERE run_id = ?
+        ORDER BY canonical_url
+      `);
+
+    try {
+      const rows =
+        statement.all(
+          runId
+        ) as
+          unknown as
+          SqlProductUrlRow[];
+
+      return rows.map(
+        row => ({
+          runId:
+            row.run_id,
+
+          canonicalUrl:
+            row.canonical_url,
+
+          discoveryScore:
+            row.discovery_score,
+
+          sourcesJson:
+            row.sources_json,
+
+          state:
+            row.state as
+              ProductUrlRecord["state"],
+
+          attempts:
+            Number(
+              row.attempts
+            ),
+
+          discoveredAt:
+            row.discovered_at,
+
+          updatedAt:
+            row.updated_at
+        })
+      );
+    }
+    finally {
+      closeStatement(
+        statement
+      );
+    }
+  }
+
+
+  beginAttempt(
+    rawRunId:
+      string,
+    rawCanonicalUrl:
+      string
+  ): void {
+    this.ensureOpen();
+
+    const runId =
+      requiredText(
+        rawRunId,
+        "runId"
+      );
+
+    const canonicalUrl =
+      requiredText(
+        rawCanonicalUrl,
+        "canonicalUrl"
+      );
+
+    const timestamp =
+      this.timestamp();
+
+    const statement =
+      this.db.prepare(`
+        UPDATE product_urls
+        SET
+          state = 'IN_PROGRESS',
+          attempts = attempts + 1,
+          updated_at = ?
+        WHERE
+          run_id = ?
+          AND canonical_url = ?
+          AND state = 'DISCOVERED'
+      `);
+
+    let changes =
+      0;
+
+    try {
+      const result =
+        statement.run(
+          timestamp,
+          runId,
+          canonicalUrl
+        );
+
+      changes =
+        Number(
+          result.changes
+        );
+    }
+    finally {
+      closeStatement(
+        statement
+      );
+    }
+
+    if (
+      changes ===
+      1
+    ) {
+      return;
+    }
+
+    const current =
+      this.productState(
+        runId,
+        canonicalUrl
+      );
+
+    if (!current) {
+      throw new Error(
+        `URL was not registered for run ${runId}: ${canonicalUrl}`
+      );
+    }
+
+    throw new Error(
+      `URL cannot begin attempt from state ${current.state}: ${canonicalUrl}`
+    );
+  }
+
+
+  terminalize(
+    rawRunId:
+      string,
+    rawCanonicalUrl:
+      string,
+    state:
+      ProductTerminalState
+  ): void {
+    this.ensureOpen();
+
+    if (
+      !TERMINAL_STATES.has(
+        state
+      )
+    ) {
+      throw new Error(
+        `Invalid terminal state: ${String(state)}`
+      );
+    }
+
+    const runId =
+      requiredText(
+        rawRunId,
+        "runId"
+      );
+
+    const canonicalUrl =
+      requiredText(
+        rawCanonicalUrl,
+        "canonicalUrl"
+      );
+
+    const timestamp =
+      this.timestamp();
+
+    const statement =
+      this.db.prepare(`
+        UPDATE product_urls
+        SET
+          state = ?,
+          updated_at = ?
+        WHERE
+          run_id = ?
+          AND canonical_url = ?
+          AND state = 'IN_PROGRESS'
+      `);
+
+    let changes =
+      0;
+
+    try {
+      const result =
+        statement.run(
+          state,
+          timestamp,
+          runId,
+          canonicalUrl
+        );
+
+      changes =
+        Number(
+          result.changes
+        );
+    }
+    finally {
+      closeStatement(
+        statement
+      );
+    }
+
+    if (
+      changes ===
+      1
+    ) {
+      return;
+    }
+
+    const current =
+      this.productState(
+        runId,
+        canonicalUrl
+      );
+
+    if (!current) {
+      throw new Error(
+        `URL was not registered for run ${runId}: ${canonicalUrl}`
+      );
+    }
+
+    throw new Error(
+      `URL cannot enter terminal state ${state} from state ${current.state}: ${canonicalUrl}`
+    );
+  }
+
+
+  close():
+    void {
+    if (this.closed) {
+      return;
+    }
+
+    this.db.close();
+
+    this.closed =
+      true;
+  }
+}
