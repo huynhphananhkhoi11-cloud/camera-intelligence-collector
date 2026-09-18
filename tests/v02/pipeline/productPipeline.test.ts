@@ -237,7 +237,7 @@ describe(
 
 
     test(
-      "camera missing price => REVIEW",
+      "camera missing price => ACCEPT with audit reason",
       () => {
 
         const html = `
@@ -277,7 +277,7 @@ describe(
         expect(
           result.validation.decision
         ).toBe(
-          "REVIEW"
+          "ACCEPT"
         );
 
         expect(

@@ -504,8 +504,223 @@ export function extractRawProductFactsFromHtml(
     const selector
     of priceSelectors
   ) {
-    $(selector).each(
+    /*
+     * Primary detail price evidence must not absorb
+     * prices from recommendation cards, navigation,
+     * footer content or other products on the page.
+     *
+     * The extractor already establishes a bounded
+     * primaryProductScope from the H1 + transaction
+     * action. Reuse that generic scope here.
+     *
+     * If no bounded product scope can be established,
+     * preserve the prior page-level fallback.
+     */
+    (
+      primaryProductScopeFound
+        ? primaryProductScope.find(
+            selector
+          )
+        : $(selector)
+    ).each(
       (_, element) => {
+
+        /*
+         * Foreign product cards inside a broad primary scope
+         * must never contribute price evidence to the H1 product.
+         *
+         * This is generic DOM ownership logic:
+         * if a price lives inside a related/recommended/card-like
+         * product container that does not own the page H1, it
+         * belongs to another product.
+         */
+        const priceNode =
+          $(element);
+
+
+        /*
+         * Semantic related-product boundary.
+         *
+         * Card classes are not portable across stores. A product
+         * recommendation region is therefore also detected by a
+         * preceding semantic heading while walking from the price
+         * node toward the primary product scope.
+         */
+        const isRelatedHeading =
+          (
+            value:
+              unknown
+          ): boolean => {
+
+            const normalized =
+              clean(
+                value
+              )
+                .normalize(
+                  "NFD"
+                )
+                .replace(
+                  /[̀-ͯ]/g,
+                  ""
+                )
+                .replace(
+                  /Ä‘/g,
+                  "d"
+                )
+                .replace(
+                  /Ä/g,
+                  "D"
+                )
+                .toLowerCase();
+
+
+            return /^(?:san pham cung loai|san pham lien quan|related products?|similar products?|recommended products?|you may also like)$/
+              .test(
+                normalized
+              );
+          };
+
+
+        let semanticCursor =
+          priceNode;
+
+        let inRelatedRegion =
+          false;
+
+
+        for (
+          let depth = 0;
+          depth < 8 &&
+          semanticCursor.length > 0;
+          depth++
+        ) {
+
+          const previous =
+            semanticCursor.prevAll();
+
+
+          previous.each(
+            (_, sibling) => {
+
+              if (
+                inRelatedRegion
+              ) {
+                return;
+              }
+
+
+              const candidate =
+                $(sibling);
+
+
+              const headings =
+                candidate.is(
+                  "h1,h2,h3,h4,h5,h6"
+                )
+                  ? candidate
+                  : candidate.find(
+                      "h1,h2,h3,h4,h5,h6"
+                    );
+
+
+              headings.each(
+                (_, heading) => {
+
+                  if (
+                    isRelatedHeading(
+                      $(heading).text()
+                    )
+                  ) {
+                    inRelatedRegion =
+                      true;
+                  }
+                }
+              );
+            }
+          );
+
+
+          if (
+            inRelatedRegion
+          ) {
+            break;
+          }
+
+
+          if (
+            primaryProductScopeFound &&
+            semanticCursor.get(
+              0
+            ) ===
+              primaryProductScope.get(
+                0
+              )
+          ) {
+            break;
+          }
+
+
+          semanticCursor =
+            semanticCursor.parent();
+        }
+
+
+        if (
+          inRelatedRegion
+        ) {
+          return;
+        }
+
+
+        const foreignOwner =
+          priceNode.closest(
+            [
+              "article",
+              ".product",
+              ".product-item",
+              ".product-card",
+              '[class*="product-item"]',
+              '[class*="product-card"]',
+              '[class*="related"]',
+              '[class*="recommend"]',
+              '[class*="similar"]',
+              '[class*="upsell"]',
+              '[class*="cross-sell"]'
+            ].join(",")
+          );
+
+
+        const primaryHeadingNode =
+          primaryHeading.get(
+            0
+          );
+
+
+        if (
+          foreignOwner.length >
+            0 &&
+          primaryHeadingNode
+        ) {
+
+          const ownerHasPrimaryHeading =
+            foreignOwner
+              .find("h1")
+              .toArray()
+              .some(
+                node =>
+                  node ===
+                    primaryHeadingNode
+              );
+
+
+          if (
+            !ownerHasPrimaryHeading
+          ) {
+            return;
+          }
+        }
+
+
         const text =
           clean(
             $(element).text() ||
@@ -544,7 +759,8 @@ export function extractRawProductFactsFromHtml(
    * raw parent text as one evidence candidate.
    */
   if (
-    primaryProductScopeFound
+    primaryProductScopeFound &&
+    priceTexts.length === 0
   ) {
     const currencyLike =
       /[0-9][0-9.,\s]*\s*(?:\u0111|\u20ab|vnd)(?:\s|\/|$)/i;
@@ -781,10 +997,46 @@ export function extractRawProductFactsFromHtml(
    * -------------------------------------------
    */
 
-  const sections =
+  /*
+   * Condition sections must remain product-local.
+   *
+   * Specs/accessories/combo may legitimately live below the hero
+   * block, so they remain page-wide. CONDITION is different:
+   * site chrome, footer templates and unrelated cards must not
+   * contradict the current product's title/structured evidence.
+   */
+  const allSections =
     sectionizeHtml(
       html
     );
+
+
+  const localConditionSections =
+    primaryProductScopeFound
+      ? sectionizeHtml(
+          primaryProductScope.html() ??
+            ""
+        ).filter(
+          section =>
+            section.key ===
+              "CONDITION"
+        )
+      : allSections.filter(
+          section =>
+            section.key ===
+              "CONDITION"
+        );
+
+
+  const sections = [
+    ...allSections.filter(
+      section =>
+        section.key !==
+          "CONDITION"
+    ),
+
+    ...localConditionSections
+  ];
 
 
   return {

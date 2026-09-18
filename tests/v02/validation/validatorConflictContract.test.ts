@@ -113,7 +113,7 @@ describe(
   () => {
 
     test(
-      "HIGH stock conflict forces REVIEW",
+      "HIGH stock conflict stays audited while confirmed camera remains ACCEPT",
       () => {
 
         const result =
@@ -144,7 +144,7 @@ describe(
         expect(
           result.validation.decision
         ).toBe(
-          "REVIEW"
+          "ACCEPT"
         );
 
         expect(

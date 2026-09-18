@@ -31,6 +31,16 @@ function clean(value: unknown): string {
 }
 
 function isHardExcluded(url: URL): boolean {
+  /* STATIC_ASSET_HARD_EXCLUSION */
+  if (
+    /\.(?:avif|bmp|css|eot|gif|ico|jpe?g|js|mjs|map|mp4|png|svg|ttf|webm|webp|woff2?)$/i
+      .test(
+        url.pathname
+      )
+  ) {
+    return true;
+  }
+
   return /\/(?:cart|gio-hang|checkout|login|dang-nhap|register|account|search|tim-kiem|contact|lien-he)(?:\/|$)/i
     .test(url.pathname);
 }
@@ -165,7 +175,11 @@ export function discoverProductUrlsFromHtml(
 
     if (existing) {
 
-      existing.score += score;
+      existing.score =
+        Math.max(
+          existing.score,
+          score
+        );
 
       if (
         !existing.reasons.includes(
@@ -248,6 +262,10 @@ export function discoverProductUrlsFromHtml(
         object["@id"]
       ];
 
+      let addedProductUrl =
+        false;
+
+
       for (const raw of urls) {
         if (
           typeof raw === "string"
@@ -257,7 +275,21 @@ export function discoverProductUrlsFromHtml(
             100,
             "JSON-LD Product"
           );
+
+          addedProductUrl =
+            true;
         }
+      }
+
+
+      if (
+        !addedProductUrl
+      ) {
+        addCandidate(
+          baseUrl,
+          100,
+          "JSON-LD Product current page"
+        );
       }
     }
 
@@ -368,6 +400,101 @@ export function discoverProductUrlsFromHtml(
 
   /*
    * ==========================================
+   * 1.5 Current page as a product-detail candidate
+   * ==========================================
+   *
+   * Some stores use root-level product slugs and omit url/@id
+   * from Product JSON-LD.  A user may also start directly on a
+   * product detail page.  Discovery must retain that page instead
+   * of replacing it with category/navigation links.
+   *
+   * This is deliberately domain-neutral.  It requires a purchase
+   * or rental CTA, a price, a title, and at least two independent
+   * detail-page signals.
+   */
+  const pageScope =
+    $(
+      [
+        "main",
+        '[role="main"]',
+        "#main",
+        "#MainContent",
+        ".main-content"
+      ].join(",")
+    ).first();
+
+
+  const detailScope =
+    pageScope.length
+      ? pageScope
+      : $("body");
+
+
+  const detailText =
+    clean(
+      detailScope.text()
+    ).slice(
+      0,
+      30000
+    );
+
+
+  const detailHeading =
+    clean(
+      detailScope
+        .find("h1")
+        .first()
+        .text()
+    );
+
+
+  const hasDetailPrice =
+    /\d[\d.,\s]*\s*(?:Ä‘|â‚«|vnd)(?![\p{L}\p{N}_])/iu
+      .test(
+        detailText
+      );
+
+
+  const hasTransactionCta =
+    /\b(?:mua ngay|thÃªm vÃ o giá»(?: hÃ ng)?|them vao gio(?: hang)?|buy now|add to cart|thuÃª ngay|thue ngay|Ä‘áº·t thuÃª|dat thue|rent now|book now)\b/iu
+      .test(
+        detailText
+      );
+
+
+  const detailSignals =
+    [
+      /(?:tÃ¬nh tráº¡ng|tinh trang|availability|in stock|cÃ²n hÃ ng|con hang)/iu,
+      /(?:báº£o hÃ nh|bao hanh|warranty|Ä‘iá»u kiá»‡n thuÃª|dieu kien thue|rental terms?)/iu,
+      /(?:sá»‘ lÆ°á»£ng|so luong|quantity|sku|mÃ£ sáº£n pháº©m|ma san pham|product code)/iu,
+      /(?:phá»¥ kiá»‡n|phu kien|accessories|included)/iu,
+      /(?:thÃ´ng sá»‘|thong so|specifications?|technical specifications?)/iu
+    ].filter(
+      pattern =>
+        pattern.test(
+          detailText
+        )
+    ).length;
+
+
+  if (
+    detailHeading &&
+    hasDetailPrice &&
+    hasTransactionCta &&
+    detailSignals >=
+      2
+  ) {
+
+    addCandidate(
+      baseUrl,
+      120,
+      "current-page product detail"
+    );
+  }
+
+
+  /*
+   * ==========================================
    * 2. DOM anchors
    * ==========================================
    *
@@ -444,6 +571,37 @@ export function discoverProductUrlsFromHtml(
         return;
       }
 
+
+      /*
+       * Site chrome is navigation, not product evidence.
+       *
+       * A bare <li> or repeated menu item must never become a
+       * high-confidence product candidate just because the same
+       * category link appears in desktop/mobile menus.
+       */
+      const siteChrome =
+        anchor.closest(
+          [
+            "nav",
+            "header",
+            "footer",
+            '[role="navigation"]',
+            ".breadcrumb",
+            ".breadcrumbs",
+            ".navbar",
+            ".main-menu",
+            ".navigation"
+          ].join(",")
+        );
+
+
+      if (
+        siteChrome.length
+      ) {
+        return;
+      }
+
+
       let score = 0;
 
       const reasons:
@@ -453,7 +611,6 @@ export function discoverProductUrlsFromHtml(
         anchor.closest(
           [
             "article",
-            "li",
             ".product",
             ".product-item",
             ".product-card",

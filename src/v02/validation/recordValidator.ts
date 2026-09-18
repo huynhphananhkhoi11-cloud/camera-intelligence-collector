@@ -96,9 +96,9 @@ export function validateProductRecord(
    * ConflictEngine owns detection/severity.
    * Validator owns the final decision.
    *
-   * HIGH conflicts require human review.
-   * MEDIUM conflicts remain visible in audit
-   * output but do not automatically block.
+   * Conflicts remain visible in audit/reasons.
+   * They do not remove a confirmed CAMERA
+   * from the market-survey output.
    */
   for (
     const conflict
@@ -110,9 +110,6 @@ export function validateProductRecord(
     ) {
       continue;
     }
-
-    decision =
-      "REVIEW";
 
     reasons.push(
       `high severity conflict: ${conflict.field}`
@@ -138,9 +135,6 @@ export function validateProductRecord(
     !facts.title.trim()
   ) {
 
-    decision =
-      "REVIEW";
-
     reasons.push(
       "missing product name"
     );
@@ -151,9 +145,6 @@ export function validateProductRecord(
     !analysis.offer.rental &&
     !analysis.offer.sale
   ) {
-
-    decision =
-      "REVIEW";
 
     reasons.push(
       "no proven rental or sale offer"
@@ -172,9 +163,6 @@ export function validateProductRecord(
       analysis.condition.conflict
     ) {
 
-      decision =
-        "REVIEW";
-
       reasons.push(
         "sale condition conflict"
       );
@@ -184,9 +172,6 @@ export function validateProductRecord(
         "UNKNOWN"
     ) {
 
-      decision =
-        "REVIEW";
-
       reasons.push(
         "sale condition unknown"
       );
@@ -195,9 +180,6 @@ export function validateProductRecord(
       analysis.condition.condition ===
         "DAMAGED"
     ) {
-
-      decision =
-        "REVIEW";
 
       reasons.push(
         "damaged item requires review"
@@ -217,9 +199,6 @@ export function validateProductRecord(
       fields.rentalPrice.conflict
     ) {
 
-      decision =
-        "REVIEW";
-
       reasons.push(
         "rental price conflict"
       );
@@ -230,9 +209,6 @@ export function validateProductRecord(
         null &&
       !fields.rentalPrice.contact
     ) {
-
-      decision =
-        "REVIEW";
 
       reasons.push(
         "missing rental price evidence"
@@ -252,9 +228,6 @@ export function validateProductRecord(
       fields.salePrice.conflict
     ) {
 
-      decision =
-        "REVIEW";
-
       reasons.push(
         "sale price conflict"
       );
@@ -265,9 +238,6 @@ export function validateProductRecord(
         null &&
       !fields.salePrice.contact
     ) {
-
-      decision =
-        "REVIEW";
 
       reasons.push(
         "missing sale price evidence"
@@ -361,12 +331,8 @@ export function validateProductRecord(
 
 
   if (
-    evidenceCoverage < 1 &&
-    decision === "ACCEPT"
+    evidenceCoverage < 1
   ) {
-
-    decision =
-      "REVIEW";
 
     reasons.push(
       "required evidence incomplete"

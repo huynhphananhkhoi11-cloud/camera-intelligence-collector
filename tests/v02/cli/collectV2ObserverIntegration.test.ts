@@ -167,7 +167,7 @@ describe(
 
 
     test(
-      "worker still owns its page close in finally",
+      "worker and catalog cleanup remain owned in finally",
       () => {
 
         expect(
@@ -179,12 +179,10 @@ describe(
         );
 
 
-        expect(
-          count(
-            "await catalogPage.close();"
-          )
-        ).toBe(
-          1
+                expect(
+          source
+        ).toMatch(
+          /finally\s*\{\s*preRunInterrupt\.uninstall\(\);\s*await\s+catalogPage\.close\(\{\s*runBeforeUnload:\s*false\s*\}\)\s*\.catch\(\s*\(\)\s*=>\s*undefined\s*\);/
         );
       }
     );

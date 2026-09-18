@@ -30,8 +30,13 @@ import {
 } from "node:url";
 
 import {
-  discoverProductUrls
+  discoverProductUrls,
+  type ProductUrlCandidate
 } from "../discovery/productUrlDiscovery.js";
+
+import {
+  selectProductCandidates
+} from "../discovery/productCandidateSelection.js";
 
 import {
   collectBrowserDetail
@@ -112,6 +117,10 @@ import type {
 import {
   crashIfRequested
 } from "../runtime/crashInjection.js";
+
+import {
+  installPreRunDiscoveryInterrupt
+} from "../runtime/preRunDiscoveryInterrupt.js";
 
 type SiteMode =
   NonNullable<
@@ -369,7 +378,7 @@ async function gentleLoad(
             "domcontentloaded",
 
           timeout:
-            45000
+            15_000
         }
       );
 
@@ -874,12 +883,23 @@ export async function runCollectV2(
       const catalogVisited =
         new Set<string>();
 
-      const productUrls =
-        new Set<string>();
+      const productCandidates:
+        ProductUrlCandidate[] = [];
 
 
       const catalogPage =
         await context.newPage();
+
+
+      const preRunInterrupt =
+        installPreRunDiscoveryInterrupt(
+          process,
+          () =>
+            catalogPage.close({
+              runBeforeUnload:
+                false
+            })
+        );
 
 
       try {
@@ -889,6 +909,10 @@ export async function runCollectV2(
           catalogVisited.size <
             options.maxPages
         ) {
+
+          preRunInterrupt.throwIfRequested();
+
+
           const current =
             catalogQueue.shift();
 
@@ -914,6 +938,9 @@ export async function runCollectV2(
             );
 
 
+            preRunInterrupt.throwIfRequested();
+
+
             const discovery =
               await discoverProductUrls(
                 catalogPage
@@ -925,21 +952,9 @@ export async function runCollectV2(
             );
 
 
-            for (
-              const url
-              of discovery.productUrls
-            ) {
-              if (
-                productUrls.size >=
-                  options.maxProducts
-              ) {
-                break;
-              }
-
-              productUrls.add(
-                url
-              );
-            }
+            productCandidates.push(
+              ...discovery.candidates
+            );
 
 
             for (
@@ -980,6 +995,10 @@ export async function runCollectV2(
           catch (
             error
           ) {
+
+            preRunInterrupt.throwIfRequested();
+
+
             catalogVisited.add(
               current
             );
@@ -1001,7 +1020,17 @@ export async function runCollectV2(
         }
       }
       finally {
-        await catalogPage.close();
+
+        preRunInterrupt.uninstall();
+
+
+        await catalogPage.close({
+          runBeforeUnload:
+            false
+        })
+          .catch(
+            () => undefined
+          );
       }
 
 
@@ -1012,12 +1041,17 @@ export async function runCollectV2(
         catalogVisited.size;
 
 
-      const discoveredUrls =
-        Array.from(
-          productUrls
-        ).slice(
-          0,
+      const discoveredCandidates =
+        selectProductCandidates(
+          productCandidates,
           options.maxProducts
+        );
+
+
+      const discoveredUrls =
+        discoveredCandidates.map(
+          candidate =>
+            candidate.url
         );
 
 
@@ -1056,12 +1090,13 @@ export async function runCollectV2(
           },
 
           productUrls:
-            discoveredUrls.map(
-              canonicalUrl => ({
-                canonicalUrl,
+            discoveredCandidates.map(
+              candidate => ({
+                canonicalUrl:
+                  candidate.url,
 
                 discoveryScore:
-                  null,
+                  candidate.score,
 
                 sourcesJson:
                   JSON.stringify({
@@ -1069,7 +1104,10 @@ export async function runCollectV2(
                       "CATALOG_DISCOVERY",
 
                     root:
-                      startUrl
+                      startUrl,
+
+                    reasons:
+                      candidate.reasons
                   })
               })
             )

@@ -468,6 +468,16 @@ program
         );
 
 
+      if (
+        !effectiveOptions.resume
+      ) {
+
+        console.log(
+          "Discovering product URLs... Press Ctrl+C to cancel."
+        );
+      }
+
+
       try {
 
         await runCollectV2(
