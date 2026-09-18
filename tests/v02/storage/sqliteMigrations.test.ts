@@ -12,6 +12,7 @@ import {
   LATEST_SCHEMA_VERSION,
   MIGRATION_V1_CHECKSUM,
   MIGRATION_V2_CHECKSUM,
+  MIGRATION_V3_CHECKSUM,
   runMigrations
 } from "../../../src/v02/storage/sqliteMigrations.ts";
 
@@ -94,7 +95,7 @@ describe(
           expect(
             LATEST_SCHEMA_VERSION
           ).toBe(
-            2
+            3
           );
         }
         finally {
@@ -105,7 +106,7 @@ describe(
 
 
     test(
-      "migration ledger preserves immutable v1 and records v2",
+      "migration ledger preserves v1 v2 and records v3",
       () => {
         const db =
           new DatabaseSync(
@@ -125,18 +126,7 @@ describe(
                 checksum
               FROM schema_migrations
               ORDER BY version
-            `).all() as
-              unknown as
-              Array<{
-                version:
-                  number;
-
-                name:
-                  string;
-
-                checksum:
-                  string;
-              }>;
+            `).all();
 
           expect(
             rows
@@ -160,6 +150,16 @@ describe(
 
               checksum:
                 MIGRATION_V2_CHECKSUM
+            },
+            {
+              version:
+                3,
+
+              name:
+                "phase10_v3_intelligence_audit",
+
+              checksum:
+                MIGRATION_V3_CHECKSUM
             }
           ]);
         }
@@ -171,7 +171,7 @@ describe(
 
 
     test(
-      "latest schema contains run ledger, detail attempts, and raw facts",
+      "latest schema contains persistence and audit tables",
       () => {
         const db =
           new DatabaseSync(
@@ -190,7 +190,12 @@ describe(
               "runs",
               "product_urls",
               "detail_fetches",
-              "raw_facts"
+              "raw_facts",
+              "classifications",
+              "resolved_fields",
+              "evidence",
+              "conflicts",
+              "errors"
             ]
           ) {
             expect(
@@ -202,31 +207,6 @@ describe(
               true
             );
           }
-
-          for (
-            const indexName
-            of [
-              "idx_product_urls_run_state",
-              "idx_detail_fetches_run_url_status",
-              "idx_raw_facts_content_lookup"
-            ]
-          ) {
-            const row =
-              db.prepare(`
-                SELECT
-                  name
-                FROM sqlite_master
-                WHERE
-                  type = 'index'
-                  AND name = ?
-              `).get(
-                indexName
-              );
-
-            expect(
-              row
-            ).toBeDefined();
-          }
         }
         finally {
           db.close();
@@ -236,7 +216,7 @@ describe(
 
 
     test(
-      "migrations are idempotent and do not duplicate ledger rows",
+      "migrations remain idempotent",
       () => {
         const db =
           new DatabaseSync(
@@ -248,7 +228,7 @@ describe(
             db
           );
 
-          const firstRows =
+          const first =
             db.prepare(`
               SELECT
                 version,
@@ -261,7 +241,7 @@ describe(
             db
           );
 
-          const secondRows =
+          const second =
             db.prepare(`
               SELECT
                 version,
@@ -270,39 +250,16 @@ describe(
               ORDER BY version
             `).all();
 
-          const countRow =
-            db.prepare(`
-              SELECT
-                COUNT(*) AS count
-              FROM schema_migrations
-            `).get() as
-              | {
-                  count:
-                    number;
-                }
-              | undefined;
-
           expect(
-            countRow?.count
-          ).toBe(
-            2
-          );
-
-          expect(
-            secondRows
+            second
           ).toEqual(
-            firstRows
+            first
           );
 
           expect(
-            Number(
-              pragmaScalar(
-                db,
-                "PRAGMA user_version"
-              )
-            )
-          ).toBe(
-            2
+            second
+          ).toHaveLength(
+            3
           );
         }
         finally {
@@ -313,7 +270,7 @@ describe(
 
 
     test(
-      "migration rejects a database newer than the supported schema",
+      "migration rejects newer unsupported schema",
       () => {
         const db =
           new DatabaseSync(

@@ -8,7 +8,7 @@ import type {
 
 
 export const LATEST_SCHEMA_VERSION =
-  2;
+  3;
 
 
 const MIGRATION_V1_NAME =
@@ -264,7 +264,275 @@ export const MIGRATION_V2_CHECKSUM =
       "hex"
     );
 
+
+
+const MIGRATION_V3_NAME =
+  "phase10_v3_intelligence_audit";
+
+
+const MIGRATION_V3_SQL = `
+CREATE TABLE classifications (
+  classification_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  run_id TEXT NOT NULL,
+
+  canonical_url TEXT NOT NULL,
+
+  content_hash TEXT NOT NULL,
+
+  classifier_version TEXT NOT NULL,
+
+  audit_version TEXT NOT NULL,
+
+  entity_json TEXT NOT NULL,
+
+  offer_json TEXT NOT NULL,
+
+  condition_json TEXT NOT NULL,
+
+  validation_json TEXT NOT NULL,
+
+  created_at TEXT NOT NULL,
+
+  UNIQUE (
+    run_id,
+    canonical_url,
+    audit_version
+  ),
+
+  FOREIGN KEY (
+    run_id,
+    canonical_url
+  )
+    REFERENCES product_urls(
+      run_id,
+      canonical_url
+    )
+    ON DELETE CASCADE
+) STRICT;
+
+
+CREATE INDEX
+  idx_classifications_content_version
+ON classifications (
+  content_hash,
+  classifier_version
+);
+
+
+CREATE TABLE resolved_fields (
+  run_id TEXT NOT NULL,
+
+  canonical_url TEXT NOT NULL,
+
+  audit_version TEXT NOT NULL,
+
+  resolver_version TEXT NOT NULL,
+
+  field TEXT NOT NULL,
+
+  selected_value_json TEXT NOT NULL,
+
+  confidence REAL NOT NULL,
+
+  conflict INTEGER NOT NULL
+    CHECK (
+      conflict IN (
+        0,
+        1
+      )
+    ),
+
+  created_at TEXT NOT NULL,
+
+  PRIMARY KEY (
+    run_id,
+    canonical_url,
+    audit_version,
+    field
+  ),
+
+  FOREIGN KEY (
+    run_id,
+    canonical_url
+  )
+    REFERENCES product_urls(
+      run_id,
+      canonical_url
+    )
+    ON DELETE CASCADE
+) STRICT;
+
+
+CREATE TABLE evidence (
+  evidence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  run_id TEXT NOT NULL,
+
+  canonical_url TEXT NOT NULL,
+
+  audit_version TEXT NOT NULL,
+
+  product_name TEXT NOT NULL,
+
+  decision TEXT NOT NULL,
+
+  field TEXT NOT NULL,
+
+  selected_value TEXT NOT NULL,
+
+  source TEXT NOT NULL,
+
+  raw TEXT NOT NULL,
+
+  weight REAL,
+
+  confidence_json TEXT NOT NULL,
+
+  rule_id TEXT NOT NULL,
+
+  created_at TEXT NOT NULL,
+
+  FOREIGN KEY (
+    run_id,
+    canonical_url
+  )
+    REFERENCES product_urls(
+      run_id,
+      canonical_url
+    )
+    ON DELETE CASCADE
+) STRICT;
+
+
+CREATE INDEX
+  idx_evidence_run_url_field
+ON evidence (
+  run_id,
+  canonical_url,
+  audit_version,
+  field
+);
+
+
+CREATE TABLE conflicts (
+  conflict_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  run_id TEXT NOT NULL,
+
+  canonical_url TEXT NOT NULL,
+
+  audit_version TEXT NOT NULL,
+
+  product_name TEXT NOT NULL,
+
+  field TEXT NOT NULL,
+
+  severity TEXT NOT NULL
+    CHECK (
+      severity IN (
+        'REVIEW',
+        'INFO'
+      )
+    ),
+
+  values_text TEXT NOT NULL,
+
+  explanation TEXT NOT NULL,
+
+  selected_value TEXT,
+
+  meta_json TEXT NOT NULL,
+
+  created_at TEXT NOT NULL,
+
+  FOREIGN KEY (
+    run_id,
+    canonical_url
+  )
+    REFERENCES product_urls(
+      run_id,
+      canonical_url
+    )
+    ON DELETE CASCADE
+) STRICT;
+
+
+CREATE INDEX
+  idx_conflicts_run_url
+ON conflicts (
+  run_id,
+  canonical_url,
+  audit_version
+);
+
+
+CREATE TABLE errors (
+  error_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  run_id TEXT NOT NULL,
+
+  canonical_url TEXT,
+
+  stage TEXT NOT NULL,
+
+  error_class TEXT NOT NULL,
+
+  message TEXT NOT NULL,
+
+  attempts INTEGER NOT NULL
+    CHECK (
+      attempts >= 0
+    ),
+
+  last_status_json TEXT,
+
+  retriable INTEGER NOT NULL
+    CHECK (
+      retriable IN (
+        0,
+        1
+      )
+    ),
+
+  diagnostic_path TEXT,
+
+  created_at TEXT NOT NULL,
+
+  FOREIGN KEY (
+    run_id
+  )
+    REFERENCES runs(
+      run_id
+    )
+    ON DELETE CASCADE
+) STRICT;
+
+
+CREATE INDEX
+  idx_errors_run_url
+ON errors (
+  run_id,
+  canonical_url,
+  error_id
+);
+`;
+
+
+export const MIGRATION_V3_CHECKSUM =
+  createHash(
+    "sha256"
+  )
+    .update(
+      MIGRATION_V3_SQL,
+      "utf8"
+    )
+    .digest(
+      "hex"
+    );
+
 interface MigrationLedgerRow {
+
 
   version: number;
 
@@ -495,7 +763,74 @@ function verifyMigrationV2(
   }
 }
 
+
+function verifyMigrationV3(
+  db:
+    DatabaseSync
+): void {
+  for (
+    const tableName
+    of [
+      "classifications",
+      "resolved_fields",
+      "evidence",
+      "conflicts",
+      "errors"
+    ]
+  ) {
+    if (
+      !tableExists(
+        db,
+        tableName
+      )
+    ) {
+      throw new Error(
+        `Migration v3 invariant failed: ${tableName} table is missing.`
+      );
+    }
+  }
+
+  const row =
+    db.prepare(`
+      SELECT
+        version,
+        name,
+        checksum
+      FROM schema_migrations
+      WHERE version = ?
+    `).get(
+      3
+    ) as
+      | MigrationLedgerRow
+      | undefined;
+
+  if (!row) {
+    throw new Error(
+      "Migration v3 invariant failed: migration ledger row is missing."
+    );
+  }
+
+  if (
+    row.name !==
+      MIGRATION_V3_NAME
+  ) {
+    throw new Error(
+      `Migration v3 name mismatch: ${row.name}`
+    );
+  }
+
+  if (
+    row.checksum !==
+      MIGRATION_V3_CHECKSUM
+  ) {
+    throw new Error(
+      "Migration v3 checksum mismatch."
+    );
+  }
+}
+
 function applyMigrationV1(
+
 
   db:
     DatabaseSync
@@ -605,8 +940,63 @@ function applyMigrationV2(
   }
 }
 
+
+function applyMigrationV3(
+  db:
+    DatabaseSync
+): void {
+  db.exec(
+    "BEGIN IMMEDIATE"
+  );
+
+  try {
+    db.exec(
+      MIGRATION_V3_SQL
+    );
+
+    db.prepare(`
+      INSERT INTO schema_migrations (
+        version,
+        name,
+        checksum,
+        applied_at
+      )
+      VALUES (?, ?, ?, ?)
+    `).run(
+      3,
+      MIGRATION_V3_NAME,
+      MIGRATION_V3_CHECKSUM,
+      new Date()
+        .toISOString()
+    );
+
+    db.exec(
+      "PRAGMA user_version = 3"
+    );
+
+    db.exec(
+      "COMMIT"
+    );
+  }
+  catch (error) {
+    try {
+      db.exec(
+        "ROLLBACK"
+      );
+    }
+    catch {
+      /*
+       * Preserve the original migration failure.
+       */
+    }
+
+    throw error;
+  }
+}
+
 /**
  * Apply all pending application-owned schema migrations.
+
 
  *
  * Migration files are immutable after release.
@@ -662,6 +1052,27 @@ export function runMigrations(
   }
 
   if (
+    current === 2
+  ) {
+    verifyMigrationV1(
+      db
+    );
+
+    verifyMigrationV2(
+      db
+    );
+
+    applyMigrationV3(
+      db
+    );
+
+    current =
+      currentSchemaVersion(
+        db
+      );
+  }
+
+  if (
     current !==
     LATEST_SCHEMA_VERSION
   ) {
@@ -675,6 +1086,10 @@ export function runMigrations(
   );
 
   verifyMigrationV2(
+    db
+  );
+
+  verifyMigrationV3(
     db
   );
 }
