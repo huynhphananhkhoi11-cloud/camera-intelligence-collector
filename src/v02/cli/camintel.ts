@@ -28,6 +28,26 @@ import {
   openCompletedArtifactBestEffort
 } from "./artifactOpenUx.js";
 
+import {
+  existsSync
+} from "node:fs";
+
+import {
+  resolveStateDatabasePath
+} from "../platform/stateDatabasePath.js";
+
+import {
+  SQLiteRunHistoryStore
+} from "../storage/sqliteRunHistoryStore.js";
+
+import type {
+  RunHistoryRecord
+} from "../storage/runHistoryStore.js";
+
+import {
+  chooseResumeOrNew
+} from "./resumeUx.js";
+
 
 interface CollectOptions {
   siteMode?:
@@ -43,6 +63,9 @@ interface CollectOptions {
     string;
 
   concurrency?:
+    string;
+
+  resume?:
     string;
 
   fresh:
@@ -61,16 +84,26 @@ interface CollectOptions {
 
 function collectArgv(
   url:
-    string,
+    string |
+    undefined,
   options:
     CollectOptions
 ): string[] {
 
   const argv = [
     process.execPath,
-    "camintel",
-    url
+    "camintel"
   ];
+
+
+  if (
+    url
+  ) {
+
+    argv.push(
+      url
+    );
+  }
 
 
   if (
@@ -123,6 +156,17 @@ function collectArgv(
 
 
   if (
+    options.resume
+  ) {
+
+    argv.push(
+      "--resume",
+      options.resume
+    );
+  }
+
+
+  if (
     options.fresh
   ) {
     argv.push(
@@ -142,6 +186,46 @@ function collectArgv(
 
 
   return argv;
+}
+
+
+function recentRunHistory():
+  readonly RunHistoryRecord[] {
+
+  const databasePath =
+    resolveStateDatabasePath();
+
+
+  /*
+   * First use legitimately has no state database.
+   * Strict read-only history must not create one.
+   */
+  if (
+    !existsSync(
+      databasePath
+    )
+  ) {
+
+    return Object.freeze([]);
+  }
+
+
+  const history =
+    new SQLiteRunHistoryStore(
+      databasePath
+    );
+
+
+  try {
+
+    return history.listRecentRuns(
+      100
+    );
+  }
+  finally {
+
+    history.close();
+  }
 }
 
 
@@ -190,6 +274,10 @@ program
     "Parallel detail workers"
   )
   .option(
+    "--resume <runId>",
+    "Resume a persistent run by runId"
+  )
+  .option(
     "--fresh",
     "Bypass reusable cache for a new run",
     false
@@ -216,10 +304,132 @@ program
         CollectOptions
     ) => {
 
-      const resolvedUrl =
-        await resolveCollectUrl(
-          url
+      let resolvedUrl:
+        string |
+        undefined;
+
+      let resumeRunId =
+        options.resume
+          ?.trim();
+
+
+      if (
+        options.resume !==
+          undefined &&
+        resumeRunId?.length ===
+          0
+      ) {
+
+        throw new Error(
+          "--resume requires a non-blank runId."
         );
+      }
+
+
+      if (
+        resumeRunId &&
+        url !==
+          undefined &&
+        url.trim().length >
+          0
+      ) {
+
+        throw new Error(
+          "--resume cannot be combined with a website URL."
+        );
+      }
+
+
+      if (
+        resumeRunId &&
+        options.fresh
+      ) {
+
+        throw new Error(
+          "--resume cannot be combined with --fresh."
+        );
+      }
+
+
+      if (
+        resumeRunId
+      ) {
+
+        /*
+         * Explicit resume is authoritative.
+         * RunCoordinator remains the sole recovery/mutation owner.
+         */
+      }
+      else if (
+        url !==
+          undefined &&
+        url.trim().length >
+          0
+      ) {
+
+        resolvedUrl =
+          await resolveCollectUrl(
+            url
+          );
+      }
+      else if (
+        options.fresh
+      ) {
+
+        /*
+         * Explicit new-run intent bypasses unfinished-run history.
+         */
+        resolvedUrl =
+          await resolveCollectUrl(
+            undefined
+          );
+      }
+      else {
+
+        const decision =
+          await chooseResumeOrNew(
+            recentRunHistory
+          );
+
+
+        if (
+          decision.mode ===
+            "QUIT"
+        ) {
+
+          console.log(
+            "Cancelled."
+          );
+
+          return;
+        }
+
+
+        if (
+          decision.mode ===
+            "RESUME"
+        ) {
+
+          resumeRunId =
+            decision.run.runId;
+        }
+        else {
+
+          resolvedUrl =
+            await resolveCollectUrl(
+              undefined
+            );
+        }
+      }
+
+
+      const effectiveOptions:
+        CollectOptions = {
+          ...options,
+
+          resume:
+            resumeRunId
+        };
 
 
       const eventBus =
@@ -263,7 +473,7 @@ program
         await runCollectV2(
           collectArgv(
             resolvedUrl,
-            options
+            effectiveOptions
           ),
           {
             eventBus,

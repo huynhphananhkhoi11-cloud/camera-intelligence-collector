@@ -101,7 +101,8 @@ describe(
 
         const finallyIndex =
           command.indexOf(
-            "finally"
+            "finally",
+            run
           );
 
         const unsubscribe =
