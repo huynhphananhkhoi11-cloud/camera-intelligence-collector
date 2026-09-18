@@ -20,6 +20,14 @@ import {
   TerminalRenderer
 } from "./terminalRenderer.js";
 
+import {
+  openArtifact
+} from "../platform/artifactOpener.js";
+
+import {
+  openCompletedArtifactBestEffort
+} from "./artifactOpenUx.js";
+
 
 interface CollectOptions {
   siteMode?:
@@ -44,6 +52,9 @@ interface CollectOptions {
     string;
 
   debug:
+    boolean;
+
+  open:
     boolean;
 }
 
@@ -188,6 +199,10 @@ program
     "Explicit xlsx output path"
   )
   .option(
+    "--no-open",
+    "Do not automatically open the completed xlsx"
+  )
+  .option(
     "--debug",
     "Show per-URL technical diagnostics",
     false
@@ -221,6 +236,28 @@ program
         );
 
 
+      let completedArtifactPath:
+        string |
+        null =
+          null;
+
+
+      const unsubscribeArtifactCapture =
+        eventBus.subscribe(
+          event => {
+
+            if (
+              event.type ===
+                "EXPORT_COMPLETED"
+            ) {
+
+              completedArtifactPath =
+                event.targetPath;
+            }
+          }
+        );
+
+
       try {
 
         await runCollectV2(
@@ -249,8 +286,38 @@ program
               }
           }
         );
+
+
+        await openCompletedArtifactBestEffort({
+          enabled:
+            options.open,
+
+          artifactPath:
+            completedArtifactPath,
+
+          openArtifact:
+            openArtifact,
+
+          writeInfo:
+            message => {
+
+              console.log(
+                message
+              );
+            },
+
+          writeWarning:
+            message => {
+
+              console.error(
+                message
+              );
+            }
+        });
       }
       finally {
+
+        unsubscribeArtifactCapture();
 
         unsubscribeRenderer();
       }
