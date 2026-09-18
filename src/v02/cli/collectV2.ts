@@ -1,4 +1,8 @@
 import {
+  resolveStateDatabasePath
+} from "../platform/stateDatabasePath.js";
+
+import {
   Command
 } from "commander";
 
@@ -338,28 +342,6 @@ function recoverSiteMode(
 }
 
 
-function stateDatabasePath():
-  string {
-
-  const override =
-    process.env
-      .CAMINTEL_STATE_DB
-      ?.trim();
-
-  if (override) {
-    return resolve(
-      override
-    );
-  }
-
-  return resolve(
-    process.cwd(),
-    "data",
-    "camera-intelligence.sqlite"
-  );
-}
-
-
 async function gentleLoad(
   page:
     Page,
@@ -665,7 +647,7 @@ export async function runCollectV2(
 
 
   const databasePath =
-    stateDatabasePath();
+    resolveStateDatabasePath();
 
 
   await mkdir(
