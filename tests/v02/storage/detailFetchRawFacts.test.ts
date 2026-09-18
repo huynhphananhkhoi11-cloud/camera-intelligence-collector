@@ -912,3 +912,164 @@ describe(
     );
   }
 );
+
+describe(
+  "Phase 10E cross-URL STARTED fetch isolation regression",
+  () => {
+
+    test(
+      "STARTED acquisition for URL A does not block terminalization of URL B",
+      () => {
+        const temp =
+          tempDatabase();
+
+        const store =
+          createStore(
+            temp.path
+          );
+
+        try {
+          const runId =
+            "run-cross-url-fetch-isolation";
+
+          const urlA =
+            "https://example.com/p/a";
+
+          const urlB =
+            "https://example.com/p/b";
+
+
+          store.createRun({
+            runId,
+
+            inputUrl:
+              "https://example.com",
+
+            canonicalOrigin:
+              "https://example.com",
+
+            startedAt:
+              "2026-09-18T04:55:00.000Z",
+
+            codeVersion:
+              "037d37d",
+
+            configHash:
+              "cfg-cross-url-fetch-isolation"
+          });
+
+
+          store.startRun(
+            runId
+          );
+
+
+          store.registerProductUrls(
+            runId,
+            [
+              {
+                canonicalUrl:
+                  urlA,
+
+                discoveryScore:
+                  90,
+
+                sourcesJson:
+                  "[]"
+              },
+              {
+                canonicalUrl:
+                  urlB,
+
+                discoveryScore:
+                  90,
+
+                sourcesJson:
+                  "[]"
+              }
+            ]
+          );
+
+
+          /*
+           * URL A owns an unfinished acquisition attempt.
+           */
+          store.beginAttempt(
+            runId,
+            urlA
+          );
+
+          store.startDetailFetch(
+            runId,
+            urlA
+          );
+
+
+          /*
+           * URL B is independent. Its terminal decision must not
+           * be blocked by URL A's STARTED fetch.
+           */
+          store.beginAttempt(
+            runId,
+            urlB
+          );
+
+          expect(
+            () =>
+              store.terminalize(
+                runId,
+                urlB,
+                "ACCEPT"
+              )
+          ).not.toThrow();
+
+
+          const states =
+            new Map(
+              store.listProductUrls(
+                runId
+              ).map(
+                row => [
+                  row.canonicalUrl,
+                  row.state
+                ]
+              )
+            );
+
+
+          expect(
+            states.get(
+              urlA
+            )
+          ).toBe(
+            "IN_PROGRESS"
+          );
+
+          expect(
+            states.get(
+              urlB
+            )
+          ).toBe(
+            "ACCEPT"
+          );
+
+
+          /*
+           * Run finalization remains correctly run-scoped:
+           * URL A still has unfinished work.
+           */
+          expect(
+            () =>
+              store.completeRun(
+                runId
+              )
+          ).toThrow();
+        }
+        finally {
+          store.close();
+          temp.cleanup();
+        }
+      }
+    );
+  }
+);

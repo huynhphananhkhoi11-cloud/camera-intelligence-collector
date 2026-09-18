@@ -860,7 +860,59 @@ implements RunStore {
   }
 
 
-  private countStartedDetailFetches(
+  /*
+   * URL-scoped guard:
+   * one product's acquisition must never block another product
+   * from reaching its own terminal state.
+   */
+  private countStartedDetailFetchesForUrl(
+    runId:
+      string,
+    canonicalUrl:
+      string
+  ): number {
+    const statement =
+      this.db.prepare(`
+        SELECT
+          COUNT(*) AS count
+        FROM detail_fetches
+        WHERE
+          run_id = ?
+          AND canonical_url = ?
+          AND status = 'STARTED'
+      `);
+
+    try {
+      const row =
+        statement.get(
+          runId,
+          canonicalUrl
+        ) as
+          | {
+              count:
+                number;
+            }
+          | undefined;
+
+      return Number(
+        row?.count ??
+        0
+      );
+    }
+    finally {
+      closeStatement(
+        statement
+      );
+    }
+  }
+
+
+  /*
+   * Run-scoped guard:
+   * finalizing a run still requires zero unfinished acquisition
+   * attempts anywhere in that run.
+   */
+  private countStartedDetailFetchesForRun(
     runId:
       string
   ): number {
@@ -2166,8 +2218,9 @@ implements RunStore {
       );
 
     const openDetailFetches =
-      this.countStartedDetailFetches(
-        runId
+      this.countStartedDetailFetchesForUrl(
+        runId,
+        canonicalUrl
       );
 
     if (
@@ -2501,7 +2554,7 @@ implements RunStore {
         }
 
         const openDetailFetches =
-          this.countStartedDetailFetches(
+          this.countStartedDetailFetchesForRun(
             runId
           );
 
