@@ -12,6 +12,14 @@ import {
   resolveCollectUrl
 } from "./interactiveUrl.js";
 
+import {
+  RunEventBus
+} from "../runtime/runEventBus.js";
+
+import {
+  TerminalRenderer
+} from "./terminalRenderer.js";
+
 
 interface CollectOptions {
   siteMode?:
@@ -34,6 +42,9 @@ interface CollectOptions {
 
   output?:
     string;
+
+  debug:
+    boolean;
 }
 
 
@@ -176,6 +187,11 @@ program
     "--output <path>",
     "Explicit xlsx output path"
   )
+  .option(
+    "--debug",
+    "Show per-URL technical diagnostics",
+    false
+  )
   .action(
     async (
       url:
@@ -191,12 +207,53 @@ program
         );
 
 
-      await runCollectV2(
-        collectArgv(
-          resolvedUrl,
-          options
-        )
-      );
+      const eventBus =
+        new RunEventBus();
+
+
+      const renderer =
+        new TerminalRenderer();
+
+
+      const unsubscribeRenderer =
+        eventBus.subscribe(
+          renderer.onEvent
+        );
+
+
+      try {
+
+        await runCollectV2(
+          collectArgv(
+            resolvedUrl,
+            options
+          ),
+          {
+            eventBus,
+
+            debug:
+              options.debug,
+
+            onEventError:
+              error => {
+
+                if (
+                  options.debug
+                ) {
+
+                  console.error(
+                    "EVENT DIAGNOSTIC:",
+                    error
+                  );
+                }
+              }
+          }
+        );
+      }
+      finally {
+
+        unsubscribeRenderer();
+      }
     }
   );
 

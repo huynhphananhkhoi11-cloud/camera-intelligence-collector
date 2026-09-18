@@ -73,6 +73,10 @@ import {
 } from "../runtime/runEventBus.js";
 
 import {
+  createRuntimeDiagnostics
+} from "./runtimeDiagnostics.js";
+
+import {
   SQLiteIntelligenceAuditStore
 } from "../storage/sqliteIntelligenceAuditStore.js";
 import {
@@ -102,6 +106,9 @@ type SiteMode =
 export interface CollectV2RuntimeOptions {
   eventBus?:
     RunEventBus;
+
+  debug?:
+    boolean;
 
   onEventError?:
     (
@@ -512,6 +519,13 @@ export async function runCollectV2(
     CollectV2RuntimeOptions = {}
 ): Promise<void> {
 
+  const diagnostics =
+    createRuntimeDiagnostics(
+      runtimeOptions.debug ===
+        true
+    );
+
+
   const program =
     new Command();
 
@@ -891,7 +905,7 @@ export async function runCollectV2(
           }
 
 
-          console.log(
+          diagnostics.log(
             `[CATALOG ${catalogVisited.size + 1}] ${current}`
           );
 
@@ -983,7 +997,7 @@ export async function runCollectV2(
               )
             );
 
-            console.error(
+            diagnostics.error(
               `  ERROR: ${String(error)}`
             );
           }
@@ -1125,44 +1139,44 @@ export async function runCollectV2(
     });
 
 
-    console.log("");
-    console.log(
+    diagnostics.log("");
+    diagnostics.log(
       "=== CAMERA INTELLIGENCE COLLECTOR v0.2 ==="
     );
 
-    console.log(
+    diagnostics.log(
       `Mode: ${runIntent.mode}`
     );
 
-    console.log(
+    diagnostics.log(
       `Run: ${runId}`
     );
 
-    console.log(
+    diagnostics.log(
       `Root: ${startUrl}`
     );
 
-    console.log(
+    diagnostics.log(
       `Site mode prior: ${siteMode}`
     );
 
-    console.log(
+    diagnostics.log(
       `Headless: ${options.headless}`
     );
 
-    console.log(
+    diagnostics.log(
       `State DB: ${databasePath}`
     );
 
-    console.log(
+    diagnostics.log(
       `Catalog pages visited this process: ${catalogPagesVisited}`
     );
 
-    console.log(
+    diagnostics.log(
       `Detail URLs queued this process: ${urls.length}`
     );
 
-    console.log("");
+    diagnostics.log("");
 
 
     let signalFailure:
@@ -1180,8 +1194,8 @@ export async function runCollectV2(
               if (
                 result.interrupted
               ) {
-                console.log("");
-                console.log(
+                diagnostics.log("");
+                diagnostics.log(
                   `Interrupt requested. Run: ${result.runId}`
                 );
               }
@@ -1192,12 +1206,12 @@ export async function runCollectV2(
               signalFailure =
                 error;
 
-              console.error("");
-              console.error(
+              diagnostics.error("");
+              diagnostics.error(
                 "SIGINT persistence failure:"
               );
 
-              console.error(
+              diagnostics.error(
                 error
               );
             }
@@ -1364,7 +1378,7 @@ export async function runCollectV2(
               detailAttempted++;
 
 
-              console.log(
+              diagnostics.log(
                 `[DETAIL ${index + 1}/${urls.length} W${workerId}] ${url}`
               );
 
@@ -1570,7 +1584,7 @@ coordinator.terminalizeProduct(
                 );
 
 
-                console.error(
+                diagnostics.error(
                   `  ERROR: ${error.message}`
                 );
               }
@@ -1661,24 +1675,24 @@ coordinator.terminalizeProduct(
           coordinator.getActiveRun();
 
 
-        console.log("");
-        console.log(
+        diagnostics.log("");
+        diagnostics.log(
           "=== INTERRUPTED ==="
         );
 
-        console.log(
+        diagnostics.log(
           `Run: ${runId}`
         );
 
-        console.log(
+        diagnostics.log(
           `Status: ${interrupted?.status ?? "INTERRUPTED"}`
         );
 
-        console.log(
+        diagnostics.log(
           `Detail attempts this process: ${detailAttempted}`
         );
 
-        console.log(
+        diagnostics.log(
           `Completed this process: ${detailCompleted}`
         );
 
@@ -2076,32 +2090,32 @@ coordinator.terminalizeProduct(
         coordinator.finalizeRun();
 
 
-      console.log("");
-      console.log(
+      diagnostics.log("");
+      diagnostics.log(
         "=== COMPLETE ==="
       );
 
-      console.log(
+      diagnostics.log(
         `Run: ${runId}`
       );
 
-      console.log(
+      diagnostics.log(
         `Run status: ${finalized.status}`
       );
 
-      console.log(
+      diagnostics.log(
         `Accepted: ${coverage.accepted}`
       );
 
-      console.log(
+      diagnostics.log(
         `Review: ${coverage.review}`
       );
 
-      console.log(
+      diagnostics.log(
         `Excluded: ${coverage.excluded}`
       );
 
-      console.log(
+      diagnostics.log(
         `Errors: ${reconciliationReport.error}`
       );
 
@@ -2119,13 +2133,13 @@ coordinator.terminalizeProduct(
                 100
               ).toFixed(1)}%`;
 
-        console.log(
+        diagnostics.log(
           `${metric.label}: ${ratio} [${metric.status}]`
         );
       }
 
 
-      console.log(
+      diagnostics.log(
         `Excel: ${outputPath}`
       );
     }
@@ -2250,7 +2264,13 @@ coordinator.terminalizeProduct(
 if (
   isDirectExecution()
 ) {
-  runCollectV2()
+  runCollectV2(
+    process.argv,
+    {
+      debug:
+        true
+    }
+  )
     .catch(
       error => {
 
