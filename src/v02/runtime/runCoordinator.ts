@@ -18,11 +18,28 @@ import type {
   ResumePlan
 } from "../storage/resumeStore.js";
 
+import type {
+  RunCounterSnapshot,
+  RunEventBus,
+  RunEventPayload,
+  RunReconciliationSnapshot
+} from "./runEventBus.js";
+
 
 export interface RunCoordinatorOptions {
   timeoutMs?: number;
 
   now?: () => string;
+
+  eventBus?:
+    RunEventBus;
+
+  onEventError?:
+    (
+      error:
+        unknown
+    ) =>
+      void;
 }
 
 
@@ -98,6 +115,18 @@ export class RunCoordinator {
   private readonly resumeStore:
     SQLiteResumeStore;
 
+  private readonly eventBus:
+    RunEventBus |
+    null;
+
+  private readonly onEventError:
+    ((
+      error:
+        unknown
+    ) =>
+      void) |
+    null;
+
   private activeRunId:
     string |
     null =
@@ -121,6 +150,16 @@ export class RunCoordinator {
         databasePath,
         "databasePath"
       );
+
+
+    this.eventBus =
+      options.eventBus ??
+      null;
+
+    this.onEventError =
+      options.onEventError ??
+      null;
+
 
     this.runStore =
       new SQLiteRunStore(
@@ -152,6 +191,203 @@ export class RunCoordinator {
 
       throw error;
     }
+  }
+
+
+  private notifyEventError(
+    error:
+      unknown
+  ): void {
+
+    if (
+      this.onEventError ===
+        null
+    ) {
+      return;
+    }
+
+
+    try {
+
+      this.onEventError(
+        error
+      );
+    }
+    catch {
+
+      /*
+       * Observability callbacks are non-authoritative.
+       * They cannot alter persistent lifecycle truth.
+       */
+    }
+  }
+
+
+  private publishEvent(
+    payload:
+      RunEventPayload
+  ): void {
+
+    if (
+      this.eventBus ===
+        null
+    ) {
+      return;
+    }
+
+
+    try {
+
+      const report =
+        this.eventBus.publish(
+          payload
+        );
+
+
+      for (
+        const failure
+        of report.failures
+      ) {
+
+        this.notifyEventError(
+          failure.error
+        );
+      }
+    }
+    catch (
+      error
+    ) {
+
+      /*
+       * A renderer/logger/event-clock failure must never roll
+       * back a transition already committed to SQLite.
+       */
+      this.notifyEventError(
+        error
+      );
+    }
+  }
+
+
+  private counterSnapshot(
+    report:
+      RunStoreReconciliationReport
+  ): RunCounterSnapshot {
+
+    return {
+      accept:
+        report.accepted,
+
+      review:
+        report.review,
+
+      exclude:
+        report.excluded,
+
+      error:
+        report.error,
+
+      /*
+       * UX "inProgress" means all outstanding run-scope work:
+       * queued DISCOVERED + actively IN_PROGRESS.
+       */
+      inProgress:
+        report.pending +
+        report.inProgress,
+
+      total:
+        report.discovered
+    };
+  }
+
+
+  private reconciliationSnapshot(
+    report:
+      RunStoreReconciliationReport
+  ): RunReconciliationSnapshot {
+
+    return {
+      discovered:
+        report.discovered,
+
+      accept:
+        report.accepted,
+
+      review:
+        report.review,
+
+      exclude:
+        report.excluded,
+
+      error:
+        report.error,
+
+      inProgress:
+        report.pending +
+        report.inProgress,
+
+      balanced:
+        report.balanced
+    };
+  }
+
+
+  private eventReport(
+    runId:
+      string
+  ): RunStoreReconciliationReport |
+    null {
+
+    try {
+
+      return this.runStore
+        .getReconciliationReport(
+          runId
+        );
+    }
+    catch (
+      error
+    ) {
+
+      this.notifyEventError(
+        error
+      );
+
+      return null;
+    }
+  }
+
+
+  private emitCounters(
+    runId:
+      string
+  ): void {
+
+    const report =
+      this.eventReport(
+        runId
+      );
+
+
+    if (
+      report ===
+        null
+    ) {
+      return;
+    }
+
+
+    this.publishEvent({
+      type:
+        "COUNTERS_UPDATED",
+
+      runId,
+
+      counters:
+        this.counterSnapshot(
+          report
+        )
+    });
   }
 
 
@@ -294,6 +530,15 @@ export class RunCoordinator {
       false;
 
 
+    /*
+     * SQLite run state and queue are committed before observers
+     * receive their first snapshot.
+     */
+    this.emitCounters(
+      runId
+    );
+
+
     return {
       runId,
 
@@ -329,6 +574,15 @@ export class RunCoordinator {
 
     this.interruptionRequested =
       false;
+
+
+    /*
+     * prepareResume() has already persisted recovery before
+     * publishing the resumed outstanding-work snapshot.
+     */
+    this.emitCounters(
+      runId
+    );
 
 
     return plan;
@@ -397,17 +651,45 @@ export class RunCoordinator {
       canonicalUrl,
       state
     );
+
+
+    /*
+     * terminalize() persisted first.
+     */
+    this.emitCounters(
+      runId
+    );
   }
 
 
   reconciliation():
     RunStoreReconciliationReport {
+
     const runId =
       this.requireActiveRunId();
 
-    return this.runStore.getReconciliationReport(
-      runId
-    );
+
+    const report =
+      this.runStore
+        .getReconciliationReport(
+          runId
+        );
+
+
+    this.publishEvent({
+      type:
+        "RECONCILIATION_COMPLETED",
+
+      runId,
+
+      report:
+        this.reconciliationSnapshot(
+          report
+        )
+    });
+
+
+    return report;
   }
 
 
@@ -440,6 +722,47 @@ export class RunCoordinator {
         `Finalized run disappeared from persistent store: ${runId}`
       );
     }
+
+    const report =
+      this.eventReport(
+        runId
+      );
+
+
+    if (
+      report !==
+        null &&
+      (
+        finalized.status ===
+          "COMPLETED" ||
+        finalized.status ===
+          "COMPLETED_WITH_ERRORS"
+      )
+    ) {
+
+      this.publishEvent({
+        type:
+          "RUN_COMPLETED",
+
+        runId,
+
+        status:
+          finalized.status,
+
+        /*
+         * Export path belongs to exporter/orchestration, not the
+         * run coordinator. Never fabricate one here.
+         */
+        outputPath:
+          null,
+
+        summary:
+          this.counterSnapshot(
+            report
+          )
+      });
+    }
+
 
     return finalized;
   }
@@ -493,6 +816,28 @@ export class RunCoordinator {
 
       this.interruptionRequested =
         true;
+
+
+      const report =
+        this.eventReport(
+          runId
+        );
+
+
+      this.publishEvent({
+        type:
+          "RUN_INTERRUPTED",
+
+        runId,
+
+        remaining:
+          report ===
+            null
+            ? null
+            : report.pending +
+              report.inProgress
+      });
+
 
       return {
         runId,

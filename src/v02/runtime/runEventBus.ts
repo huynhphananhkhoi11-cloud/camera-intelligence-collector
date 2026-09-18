@@ -314,7 +314,8 @@ export type RunEventPayload =
         string;
 
       readonly status:
-        "COMPLETED";
+        | "COMPLETED"
+        | "COMPLETED_WITH_ERRORS";
 
       readonly outputPath:
         string |
