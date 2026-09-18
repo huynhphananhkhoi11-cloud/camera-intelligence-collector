@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "bin": {
+    "camintel": "./dist/v02/cli/camintel.js"
+  },
   "scripts": {
     "test": "vitest run",
-    "camintel": "tsx src/index.ts",
+    "camintel": "tsx src/v02/cli/camintel.ts",
     "check": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.json",
     "collect": "tsx src/collect.ts",

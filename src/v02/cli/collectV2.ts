@@ -22,6 +22,10 @@ import {
 } from "node:path";
 
 import {
+  pathToFileURL
+} from "node:url";
+
+import {
   discoverProductUrls
 } from "../discovery/productUrlDiscovery.js";
 
@@ -455,8 +459,36 @@ function interruptRunningRun(
 }
 
 
-async function main():
-  Promise<void> {
+function isDirectExecution():
+  boolean {
+
+  const rawEntry =
+    process.argv[1];
+
+
+  if (
+    !rawEntry
+  ) {
+    return false;
+  }
+
+
+  return (
+    import.meta.url ===
+    pathToFileURL(
+      resolve(
+        rawEntry
+      )
+    ).href
+  );
+}
+
+
+export async function runCollectV2(
+  argv:
+    string[] =
+      process.argv
+): Promise<void> {
 
   const program =
     new Command();
@@ -514,7 +546,7 @@ async function main():
       "Explicit xlsx output path"
     );
 
-  program.parse();
+  program.parse(argv);
 
 
   const rawOptions =
@@ -1804,19 +1836,24 @@ coordinator.terminalizeProduct(
 }
 
 
-main()
-  .catch(
-    error => {
-      console.error("");
-      console.error(
-        "FATAL:"
-      );
+if (
+  isDirectExecution()
+) {
+  runCollectV2()
+    .catch(
+      error => {
 
-      console.error(
-        error
-      );
+        console.error("");
+        console.error(
+          "FATAL:"
+        );
 
-      process.exitCode =
-        1;
-    }
-  );
+        console.error(
+          error
+        );
+
+        process.exitCode =
+          1;
+      }
+    );
+}
