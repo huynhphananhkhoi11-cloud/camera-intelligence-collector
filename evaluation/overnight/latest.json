@@ -1,0 +1,2209 @@
+﻿{
+    "schema":  "camintel.overnight-eval.v1",
+    "generatedAt":  "2026-09-18T17:22:13.9744685Z",
+    "cycle":  1,
+    "machine":  {
+                    "os":  "Microsoft Windows NT 10.0.26200.0",
+                    "node":  "v24.19.0",
+                    "powershell":  "5.1.26100.9444"
+                },
+    "repository":  {
+                       "origin":  "https://github.com/huynhphananhkhoi11-cloud/camera-intelligence-collector.git",
+                       "branch":  "feat/phase11-production-ux",
+                       "commit":  "3a88861456c53ec84bbd9c8234bb6a542d9e4837",
+                       "reportBranch":  "camintel-eval-reports"
+                   },
+    "benchmark":  {
+                      "startedAt":  "2026-09-18T17:20:35.2385923Z",
+                      "finishedAt":  "2026-09-18T17:22:13.9744685Z",
+                      "durationSeconds":  98.7,
+                      "suiteId":  "b395222c-39a4-47b0-91d5-d52eb1b625d9",
+                      "suiteStatus":  "completed_with_failures",
+                      "caseIds":  [
+                                      "sony-a6400-rental",
+                                      "thuemayanh-contact-negative",
+                                      "thuemayanh-home",
+                                      "camerahouse-a6400-body",
+                                      "camerahouse-a6400-18105",
+                                      "camerahouse-home",
+                                      "zshop-rental-mixed"
+                                  ],
+                      "suiteResults":  [
+                                           {
+                                               "caseId":  "sony-a6400-rental",
+                                               "runId":  "2af62831-9687-4b32-b86f-b2be71c10638",
+                                               "status":  "fail",
+                                               "pass":  false,
+                                               "checks":  [
+                                                              {
+                                                                  "name":  "acceptedMin",
+                                                                  "pass":  true,
+                                                                  "detail":  "accepted=1; expected\u003e=1"
+                                                              },
+                                                              {
+                                                                  "name":  "productNameIncludes",
+                                                                  "pass":  false,
+                                                                  "detail":  "missing=sony, a6400; name=CANON M"
+                                                              },
+                                                              {
+                                                                  "name":  "outputUrlEqualsInput",
+                                                                  "pass":  false,
+                                                                  "detail":  "requested=https://thuemayanhsaigon.com/equipment/21; output=https://thuemayanhsaigon.com/equipment/104"
+                                                              },
+                                                              {
+                                                                  "name":  "rentalPrice",
+                                                                  "pass":  false,
+                                                                  "detail":  "actual=224000; expected=360000"
+                                                              }
+                                                          ],
+                                               "hygieneWarnings":  [
+
+                                                                   ],
+                                               "error":  null
+                                           },
+                                           {
+                                               "caseId":  "thuemayanh-contact-negative",
+                                               "runId":  "5a020b3c-6441-4adf-b58c-65dc620b2624",
+                                               "status":  "pass",
+                                               "pass":  true,
+                                               "checks":  [
+                                                              {
+                                                                  "name":  "acceptedMax",
+                                                                  "pass":  true,
+                                                                  "detail":  "accepted=0; expected\u003c=0"
+                                                              }
+                                                          ],
+                                               "hygieneWarnings":  [
+
+                                                                   ],
+                                               "error":  null
+                                           },
+                                           {
+                                               "caseId":  "thuemayanh-home",
+                                               "runId":  "f3bfb7c0-23a4-430e-830a-97e3c0590c17",
+                                               "status":  "pass",
+                                               "pass":  true,
+                                               "checks":  [
+
+                                                          ],
+                                               "hygieneWarnings":  [
+
+                                                                   ],
+                                               "error":  null
+                                           },
+                                           {
+                                               "caseId":  "camerahouse-a6400-body",
+                                               "runId":  "4b15afbc-53f9-457c-8a08-e40a32698c4a",
+                                               "status":  "fail",
+                                               "pass":  false,
+                                               "checks":  [
+                                                              {
+                                                                  "name":  "acceptedMin",
+                                                                  "pass":  true,
+                                                                  "detail":  "accepted=1; expected\u003e=1"
+                                                              },
+                                                              {
+                                                                  "name":  "productNameIncludes",
+                                                                  "pass":  false,
+                                                                  "detail":  "missing=sony, a6400; name=Body Canon EOS 6D Mark II"
+                                                              },
+                                                              {
+                                                                  "name":  "outputUrlEqualsInput",
+                                                                  "pass":  false,
+                                                                  "detail":  "requested=https://camerahouse.vn/products/body-sony-a6400; output=https://camerahouse.vn/products/body-canon-6d"
+                                                              },
+                                                              {
+                                                                  "name":  "rentalPrice",
+                                                                  "pass":  false,
+                                                                  "detail":  "actual=null; expected=250000"
+                                                              }
+                                                          ],
+                                               "hygieneWarnings":  [
+
+                                                                   ],
+                                               "error":  null
+                                           },
+                                           {
+                                               "caseId":  "camerahouse-a6400-18105",
+                                               "runId":  "a310cb4a-6bf7-437b-9e0a-b2f0488908a7",
+                                               "status":  "fail",
+                                               "pass":  false,
+                                               "checks":  [
+                                                              {
+                                                                  "name":  "acceptedMin",
+                                                                  "pass":  true,
+                                                                  "detail":  "accepted=1; expected\u003e=1"
+                                                              },
+                                                              {
+                                                                  "name":  "productNameIncludes",
+                                                                  "pass":  false,
+                                                                  "detail":  "missing=sony, a6400, 18-105; name=Body Canon EOS 6D Mark II"
+                                                              },
+                                                              {
+                                                                  "name":  "outputUrlEqualsInput",
+                                                                  "pass":  false,
+                                                                  "detail":  "requested=https://camerahouse.vn/products/sony-a6400-lens-sony-18-105mm; output=https://camerahouse.vn/products/body-canon-6d"
+                                                              },
+                                                              {
+                                                                  "name":  "rentalPrice",
+                                                                  "pass":  false,
+                                                                  "detail":  "actual=null; expected=350000"
+                                                              }
+                                                          ],
+                                               "hygieneWarnings":  [
+
+                                                                   ],
+                                               "error":  null
+                                           },
+                                           {
+                                               "caseId":  "camerahouse-home",
+                                               "runId":  "ea0cdec3-88ec-4e94-884a-bf07e25d58fd",
+                                               "status":  "pass",
+                                               "pass":  true,
+                                               "checks":  [
+
+                                                          ],
+                                               "hygieneWarnings":  [
+
+                                                                   ],
+                                               "error":  null
+                                           },
+                                           {
+                                               "caseId":  "zshop-rental-mixed",
+                                               "runId":  "95fe1c8f-5b15-4a61-9589-cf62b701e4cc",
+                                               "status":  "pass",
+                                               "pass":  true,
+                                               "checks":  [
+
+                                                          ],
+                                               "hygieneWarnings":  [
+
+                                                                   ],
+                                               "error":  null
+                                           }
+                                       ]
+                  },
+    "runs":  [
+                 {
+                     "runId":  "2af62831-9687-4b32-b86f-b2be71c10638",
+                     "caseId":  "sony-a6400-rental",
+                     "label":  "Thuê Máy Ảnh Sài Gòn — Sony A6400 direct product",
+                     "requestedUrl":  "https://thuemayanhsaigon.com/equipment/21",
+                     "status":  "fail",
+                     "startedAt":  "2026-09-18T17:20:35.247Z",
+                     "finishedAt":  "2026-09-18T17:20:49.250Z",
+                     "timedOut":  false,
+                     "error":  null,
+                     "exit":  {
+                                  "code":  0,
+                                  "signal":  null,
+                                  "spawnError":  null
+                              },
+                     "workbook":  {
+                                      "sheetNames":  [
+                                                         "Dữ liệu đối thủ",
+                                                         "Cần kiểm tra",
+                                                         "Không liên quan",
+                                                         "Evidence",
+                                                         "Conflicts",
+                                                         "Coverage",
+                                                         "Errors",
+                                                         "Audit"
+                                                     ],
+                                      "sheets":  {
+                                                     "Dữ liệu đối thủ":  [
+                                                                             {
+                                                                                 "Website":  "thuemayanhsaigon.com",
+                                                                                 "Tên sản phẩm":  "CANON M",
+                                                                                 "Hình thức":  "RENTAL",
+                                                                                 "Thông số mô tả":  "Loại máy: Máy ảnh mirrorless (không gương lật) Cảm biến: APS-C CMOS 18.0 megapixel Bộ xử lý hình ảnh: DIGIC 6 Hệ thống lấy nét: Hybrid CMOS AF II; 49 điểm lấy nét ISO: 100 – 12.800 (mở rộng tới 25600) Màn hình: LCD cảm ứng 3.0 inch; lật 180° Tốc độ chụp liên tiếp: 4.6 khung hình/giây Định dạng ảnh: JPEG; RAW Quay video: Full HD 1080p @ 30/25/24fps; HD 720p @ 60fps Kết nối: Wi-Fi; NFC Lưu trữ: Thẻ nhớ SD/SDHC/SDXC Trọng lượng: Khoảng 301g (bao gồm pin và thẻ nhớ) Pin: LP-E12; chụp khoảng 255 ảnh/lần sạc Tương thích ống kính: Ống kính EF-M; hỗ trợ EF/EF-S qua ngàm chuyển EF-EOS M",
+                                                                                 "Giá thuê/ngày":  224000,
+                                                                                 "Điều kiện thuê riêng":  "THỜI GIAN THUÊ: Tối thiểu: 6 giờ Theo ngày: 3 ngày (-10%), 5 ngày (-15%), 7 ngày (-20%) Linh hoạt theo lịch khách hàng THANH TOÁN: Cọc CCCD bản gốc/Tiền mặt (tuỳ giá trị máy) Thanh toán 100% tiền thuê khi nhận máy bằng tiền mặt/chuyển khoản Hoàn cọc (giấy tờ/tiền): trong 10 phút làm việc GIẤY TỜ CẦN THIẾT: CCCD bản gốc (bắt buộc) Ảnh chụp CCCD trên APP VNID Số điện thoại tham chiếu GIAO NHẬN: Chỉ nhân viên của Shop giao/nhận máy Bán kính 5km tại Hồ Chí Minh phí giao nhận là 40.000 Vnđ Có hình ảnh và video khi giao nhận máy",
+                                                                                 "Phụ kiện đi kèm":  "",
+                                                                                 "Combo/gói đi kèm":  "",
+                                                                                 "Điểm đánh giá":  null,
+                                                                                 "Số lượt đánh giá/review":  null,
+                                                                                 "Tồn kho":  "",
+                                                                                 "Giá bán":  null,
+                                                                                 "URL":  "https://thuemayanhsaigon.com/equipment/104"
+                                                                             }
+                                                                         ],
+                                                     "Cần kiểm tra":  [
+
+                                                                      ],
+                                                     "Không liên quan":  [
+
+                                                                         ],
+                                                     "Evidence":  [
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "ENTITY",
+                                                                          "Selected value":  "CAMERA",
+                                                                          "Source":  "ENTITY_RULE",
+                                                                          "Raw evidence":  "Loại máy: Máy ảnh mirrorless (không gương lật) Cảm biến: APS-C CMOS 18.0 megapixel Bộ xử lý hình ảnh: DIGIC 6 Hệ thống lấy nét: Hybrid CMOS AF II; 49 điểm lấy nét ISO: 100 – 12.800 (mở rộng tới 25600) Màn hình: LCD cảm ứng 3.0 inch; lật 180° Tốc độ chụp liên tiếp: 4.6 khung hình/giây Định dạng ảnh: JPEG; RAW Quay video: Full HD 1080p @ 30/25/24fps; HD 720p @ 60fps Kết nối: Wi-Fi; NFC Lưu trữ: Thẻ nhớ SD/SDHC/SDXC Trọng lượng: Khoảng 301g (bao gồm pin và thẻ nhớ) Pin: LP-E12; chụp khoảng 255 ảnh/lần sạc Tương thích ống kính: Ống kính EF-M; hỗ trợ EF/EF-S qua ngàm chuyển EF-EOS M",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "ENTITY_CLASSIFIER"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "ENTITY",
+                                                                          "Selected value":  "CAMERA",
+                                                                          "Source":  "ENTITY_RULE",
+                                                                          "Raw evidence":  "Loại máy: Máy ảnh mirrorless (không gương lật) Cảm biến: APS-C CMOS 18.0 megapixel Bộ xử lý hình ảnh: DIGIC 6 Hệ thống lấy nét: Hybrid CMOS AF II; 49 điểm lấy nét ISO: 100 – 12.800 (mở rộng tới 25600) Màn hình: LCD cảm ứng 3.0 inch; lật 180° Tốc độ chụp liên tiếp: 4.6 khung hình/giây Định dạng ảnh: JPEG; RAW Quay video: Full HD 1080p @ 30/25/24fps; HD 720p @ 60fps Kết nối: Wi-Fi; NFC Lưu trữ: Thẻ nhớ SD/SDHC/SDXC Trọng lượng: Khoảng 301g (bao gồm pin và thẻ nhớ) Pin: LP-E12; chụp khoảng 255 ảnh/lần sạc Tương thích ống kính: Ống kính EF-M; hỗ trợ EF/EF-S qua ngàm chuyển EF-EOS M",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "ENTITY_CLASSIFIER"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "ENTITY",
+                                                                          "Selected value":  "CAMERA",
+                                                                          "Source":  "ENTITY_RULE",
+                                                                          "Raw evidence":  "Loại máy: Máy ảnh mirrorless (không gương lật) Cảm biến: APS-C CMOS 18.0 megapixel Bộ xử lý hình ảnh: DIGIC 6 Hệ thống lấy nét: Hybrid CMOS AF II; 49 điểm lấy nét ISO: 100 – 12.800 (mở rộng tới 25600) Màn hình: LCD cảm ứng 3.0 inch; lật 180° Tốc độ chụp liên tiếp: 4.6 khung hình/giây Định dạng ảnh: JPEG; RAW Quay video: Full HD 1080p @ 30/25/24fps; HD 720p @ 60fps Kết nối: Wi-Fi; NFC Lưu trữ: Thẻ nhớ SD/SDHC/SDXC Trọng lượng: Khoảng 301g (bao gồm pin và thẻ nhớ) Pin: LP-E12; chụp khoảng 255 ảnh/lần sạc Tương thích ống kính: Ống kính EF-M; hỗ trợ EF/EF-S qua ngàm chuyển EF-EOS M",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "ENTITY_CLASSIFIER"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "ENTITY",
+                                                                          "Selected value":  "CAMERA",
+                                                                          "Source":  "ENTITY_RULE",
+                                                                          "Raw evidence":  "Loại máy: Máy ảnh mirrorless (không gương lật) Cảm biến: APS-C CMOS 18.0 megapixel Bộ xử lý hình ảnh: DIGIC 6 Hệ thống lấy nét: Hybrid CMOS AF II; 49 điểm lấy nét ISO: 100 – 12.800 (mở rộng tới 25600) Màn hình: LCD cảm ứng 3.0 inch; lật 180° Tốc độ chụp liên tiếp: 4.6 khung hình/giây Định dạng ảnh: JPEG; RAW Quay video: Full HD 1080p @ 30/25/24fps; HD 720p @ 60fps Kết nối: Wi-Fi; NFC Lưu trữ: Thẻ nhớ SD/SDHC/SDXC Trọng lượng: Khoảng 301g (bao gồm pin và thẻ nhớ) Pin: LP-E12; chụp khoảng 255 ảnh/lần sạc Tương thích ống kính: Ống kính EF-M; hỗ trợ EF/EF-S qua ngàm chuyển EF-EOS M",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "ENTITY_CLASSIFIER"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "ENTITY",
+                                                                          "Selected value":  "CAMERA",
+                                                                          "Source":  "ENTITY_RULE",
+                                                                          "Raw evidence":  "Loại máy: Máy ảnh mirrorless (không gương lật) Cảm biến: APS-C CMOS 18.0 megapixel Bộ xử lý hình ảnh: DIGIC 6 Hệ thống lấy nét: Hybrid CMOS AF II; 49 điểm lấy nét ISO: 100 – 12.800 (mở rộng tới 25600) Màn hình: LCD cảm ứng 3.0 inch; lật 180° Tốc độ chụp liên tiếp: 4.6 khung hình/giây Định dạng ảnh: JPEG; RAW Quay video: Full HD 1080p @ 30/25/24fps; HD 720p @ 60fps Kết nối: Wi-Fi; NFC Lưu trữ: Thẻ nhớ SD/SDHC/SDXC Trọng lượng: Khoảng 301g (bao gồm pin và thẻ nhớ) Pin: LP-E12; chụp khoảng 255 ảnh/lần sạc Tương thích ống kính: Ống kính EF-M; hỗ trợ EF/EF-S qua ngàm chuyển EF-EOS M",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "ENTITY_CLASSIFIER"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "ENTITY",
+                                                                          "Selected value":  "CAMERA",
+                                                                          "Source":  "ENTITY_RULE",
+                                                                          "Raw evidence":  "Loại máy: Máy ảnh mirrorless (không gương lật) Cảm biến: APS-C CMOS 18.0 megapixel Bộ xử lý hình ảnh: DIGIC 6 Hệ thống lấy nét: Hybrid CMOS AF II; 49 điểm lấy nét ISO: 100 – 12.800 (mở rộng tới 25600) Màn hình: LCD cảm ứng 3.0 inch; lật 180° Tốc độ chụp liên tiếp: 4.6 khung hình/giây Định dạng ảnh: JPEG; RAW Quay video: Full HD 1080p @ 30/25/24fps; HD 720p @ 60fps Kết nối: Wi-Fi; NFC Lưu trữ: Thẻ nhớ SD/SDHC/SDXC Trọng lượng: Khoảng 301g (bao gồm pin và thẻ nhớ) Pin: LP-E12; chụp khoảng 255 ảnh/lần sạc Tương thích ống kính: Ống kính EF-M; hỗ trợ EF/EF-S qua ngàm chuyển EF-EOS M",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "ENTITY_CLASSIFIER"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "ENTITY",
+                                                                          "Selected value":  "CAMERA",
+                                                                          "Source":  "ENTITY_RULE",
+                                                                          "Raw evidence":  "Loại máy: Máy ảnh mirrorless (không gương lật) Cảm biến: APS-C CMOS 18.0 megapixel Bộ xử lý hình ảnh: DIGIC 6 Hệ thống lấy nét: Hybrid CMOS AF II; 49 điểm lấy nét ISO: 100 – 12.800 (mở rộng tới 25600) Màn hình: LCD cảm ứng 3.0 inch; lật 180° Tốc độ chụp liên tiếp: 4.6 khung hình/giây Định dạng ảnh: JPEG; RAW Quay video: Full HD 1080p @ 30/25/24fps; HD 720p @ 60fps Kết nối: Wi-Fi; NFC Lưu trữ: Thẻ nhớ SD/SDHC/SDXC Trọng lượng: Khoảng 301g (bao gồm pin và thẻ nhớ) Pin: LP-E12; chụp khoảng 255 ảnh/lần sạc Tương thích ống kính: Ống kính EF-M; hỗ trợ EF/EF-S qua ngàm chuyển EF-EOS M",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "ENTITY_CLASSIFIER"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "RENTAL",
+                                                                          "Source":  "CTA",
+                                                                          "Raw evidence":  "thue ngay",
+                                                                          "Weight":  80,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_RENTAL_CTA"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "RENTAL",
+                                                                          "Source":  "PRICE",
+                                                                          "Raw evidence":  "224,000d / ngay",
+                                                                          "Weight":  90,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_RENTAL_PRICE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "RENTAL",
+                                                                          "Source":  "PRICE",
+                                                                          "Raw evidence":  "370,000d/ngay co san",
+                                                                          "Weight":  90,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_RENTAL_PRICE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "RENTAL",
+                                                                          "Source":  "PRICE",
+                                                                          "Raw evidence":  "180,000d/ngay co san",
+                                                                          "Weight":  90,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_RENTAL_PRICE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "RENTAL",
+                                                                          "Source":  "PRICE",
+                                                                          "Raw evidence":  "224,000d/ngay co san",
+                                                                          "Weight":  90,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_RENTAL_PRICE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "RENTAL",
+                                                                          "Source":  "PRICE",
+                                                                          "Raw evidence":  "443,000d/ngay co san",
+                                                                          "Weight":  90,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_RENTAL_PRICE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "RENTAL",
+                                                                          "Source":  "PRICE",
+                                                                          "Raw evidence":  "240,000d/ngay co san",
+                                                                          "Weight":  90,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_RENTAL_PRICE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "RENTAL",
+                                                                          "Source":  "PRICE",
+                                                                          "Raw evidence":  "250,000d/ngay co san",
+                                                                          "Weight":  90,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_RENTAL_PRICE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "RENTAL",
+                                                                          "Source":  "PRICE",
+                                                                          "Raw evidence":  "260,000d/ngay co san",
+                                                                          "Weight":  90,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_RENTAL_PRICE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "RENTAL",
+                                                                          "Source":  "SECTION",
+                                                                          "Raw evidence":  "rental sections=2",
+                                                                          "Weight":  55,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_RENTAL_SECTION"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "SPECS",
+                                                                          "Selected value":  "Loại máy: Máy ảnh mirrorless (không gương lật) Cảm biến: APS-C CMOS 18.0 megapixel Bộ xử lý hình ảnh: DIGIC 6 Hệ thống lấy nét: Hybrid CMOS AF II; 49 điểm lấy nét ISO: 100 – 12.800 (mở rộng tới 25600) Màn hình: LCD cảm ứng 3.0 inch; lật 180° Tốc độ chụp liên tiếp: 4.6 khung hình/giây Định dạng ảnh: JPEG; RAW Quay video: Full HD 1080p @ 30/25/24fps; HD 720p @ 60fps Kết nối: Wi-Fi; NFC Lưu trữ: Thẻ nhớ SD/SDHC/SDXC Trọng lượng: Khoảng 301g (bao gồm pin và thẻ nhớ) Pin: LP-E12; chụp khoảng 255 ảnh/lần sạc Tương thích ống kính: Ống kính EF-M; hỗ trợ EF/EF-S qua ngàm chuyển EF-EOS M",
+                                                                          "Source":  "SECTION",
+                                                                          "Raw evidence":  "Loại máy: Máy ảnh mirrorless (không gương lật) Cảm biến: APS-C CMOS 18.0 megapixel Bộ xử lý hình ảnh: DIGIC 6 Hệ thống lấy nét: Hybrid CMOS AF II; 49 điểm lấy nét ISO: 100 – 12.800 (mở rộng tới 25600) Màn hình: LCD cảm ứng 3.0 inch; lật 180° Tốc độ chụp liên tiếp: 4.6 khung hình/giây Định dạng ảnh: JPEG; RAW Quay video: Full HD 1080p @ 30/25/24fps; HD 720p @ 60fps Kết nối: Wi-Fi; NFC Lưu trữ: Thẻ nhớ SD/SDHC/SDXC Trọng lượng: Khoảng 301g (bao gồm pin và thẻ nhớ) Pin: LP-E12; chụp khoảng 255 ảnh/lần sạc Tương thích ống kính: Ống kính EF-M; hỗ trợ EF/EF-S qua ngàm chuyển EF-EOS M",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  1,
+                                                                          "Rule ID":  "RESOLVE_SPECS_SECTION"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "RENTAL_PRICE",
+                                                                          "Selected value":  "224000",
+                                                                          "Source":  "VISIBLE",
+                                                                          "Raw evidence":  "224,000đ / ngày",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  0.5,
+                                                                          "Rule ID":  "RESOLVE_RENTAL_PRICE_VISIBLE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "RENTAL_PRICE",
+                                                                          "Selected value":  "224000",
+                                                                          "Source":  "VISIBLE",
+                                                                          "Raw evidence":  "370,000đ/ngày Có sẵn",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  0.5,
+                                                                          "Rule ID":  "RESOLVE_RENTAL_PRICE_VISIBLE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "RENTAL_PRICE",
+                                                                          "Selected value":  "224000",
+                                                                          "Source":  "VISIBLE",
+                                                                          "Raw evidence":  "180,000đ/ngày Có sẵn",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  0.5,
+                                                                          "Rule ID":  "RESOLVE_RENTAL_PRICE_VISIBLE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "RENTAL_PRICE",
+                                                                          "Selected value":  "224000",
+                                                                          "Source":  "VISIBLE",
+                                                                          "Raw evidence":  "224,000đ/ngày Có sẵn",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  0.5,
+                                                                          "Rule ID":  "RESOLVE_RENTAL_PRICE_VISIBLE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "RENTAL_PRICE",
+                                                                          "Selected value":  "224000",
+                                                                          "Source":  "VISIBLE",
+                                                                          "Raw evidence":  "443,000đ/ngày Có sẵn",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  0.5,
+                                                                          "Rule ID":  "RESOLVE_RENTAL_PRICE_VISIBLE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "RENTAL_PRICE",
+                                                                          "Selected value":  "224000",
+                                                                          "Source":  "VISIBLE",
+                                                                          "Raw evidence":  "240,000đ/ngày Có sẵn",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  0.5,
+                                                                          "Rule ID":  "RESOLVE_RENTAL_PRICE_VISIBLE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "RENTAL_PRICE",
+                                                                          "Selected value":  "224000",
+                                                                          "Source":  "VISIBLE",
+                                                                          "Raw evidence":  "250,000đ/ngày Có sẵn",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  0.5,
+                                                                          "Rule ID":  "RESOLVE_RENTAL_PRICE_VISIBLE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "RENTAL_PRICE",
+                                                                          "Selected value":  "224000",
+                                                                          "Source":  "VISIBLE",
+                                                                          "Raw evidence":  "260,000đ/ngày Có sẵn",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  0.5,
+                                                                          "Rule ID":  "RESOLVE_RENTAL_PRICE_VISIBLE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-20-47-545Z",
+                                                                          "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                          "Tên sản phẩm":  "CANON M",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "RENTAL_CONDITIONS",
+                                                                          "Selected value":  "THỜI GIAN THUÊ: Tối thiểu: 6 giờ Theo ngày: 3 ngày (-10%), 5 ngày (-15%), 7 ngày (-20%) Linh hoạt theo lịch khách hàng THANH TOÁN: Cọc CCCD bản gốc/Tiền mặt (tuỳ giá trị máy) Thanh toán 100% tiền thuê khi nhận máy bằng tiền mặt/chuyển khoản Hoàn cọc (giấy tờ/tiền): trong 10 phút làm việc GIẤY TỜ CẦN THIẾT: CCCD bản gốc (bắt buộc) Ảnh chụp CCCD trên APP VNID Số điện thoại tham chiếu GIAO NHẬN: Chỉ nhân viên của Shop giao/nhận máy Bán kính 5km tại Hồ Chí Minh phí giao nhận là 40.000 Vnđ Có hình ảnh và video khi giao nhận máy",
+                                                                          "Source":  "SECTION",
+                                                                          "Raw evidence":  "THỜI GIAN THUÊ: Tối thiểu: 6 giờ Theo ngày: 3 ngày (-10%), 5 ngày (-15%), 7 ngày (-20%) Linh hoạt theo lịch khách hàng THANH TOÁN: Cọc CCCD bản gốc/Tiền mặt (tuỳ giá trị máy) Thanh toán 100% tiền thuê khi nhận máy bằng tiền mặt/chuyển khoản Hoàn cọc (giấy tờ/tiền): trong 10 phút làm việc GIẤY TỜ CẦN THIẾT: CCCD bản gốc (bắt buộc) Ảnh chụp CCCD trên APP VNID Số điện thoại tham chiếu GIAO NHẬN: Chỉ nhân viên của Shop giao/nhận máy Bán kính 5km tại Hồ Chí Minh phí giao nhận là 40.000 Vnđ Có hình ảnh và video khi giao nhận máy",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  1,
+                                                                          "Rule ID":  "RESOLVE_RENTAL_CONDITIONS_SECTION"
+                                                                      }
+                                                                  ],
+                                                     "Conflicts":  [
+
+                                                                   ],
+                                                     "Coverage":  [
+                                                                      {
+                                                                          "Metric":  "Catalog coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Detail coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Classification coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Evidence coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accepted",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Review",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Excluded",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Reconciliation",
+                                                                          "Numerator":  "PASS",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Discovered URLs",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ACCEPT",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal REVIEW",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal EXCLUDE",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ERROR",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "In progress",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accounted",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Balanced",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Run complete",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      }
+                                                                  ],
+                                                     "Errors":  [
+
+                                                                ],
+                                                     "Audit":  [
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:20:47.527Z",
+                                                                       "URL":  "https://thuemayanhsaigon.com/equipment/21",
+                                                                       "Stage":  "CATALOG",
+                                                                       "Status":  "OK",
+                                                                       "Message":  "products=8; weak=1; pagination=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:20:49.083Z",
+                                                                       "URL":  "https://thuemayanhsaigon.com/equipment/104",
+                                                                       "Stage":  "DETAIL",
+                                                                       "Status":  "OK",
+                                                                       "Message":  "ACCEPT; source=LIVE; entity=CAMERA; forms=RENTAL"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:20:49.100Z",
+                                                                       "URL":  "https://thuemayanhsaigon.com/equipment/21",
+                                                                       "Stage":  "DETAIL",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "reconciliation=PASS; run=2026-09-18T17-20-47-545Z; discovered=1; accept=1; review=0; exclude=0; error=0; inProgress=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:20:49.106Z",
+                                                                       "URL":  "https://thuemayanhsaigon.com/equipment/21",
+                                                                       "Stage":  "EXPORT",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "run=2026-09-18T17-20-47-545Z"
+                                                                   }
+                                                               ]
+                                                 },
+                                      "hygieneWarnings":  [
+
+                                                          ],
+                                      "checks":  [
+                                                     {
+                                                         "name":  "acceptedMin",
+                                                         "pass":  true,
+                                                         "detail":  "accepted=1; expected\u003e=1"
+                                                     },
+                                                     {
+                                                         "name":  "productNameIncludes",
+                                                         "pass":  false,
+                                                         "detail":  "missing=sony, a6400; name=CANON M"
+                                                     },
+                                                     {
+                                                         "name":  "outputUrlEqualsInput",
+                                                         "pass":  false,
+                                                         "detail":  "requested=https://thuemayanhsaigon.com/equipment/21; output=https://thuemayanhsaigon.com/equipment/104"
+                                                     },
+                                                     {
+                                                         "name":  "rentalPrice",
+                                                         "pass":  false,
+                                                         "detail":  "actual=224000; expected=360000"
+                                                     }
+                                                 ],
+                                      "pass":  false
+                                  }
+                 },
+                 {
+                     "runId":  "5a020b3c-6441-4adf-b58c-65dc620b2624",
+                     "caseId":  "thuemayanh-contact-negative",
+                     "label":  "Thuê Máy Ảnh Sài Gòn — contact negative control",
+                     "requestedUrl":  "https://thuemayanhsaigon.com/contact",
+                     "status":  "pass",
+                     "startedAt":  "2026-09-18T17:20:49.668Z",
+                     "finishedAt":  "2026-09-18T17:20:52.675Z",
+                     "timedOut":  false,
+                     "error":  null,
+                     "exit":  {
+                                  "code":  0,
+                                  "signal":  null,
+                                  "spawnError":  null
+                              },
+                     "workbook":  {
+                                      "sheetNames":  [
+                                                         "Dữ liệu đối thủ",
+                                                         "Cần kiểm tra",
+                                                         "Không liên quan",
+                                                         "Evidence",
+                                                         "Conflicts",
+                                                         "Coverage",
+                                                         "Errors",
+                                                         "Audit"
+                                                     ],
+                                      "sheets":  {
+                                                     "Dữ liệu đối thủ":  [
+
+                                                                         ],
+                                                     "Cần kiểm tra":  [
+
+                                                                      ],
+                                                     "Không liên quan":  [
+
+                                                                         ],
+                                                     "Evidence":  [
+
+                                                                  ],
+                                                     "Conflicts":  [
+
+                                                                   ],
+                                                     "Coverage":  [
+                                                                      {
+                                                                          "Metric":  "Catalog coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Detail coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  0,
+                                                                          "Coverage":  null,
+                                                                          "Status":  "N/A"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Classification coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  0,
+                                                                          "Coverage":  null,
+                                                                          "Status":  "N/A"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Evidence coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  0,
+                                                                          "Coverage":  null,
+                                                                          "Status":  "N/A"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accepted",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Review",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Excluded",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Reconciliation",
+                                                                          "Numerator":  "PASS",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Discovered URLs",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ACCEPT",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal REVIEW",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal EXCLUDE",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ERROR",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "In progress",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accounted",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Balanced",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Run complete",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      }
+                                                                  ],
+                                                     "Errors":  [
+
+                                                                ],
+                                                     "Audit":  [
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:20:52.499Z",
+                                                                       "URL":  "https://thuemayanhsaigon.com/contact",
+                                                                       "Stage":  "CATALOG",
+                                                                       "Status":  "OK",
+                                                                       "Message":  "products=0; weak=0; pagination=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:20:52.586Z",
+                                                                       "URL":  "https://thuemayanhsaigon.com/contact",
+                                                                       "Stage":  "DETAIL",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "reconciliation=PASS; run=2026-09-18T17-20-52-507Z; discovered=0; accept=0; review=0; exclude=0; error=0; inProgress=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:20:52.587Z",
+                                                                       "URL":  "https://thuemayanhsaigon.com/contact",
+                                                                       "Stage":  "EXPORT",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "run=2026-09-18T17-20-52-507Z"
+                                                                   }
+                                                               ]
+                                                 },
+                                      "hygieneWarnings":  [
+
+                                                          ],
+                                      "checks":  [
+                                                     {
+                                                         "name":  "acceptedMax",
+                                                         "pass":  true,
+                                                         "detail":  "accepted=0; expected\u003c=0"
+                                                     }
+                                                 ],
+                                      "pass":  true
+                                  }
+                 },
+                 {
+                     "runId":  "f3bfb7c0-23a4-430e-830a-97e3c0590c17",
+                     "caseId":  "thuemayanh-home",
+                     "label":  "Thuê Máy Ảnh Sài Gòn — homepage exploratory",
+                     "requestedUrl":  "https://www.thuemayanhsaigon.com/",
+                     "status":  "pass",
+                     "startedAt":  "2026-09-18T17:20:53.449Z",
+                     "finishedAt":  "2026-09-18T17:20:56.522Z",
+                     "timedOut":  false,
+                     "error":  null,
+                     "exit":  {
+                                  "code":  0,
+                                  "signal":  null,
+                                  "spawnError":  null
+                              },
+                     "workbook":  {
+                                      "sheetNames":  [
+                                                         "Dữ liệu đối thủ",
+                                                         "Cần kiểm tra",
+                                                         "Không liên quan",
+                                                         "Evidence",
+                                                         "Conflicts",
+                                                         "Coverage",
+                                                         "Errors",
+                                                         "Audit"
+                                                     ],
+                                      "sheets":  {
+                                                     "Dữ liệu đối thủ":  [
+
+                                                                         ],
+                                                     "Cần kiểm tra":  [
+
+                                                                      ],
+                                                     "Không liên quan":  [
+
+                                                                         ],
+                                                     "Evidence":  [
+
+                                                                  ],
+                                                     "Conflicts":  [
+
+                                                                   ],
+                                                     "Coverage":  [
+                                                                      {
+                                                                          "Metric":  "Catalog coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Detail coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  0,
+                                                                          "Coverage":  null,
+                                                                          "Status":  "N/A"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Classification coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  0,
+                                                                          "Coverage":  null,
+                                                                          "Status":  "N/A"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Evidence coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  0,
+                                                                          "Coverage":  null,
+                                                                          "Status":  "N/A"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accepted",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Review",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Excluded",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Reconciliation",
+                                                                          "Numerator":  "PASS",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Discovered URLs",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ACCEPT",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal REVIEW",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal EXCLUDE",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ERROR",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "In progress",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accounted",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Balanced",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Run complete",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      }
+                                                                  ],
+                                                     "Errors":  [
+
+                                                                ],
+                                                     "Audit":  [
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:20:56.322Z",
+                                                                       "URL":  "https://www.thuemayanhsaigon.com/",
+                                                                       "Stage":  "CATALOG",
+                                                                       "Status":  "OK",
+                                                                       "Message":  "products=0; weak=0; pagination=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:20:56.411Z",
+                                                                       "URL":  "https://www.thuemayanhsaigon.com/",
+                                                                       "Stage":  "DETAIL",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "reconciliation=PASS; run=2026-09-18T17-20-56-331Z; discovered=0; accept=0; review=0; exclude=0; error=0; inProgress=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:20:56.412Z",
+                                                                       "URL":  "https://www.thuemayanhsaigon.com/",
+                                                                       "Stage":  "EXPORT",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "run=2026-09-18T17-20-56-331Z"
+                                                                   }
+                                                               ]
+                                                 },
+                                      "hygieneWarnings":  [
+
+                                                          ],
+                                      "checks":  [
+
+                                                 ],
+                                      "pass":  true
+                                  }
+                 },
+                 {
+                     "runId":  "4b15afbc-53f9-457c-8a08-e40a32698c4a",
+                     "caseId":  "camerahouse-a6400-body",
+                     "label":  "Camera House — Sony A6400 direct product",
+                     "requestedUrl":  "https://camerahouse.vn/products/body-sony-a6400",
+                     "status":  "fail",
+                     "startedAt":  "2026-09-18T17:20:57.232Z",
+                     "finishedAt":  "2026-09-18T17:21:08.608Z",
+                     "timedOut":  false,
+                     "error":  null,
+                     "exit":  {
+                                  "code":  0,
+                                  "signal":  null,
+                                  "spawnError":  null
+                              },
+                     "workbook":  {
+                                      "sheetNames":  [
+                                                         "Dữ liệu đối thủ",
+                                                         "Cần kiểm tra",
+                                                         "Không liên quan",
+                                                         "Evidence",
+                                                         "Conflicts",
+                                                         "Coverage",
+                                                         "Errors",
+                                                         "Audit"
+                                                     ],
+                                      "sheets":  {
+                                                     "Dữ liệu đối thủ":  [
+                                                                             {
+                                                                                 "Website":  "camerahouse.vn",
+                                                                                 "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                                 "Hình thức":  "",
+                                                                                 "Thông số mô tả":  "",
+                                                                                 "Giá thuê/ngày":  null,
+                                                                                 "Điều kiện thuê riêng":  "",
+                                                                                 "Phụ kiện đi kèm":  "",
+                                                                                 "Combo/gói đi kèm":  "",
+                                                                                 "Điểm đánh giá":  null,
+                                                                                 "Số lượt đánh giá/review":  null,
+                                                                                 "Tồn kho":  "",
+                                                                                 "Giá bán":  349000,
+                                                                                 "URL":  "https://camerahouse.vn/products/body-canon-6d"
+                                                                             }
+                                                                         ],
+                                                     "Cần kiểm tra":  [
+
+                                                                      ],
+                                                     "Không liên quan":  [
+
+                                                                         ],
+                                                     "Evidence":  [
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-21-05-166Z",
+                                                                          "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                          "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "ENTITY",
+                                                                          "Selected value":  "CAMERA",
+                                                                          "Source":  "ENTITY_RULE",
+                                                                          "Raw evidence":  "Tất Cả Camera Cho Thuê",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  "MEDIUM",
+                                                                          "Rule ID":  "ENTITY_CLASSIFIER"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-21-05-166Z",
+                                                                          "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                          "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "ENTITY",
+                                                                          "Selected value":  "CAMERA",
+                                                                          "Source":  "ENTITY_RULE",
+                                                                          "Raw evidence":  "Body Canon EOS 6D Mark II",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  "MEDIUM",
+                                                                          "Rule ID":  "ENTITY_CLASSIFIER"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-21-05-166Z",
+                                                                          "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                          "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "SALE",
+                                                                          "Source":  "CTA",
+                                                                          "Raw evidence":  "mua ngay",
+                                                                          "Weight":  80,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_SALE_CTA"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-21-05-166Z",
+                                                                          "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                          "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "SALE",
+                                                                          "Source":  "PRICE",
+                                                                          "Raw evidence":  "349,000₫",
+                                                                          "Weight":  20,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_SALE_PRICE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-21-05-166Z",
+                                                                          "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                          "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "SALE_PRICE",
+                                                                          "Selected value":  "349000",
+                                                                          "Source":  "VISIBLE",
+                                                                          "Raw evidence":  "349,000₫",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  1,
+                                                                          "Rule ID":  "RESOLVE_SALE_PRICE_VISIBLE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-21-05-166Z",
+                                                                          "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                          "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "STOCK",
+                                                                          "Selected value":  "",
+                                                                          "Source":  "VISIBLE",
+                                                                          "Raw evidence":  "http://schema.org/InStock",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  0,
+                                                                          "Rule ID":  "RESOLVE_STOCK_VISIBLE"
+                                                                      }
+                                                                  ],
+                                                     "Conflicts":  [
+
+                                                                   ],
+                                                     "Coverage":  [
+                                                                      {
+                                                                          "Metric":  "Catalog coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Detail coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Classification coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Evidence coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  0,
+                                                                          "Status":  "WARN"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accepted",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Review",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Excluded",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Reconciliation",
+                                                                          "Numerator":  "PASS",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Discovered URLs",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ACCEPT",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal REVIEW",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal EXCLUDE",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ERROR",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "In progress",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accounted",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Balanced",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Run complete",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      }
+                                                                  ],
+                                                     "Errors":  [
+
+                                                                ],
+                                                     "Audit":  [
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:21:05.146Z",
+                                                                       "URL":  "https://camerahouse.vn/products/body-sony-a6400",
+                                                                       "Stage":  "CATALOG",
+                                                                       "Status":  "OK",
+                                                                       "Message":  "products=15; weak=0; pagination=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:21:08.398Z",
+                                                                       "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                       "Stage":  "DETAIL",
+                                                                       "Status":  "OK",
+                                                                       "Message":  "ACCEPT; source=LIVE; entity=CAMERA; forms=NONE"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:21:08.446Z",
+                                                                       "URL":  "https://camerahouse.vn/products/body-sony-a6400",
+                                                                       "Stage":  "DETAIL",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "reconciliation=PASS; run=2026-09-18T17-21-05-166Z; discovered=1; accept=1; review=0; exclude=0; error=0; inProgress=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:21:08.447Z",
+                                                                       "URL":  "https://camerahouse.vn/products/body-sony-a6400",
+                                                                       "Stage":  "EXPORT",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "run=2026-09-18T17-21-05-166Z"
+                                                                   }
+                                                               ]
+                                                 },
+                                      "hygieneWarnings":  [
+
+                                                          ],
+                                      "checks":  [
+                                                     {
+                                                         "name":  "acceptedMin",
+                                                         "pass":  true,
+                                                         "detail":  "accepted=1; expected\u003e=1"
+                                                     },
+                                                     {
+                                                         "name":  "productNameIncludes",
+                                                         "pass":  false,
+                                                         "detail":  "missing=sony, a6400; name=Body Canon EOS 6D Mark II"
+                                                     },
+                                                     {
+                                                         "name":  "outputUrlEqualsInput",
+                                                         "pass":  false,
+                                                         "detail":  "requested=https://camerahouse.vn/products/body-sony-a6400; output=https://camerahouse.vn/products/body-canon-6d"
+                                                     },
+                                                     {
+                                                         "name":  "rentalPrice",
+                                                         "pass":  false,
+                                                         "detail":  "actual=null; expected=250000"
+                                                     }
+                                                 ],
+                                      "pass":  false
+                                  }
+                 },
+                 {
+                     "runId":  "a310cb4a-6bf7-437b-9e0a-b2f0488908a7",
+                     "caseId":  "camerahouse-a6400-18105",
+                     "label":  "Camera House — Sony A6400 + 18-105 direct product",
+                     "requestedUrl":  "https://camerahouse.vn/products/sony-a6400-lens-sony-18-105mm",
+                     "status":  "fail",
+                     "startedAt":  "2026-09-18T17:21:09.365Z",
+                     "finishedAt":  "2026-09-18T17:21:18.057Z",
+                     "timedOut":  false,
+                     "error":  null,
+                     "exit":  {
+                                  "code":  0,
+                                  "signal":  null,
+                                  "spawnError":  null
+                              },
+                     "workbook":  {
+                                      "sheetNames":  [
+                                                         "Dữ liệu đối thủ",
+                                                         "Cần kiểm tra",
+                                                         "Không liên quan",
+                                                         "Evidence",
+                                                         "Conflicts",
+                                                         "Coverage",
+                                                         "Errors",
+                                                         "Audit"
+                                                     ],
+                                      "sheets":  {
+                                                     "Dữ liệu đối thủ":  [
+                                                                             {
+                                                                                 "Website":  "camerahouse.vn",
+                                                                                 "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                                 "Hình thức":  "",
+                                                                                 "Thông số mô tả":  "",
+                                                                                 "Giá thuê/ngày":  null,
+                                                                                 "Điều kiện thuê riêng":  "",
+                                                                                 "Phụ kiện đi kèm":  "",
+                                                                                 "Combo/gói đi kèm":  "",
+                                                                                 "Điểm đánh giá":  null,
+                                                                                 "Số lượt đánh giá/review":  null,
+                                                                                 "Tồn kho":  "",
+                                                                                 "Giá bán":  349000,
+                                                                                 "URL":  "https://camerahouse.vn/products/body-canon-6d"
+                                                                             }
+                                                                         ],
+                                                     "Cần kiểm tra":  [
+
+                                                                      ],
+                                                     "Không liên quan":  [
+
+                                                                         ],
+                                                     "Evidence":  [
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-21-15-116Z",
+                                                                          "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                          "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "ENTITY",
+                                                                          "Selected value":  "CAMERA",
+                                                                          "Source":  "ENTITY_RULE",
+                                                                          "Raw evidence":  "Tất Cả Camera Cho Thuê",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  "MEDIUM",
+                                                                          "Rule ID":  "ENTITY_CLASSIFIER"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-21-15-116Z",
+                                                                          "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                          "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "ENTITY",
+                                                                          "Selected value":  "CAMERA",
+                                                                          "Source":  "ENTITY_RULE",
+                                                                          "Raw evidence":  "Body Canon EOS 6D Mark II",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  "MEDIUM",
+                                                                          "Rule ID":  "ENTITY_CLASSIFIER"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-21-15-116Z",
+                                                                          "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                          "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "SALE",
+                                                                          "Source":  "CTA",
+                                                                          "Raw evidence":  "mua ngay",
+                                                                          "Weight":  80,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_SALE_CTA"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-21-15-116Z",
+                                                                          "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                          "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "OFFER",
+                                                                          "Selected value":  "SALE",
+                                                                          "Source":  "PRICE",
+                                                                          "Raw evidence":  "349,000₫",
+                                                                          "Weight":  20,
+                                                                          "Confidence":  "HIGH",
+                                                                          "Rule ID":  "OFFER_SALE_PRICE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-21-15-116Z",
+                                                                          "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                          "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "SALE_PRICE",
+                                                                          "Selected value":  "349000",
+                                                                          "Source":  "VISIBLE",
+                                                                          "Raw evidence":  "349,000₫",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  1,
+                                                                          "Rule ID":  "RESOLVE_SALE_PRICE_VISIBLE"
+                                                                      },
+                                                                      {
+                                                                          "Run ID":  "2026-09-18T17-21-15-116Z",
+                                                                          "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                          "Tên sản phẩm":  "Body Canon EOS 6D Mark II",
+                                                                          "Decision":  "ACCEPT",
+                                                                          "Field":  "STOCK",
+                                                                          "Selected value":  "",
+                                                                          "Source":  "VISIBLE",
+                                                                          "Raw evidence":  "http://schema.org/InStock",
+                                                                          "Weight":  null,
+                                                                          "Confidence":  0,
+                                                                          "Rule ID":  "RESOLVE_STOCK_VISIBLE"
+                                                                      }
+                                                                  ],
+                                                     "Conflicts":  [
+
+                                                                   ],
+                                                     "Coverage":  [
+                                                                      {
+                                                                          "Metric":  "Catalog coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Detail coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Classification coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Evidence coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  0,
+                                                                          "Status":  "WARN"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accepted",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Review",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Excluded",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Reconciliation",
+                                                                          "Numerator":  "PASS",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Discovered URLs",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ACCEPT",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal REVIEW",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal EXCLUDE",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ERROR",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "In progress",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accounted",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Balanced",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Run complete",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      }
+                                                                  ],
+                                                     "Errors":  [
+
+                                                                ],
+                                                     "Audit":  [
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:21:15.095Z",
+                                                                       "URL":  "https://camerahouse.vn/products/sony-a6400-lens-sony-18-105mm",
+                                                                       "Stage":  "CATALOG",
+                                                                       "Status":  "OK",
+                                                                       "Message":  "products=15; weak=0; pagination=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:21:17.845Z",
+                                                                       "URL":  "https://camerahouse.vn/products/body-canon-6d",
+                                                                       "Stage":  "DETAIL",
+                                                                       "Status":  "OK",
+                                                                       "Message":  "ACCEPT; source=LIVE; entity=CAMERA; forms=NONE"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:21:17.893Z",
+                                                                       "URL":  "https://camerahouse.vn/products/sony-a6400-lens-sony-18-105mm",
+                                                                       "Stage":  "DETAIL",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "reconciliation=PASS; run=2026-09-18T17-21-15-116Z; discovered=1; accept=1; review=0; exclude=0; error=0; inProgress=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:21:17.893Z",
+                                                                       "URL":  "https://camerahouse.vn/products/sony-a6400-lens-sony-18-105mm",
+                                                                       "Stage":  "EXPORT",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "run=2026-09-18T17-21-15-116Z"
+                                                                   }
+                                                               ]
+                                                 },
+                                      "hygieneWarnings":  [
+
+                                                          ],
+                                      "checks":  [
+                                                     {
+                                                         "name":  "acceptedMin",
+                                                         "pass":  true,
+                                                         "detail":  "accepted=1; expected\u003e=1"
+                                                     },
+                                                     {
+                                                         "name":  "productNameIncludes",
+                                                         "pass":  false,
+                                                         "detail":  "missing=sony, a6400, 18-105; name=Body Canon EOS 6D Mark II"
+                                                     },
+                                                     {
+                                                         "name":  "outputUrlEqualsInput",
+                                                         "pass":  false,
+                                                         "detail":  "requested=https://camerahouse.vn/products/sony-a6400-lens-sony-18-105mm; output=https://camerahouse.vn/products/body-canon-6d"
+                                                     },
+                                                     {
+                                                         "name":  "rentalPrice",
+                                                         "pass":  false,
+                                                         "detail":  "actual=null; expected=350000"
+                                                     }
+                                                 ],
+                                      "pass":  false
+                                  }
+                 },
+                 {
+                     "runId":  "ea0cdec3-88ec-4e94-884a-bf07e25d58fd",
+                     "caseId":  "camerahouse-home",
+                     "label":  "Camera House — mixed homepage exploratory",
+                     "requestedUrl":  "https://camerahouse.vn/",
+                     "status":  "pass",
+                     "startedAt":  "2026-09-18T17:21:18.440Z",
+                     "finishedAt":  "2026-09-18T17:21:51.146Z",
+                     "timedOut":  false,
+                     "error":  null,
+                     "exit":  {
+                                  "code":  0,
+                                  "signal":  null,
+                                  "spawnError":  null
+                              },
+                     "workbook":  {
+                                      "sheetNames":  [
+                                                         "Dữ liệu đối thủ",
+                                                         "Cần kiểm tra",
+                                                         "Không liên quan",
+                                                         "Evidence",
+                                                         "Conflicts",
+                                                         "Coverage",
+                                                         "Errors",
+                                                         "Audit"
+                                                     ],
+                                      "sheets":  {
+                                                     "Dữ liệu đối thủ":  [
+
+                                                                         ],
+                                                     "Cần kiểm tra":  [
+
+                                                                      ],
+                                                     "Không liên quan":  [
+
+                                                                         ],
+                                                     "Evidence":  [
+
+                                                                  ],
+                                                     "Conflicts":  [
+
+                                                                   ],
+                                                     "Coverage":  [
+                                                                      {
+                                                                          "Metric":  "Catalog coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Detail coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  0,
+                                                                          "Coverage":  null,
+                                                                          "Status":  "N/A"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Classification coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  0,
+                                                                          "Coverage":  null,
+                                                                          "Status":  "N/A"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Evidence coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  0,
+                                                                          "Coverage":  null,
+                                                                          "Status":  "N/A"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accepted",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Review",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Excluded",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Reconciliation",
+                                                                          "Numerator":  "PASS",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Discovered URLs",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ACCEPT",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal REVIEW",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal EXCLUDE",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ERROR",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "In progress",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accounted",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Balanced",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Run complete",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      }
+                                                                  ],
+                                                     "Errors":  [
+
+                                                                ],
+                                                     "Audit":  [
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:21:50.950Z",
+                                                                       "URL":  "https://camerahouse.vn/",
+                                                                       "Stage":  "CATALOG",
+                                                                       "Status":  "ERROR",
+                                                                       "Message":  "TimeoutError: page.goto: Timeout 15000ms exceeded.\nCall log:\n[2m  - navigating to \"https://camerahouse.vn/\", waiting until \"domcontentloaded\"[22m\n"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:21:51.028Z",
+                                                                       "URL":  "https://camerahouse.vn/",
+                                                                       "Stage":  "DETAIL",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "reconciliation=PASS; run=2026-09-18T17-21-50-954Z; discovered=0; accept=0; review=0; exclude=0; error=0; inProgress=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:21:51.029Z",
+                                                                       "URL":  "https://camerahouse.vn/",
+                                                                       "Stage":  "EXPORT",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "run=2026-09-18T17-21-50-954Z"
+                                                                   }
+                                                               ]
+                                                 },
+                                      "hygieneWarnings":  [
+
+                                                          ],
+                                      "checks":  [
+
+                                                 ],
+                                      "pass":  true
+                                  }
+                 },
+                 {
+                     "runId":  "95fe1c8f-5b15-4a61-9589-cf62b701e4cc",
+                     "caseId":  "zshop-rental-mixed",
+                     "label":  "zShop — mixed rental landing page",
+                     "requestedUrl":  "https://zshop.vn/cho-thue-may-anh/",
+                     "status":  "pass",
+                     "startedAt":  "2026-09-18T17:21:51.839Z",
+                     "finishedAt":  "2026-09-18T17:22:13.030Z",
+                     "timedOut":  false,
+                     "error":  null,
+                     "exit":  {
+                                  "code":  0,
+                                  "signal":  null,
+                                  "spawnError":  null
+                              },
+                     "workbook":  {
+                                      "sheetNames":  [
+                                                         "Dữ liệu đối thủ",
+                                                         "Cần kiểm tra",
+                                                         "Không liên quan",
+                                                         "Evidence",
+                                                         "Conflicts",
+                                                         "Coverage",
+                                                         "Errors",
+                                                         "Audit"
+                                                     ],
+                                      "sheets":  {
+                                                     "Dữ liệu đối thủ":  [
+
+                                                                         ],
+                                                     "Cần kiểm tra":  [
+
+                                                                      ],
+                                                     "Không liên quan":  [
+
+                                                                         ],
+                                                     "Evidence":  [
+
+                                                                  ],
+                                                     "Conflicts":  [
+
+                                                                   ],
+                                                     "Coverage":  [
+                                                                      {
+                                                                          "Metric":  "Catalog coverage",
+                                                                          "Numerator":  1,
+                                                                          "Denominator":  1,
+                                                                          "Coverage":  1,
+                                                                          "Status":  "PASS"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Detail coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  0,
+                                                                          "Coverage":  null,
+                                                                          "Status":  "N/A"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Classification coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  0,
+                                                                          "Coverage":  null,
+                                                                          "Status":  "N/A"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Evidence coverage",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  0,
+                                                                          "Coverage":  null,
+                                                                          "Status":  "N/A"
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accepted",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Review",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Excluded",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Reconciliation",
+                                                                          "Numerator":  "PASS",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Discovered URLs",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ACCEPT",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal REVIEW",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal EXCLUDE",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Terminal ERROR",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "In progress",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Accounted",
+                                                                          "Numerator":  0,
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Balanced",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      },
+                                                                      {
+                                                                          "Metric":  "Run complete",
+                                                                          "Numerator":  "YES",
+                                                                          "Denominator":  null,
+                                                                          "Coverage":  null,
+                                                                          "Status":  null
+                                                                      }
+                                                                  ],
+                                                     "Errors":  [
+
+                                                                ],
+                                                     "Audit":  [
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:22:12.588Z",
+                                                                       "URL":  "https://zshop.vn/cho-thue-may-anh/",
+                                                                       "Stage":  "CATALOG",
+                                                                       "Status":  "OK",
+                                                                       "Message":  "products=0; weak=50; pagination=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:22:12.889Z",
+                                                                       "URL":  "https://zshop.vn/cho-thue-may-anh/",
+                                                                       "Stage":  "DETAIL",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "reconciliation=PASS; run=2026-09-18T17-22-12-791Z; discovered=0; accept=0; review=0; exclude=0; error=0; inProgress=0"
+                                                                   },
+                                                                   {
+                                                                       "Timestamp":  "2026-09-18T17:22:12.890Z",
+                                                                       "URL":  "https://zshop.vn/cho-thue-may-anh/",
+                                                                       "Stage":  "EXPORT",
+                                                                       "Status":  "INFO",
+                                                                       "Message":  "run=2026-09-18T17-22-12-791Z"
+                                                                   }
+                                                               ]
+                                                 },
+                                      "hygieneWarnings":  [
+
+                                                          ],
+                                      "checks":  [
+
+                                                 ],
+                                      "pass":  true
+                                  }
+                 }
+             ]
+}
