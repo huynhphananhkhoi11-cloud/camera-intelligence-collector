@@ -95,6 +95,36 @@ export interface ProductUrlRecord {
 }
 
 
+export interface RunStoreReconciliationReport {
+  runId: string;
+
+  /*
+   * Total run-scope product URLs registered in persistent storage.
+   * This preserves the Phase 9 meaning of "discovered" as a total,
+   * while `pending` counts the Phase 10 DISCOVERED queue state.
+   */
+  discovered: number;
+
+  pending: number;
+
+  accepted: number;
+
+  review: number;
+
+  excluded: number;
+
+  error: number;
+
+  inProgress: number;
+
+  accounted: number;
+
+  balanced: boolean;
+
+  complete: boolean;
+}
+
+
 /**
  * Phase 10 persistence contract.
  *
@@ -116,6 +146,16 @@ export interface RunStore {
     runId:
       string
   ): RunRecord | null;
+
+  startRun(
+    runId:
+      string
+  ): void;
+
+  interruptRun(
+    runId:
+      string
+  ): void;
 
   registerProductUrls(
     runId:
@@ -143,6 +183,16 @@ export interface RunStore {
       string,
     state:
       ProductTerminalState
+  ): void;
+
+  getReconciliationReport(
+    runId:
+      string
+  ): RunStoreReconciliationReport;
+
+  completeRun(
+    runId:
+      string
   ): void;
 
   close(): void;

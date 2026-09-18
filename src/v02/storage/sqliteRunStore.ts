@@ -12,7 +12,8 @@ import type {
   ProductUrlRecord,
   RegisterProductUrlInput,
   RunRecord,
-  RunStore
+  RunStore,
+  RunStoreReconciliationReport
 } from "./runStore.js";
 
 
@@ -68,6 +69,23 @@ interface SqlProductUrlRow {
   discovered_at: string;
 
   updated_at: string;
+}
+
+
+interface SqlReconciliationRow {
+  discovered: number;
+
+  pending: number;
+
+  accepted: number;
+
+  review: number;
+
+  excluded: number;
+
+  error: number;
+
+  in_progress: number;
 }
 
 
@@ -436,6 +454,31 @@ implements RunStore {
   }
 
 
+  private requireRun(
+    rawRunId:
+      string
+  ): RunRecord {
+    const runId =
+      requiredText(
+        rawRunId,
+        "runId"
+      );
+
+    const run =
+      this.getRun(
+        runId
+      );
+
+    if (!run) {
+      throw new Error(
+        `Run was not registered: ${runId}`
+      );
+    }
+
+    return run;
+  }
+
+
   private productState(
     runId:
       string,
@@ -603,7 +646,127 @@ implements RunStore {
   }
 
 
+  startRun(
+    rawRunId:
+      string
+  ): void {
+    this.ensureOpen();
+
+    const runId =
+      requiredText(
+        rawRunId,
+        "runId"
+      );
+
+    const statement =
+      this.db.prepare(`
+        UPDATE runs
+        SET
+          status = 'RUNNING'
+        WHERE
+          run_id = ?
+          AND status = 'CREATED'
+      `);
+
+    let changes =
+      0;
+
+    try {
+      const result =
+        statement.run(
+          runId
+        );
+
+      changes =
+        Number(
+          result.changes
+        );
+    }
+    finally {
+      closeStatement(
+        statement
+      );
+    }
+
+    if (
+      changes ===
+      1
+    ) {
+      return;
+    }
+
+    const current =
+      this.requireRun(
+        runId
+      );
+
+    throw new Error(
+      `Run cannot start from status ${current.status}: ${runId}`
+    );
+  }
+
+
+  interruptRun(
+    rawRunId:
+      string
+  ): void {
+    this.ensureOpen();
+
+    const runId =
+      requiredText(
+        rawRunId,
+        "runId"
+      );
+
+    const statement =
+      this.db.prepare(`
+        UPDATE runs
+        SET
+          status = 'INTERRUPTED'
+        WHERE
+          run_id = ?
+          AND status = 'RUNNING'
+      `);
+
+    let changes =
+      0;
+
+    try {
+      const result =
+        statement.run(
+          runId
+        );
+
+      changes =
+        Number(
+          result.changes
+        );
+    }
+    finally {
+      closeStatement(
+        statement
+      );
+    }
+
+    if (
+      changes ===
+      1
+    ) {
+      return;
+    }
+
+    const current =
+      this.requireRun(
+        runId
+      );
+
+    throw new Error(
+      `Run cannot be interrupted from status ${current.status}: ${runId}`
+    );
+  }
+
   registerProductUrls(
+
     rawRunId:
       string,
     urls:
@@ -987,8 +1150,315 @@ implements RunStore {
   }
 
 
+  getReconciliationReport(
+    rawRunId:
+      string
+  ): RunStoreReconciliationReport {
+    this.ensureOpen();
+
+    const runId =
+      requiredText(
+        rawRunId,
+        "runId"
+      );
+
+    /*
+     * Do not allow a ghost reconciliation report for an
+     * unregistered run.
+     */
+    this.requireRun(
+      runId
+    );
+
+    const statement =
+      this.db.prepare(`
+        SELECT
+          COUNT(*) AS discovered,
+
+          COALESCE(
+            SUM(
+              CASE
+                WHEN state = 'DISCOVERED'
+                THEN 1
+                ELSE 0
+              END
+            ),
+            0
+          ) AS pending,
+
+          COALESCE(
+            SUM(
+              CASE
+                WHEN state = 'ACCEPT'
+                THEN 1
+                ELSE 0
+              END
+            ),
+            0
+          ) AS accepted,
+
+          COALESCE(
+            SUM(
+              CASE
+                WHEN state = 'REVIEW'
+                THEN 1
+                ELSE 0
+              END
+            ),
+            0
+          ) AS review,
+
+          COALESCE(
+            SUM(
+              CASE
+                WHEN state = 'EXCLUDE'
+                THEN 1
+                ELSE 0
+              END
+            ),
+            0
+          ) AS excluded,
+
+          COALESCE(
+            SUM(
+              CASE
+                WHEN state = 'ERROR'
+                THEN 1
+                ELSE 0
+              END
+            ),
+            0
+          ) AS error,
+
+          COALESCE(
+            SUM(
+              CASE
+                WHEN state = 'IN_PROGRESS'
+                THEN 1
+                ELSE 0
+              END
+            ),
+            0
+          ) AS in_progress
+
+        FROM product_urls
+        WHERE run_id = ?
+      `);
+
+    try {
+      const row =
+        statement.get(
+          runId
+        ) as
+          | SqlReconciliationRow
+          | undefined;
+
+      const discovered =
+        Number(
+          row?.discovered ??
+          0
+        );
+
+      const pending =
+        Number(
+          row?.pending ??
+          0
+        );
+
+      const accepted =
+        Number(
+          row?.accepted ??
+          0
+        );
+
+      const review =
+        Number(
+          row?.review ??
+          0
+        );
+
+      const excluded =
+        Number(
+          row?.excluded ??
+          0
+        );
+
+      const error =
+        Number(
+          row?.error ??
+          0
+        );
+
+      const inProgress =
+        Number(
+          row?.in_progress ??
+          0
+        );
+
+      const accounted =
+        pending +
+        accepted +
+        review +
+        excluded +
+        error +
+        inProgress;
+
+      const balanced =
+        discovered ===
+        accounted;
+
+      const complete =
+        balanced &&
+        pending ===
+          0 &&
+        inProgress ===
+          0;
+
+      return {
+        runId,
+
+        discovered,
+
+        pending,
+
+        accepted,
+
+        review,
+
+        excluded,
+
+        error,
+
+        inProgress,
+
+        accounted,
+
+        balanced,
+
+        complete
+      };
+    }
+    finally {
+      closeStatement(
+        statement
+      );
+    }
+  }
+
+
+  completeRun(
+    rawRunId:
+      string
+  ): void {
+    this.ensureOpen();
+
+    const runId =
+      requiredText(
+        rawRunId,
+        "runId"
+      );
+
+    /*
+     * Final status and reconciliation must be evaluated under
+     * the same short write transaction so another writer cannot
+     * change URL lifecycle between reconciliation and finalization.
+     *
+     * No browser/network work is performed inside this transaction.
+     */
+    withImmediateTransaction(
+      this.db,
+      () => {
+        const current =
+          this.requireRun(
+            runId
+          );
+
+        if (
+          current.status !==
+          "RUNNING"
+        ) {
+          throw new Error(
+            `Run cannot complete from status ${current.status}: ${runId}`
+          );
+        }
+
+        const report =
+          this.getReconciliationReport(
+            runId
+          );
+
+        if (
+          !report.complete
+        ) {
+          throw new Error(
+            [
+              "Run reconciliation incomplete:",
+              `run=${runId}`,
+              `discovered=${report.discovered}`,
+              `pending=${report.pending}`,
+              `accepted=${report.accepted}`,
+              `review=${report.review}`,
+              `excluded=${report.excluded}`,
+              `error=${report.error}`,
+              `inProgress=${report.inProgress}`,
+              `accounted=${report.accounted}`
+            ].join(
+              " "
+            )
+          );
+        }
+
+        const finalStatus =
+          report.error >
+            0
+            ? "COMPLETED_WITH_ERRORS"
+            : "COMPLETED";
+
+        const finishedAt =
+          this.timestamp();
+
+        const statement =
+          this.db.prepare(`
+            UPDATE runs
+            SET
+              status = ?,
+              finished_at = ?
+            WHERE
+              run_id = ?
+              AND status = 'RUNNING'
+          `);
+
+        try {
+          const result =
+            statement.run(
+              finalStatus,
+              finishedAt,
+              runId
+            );
+
+          if (
+            Number(
+              result.changes
+            ) !==
+            1
+          ) {
+            throw new Error(
+              `Run finalization lost lifecycle ownership: ${runId}`
+            );
+          }
+        }
+        finally {
+          closeStatement(
+            statement
+          );
+        }
+      }
+    );
+  }
+
   close():
     void {
+
     if (this.closed) {
       return;
     }
