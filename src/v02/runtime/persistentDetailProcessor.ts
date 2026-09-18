@@ -27,6 +27,10 @@ import {
   SQLiteIntelligenceAuditStore
 } from "../storage/sqliteIntelligenceAuditStore.js";
 
+import {
+  SQLiteCacheStore
+} from "../storage/sqliteCacheStore.js";
+
 import type {
   RawFactsRecord
 } from "../storage/runStore.js";
@@ -42,6 +46,16 @@ import {
 import {
   crashIfRequested
 } from "./crashInjection.js";
+
+
+const DEFAULT_DETAIL_CACHE_TTL_MS =
+  15 * 60 * 1000;
+
+
+const DETAIL_CACHE_SCOPE =
+  "detail-acquisition:" +
+  OFFLINE_REPLAY_SCHEMA_VERSION;
+
 
 export type DetailAcquirer =
   () =>
@@ -60,6 +74,9 @@ export interface PersistentDetailProcessorOptions {
   timeoutMs?:
     number;
 
+  cacheTtlMs?:
+    number;
+
   now?:
     () => string;
 }
@@ -68,7 +85,8 @@ export interface PersistentDetailProcessorOptions {
 export interface PersistentDetailProcessOptions {
   /*
    * The production CLI only allows --fresh for NEW runs.
-   * This flag therefore means "do not reuse run-local replay facts".
+   * This flag therefore bypasses both run-local replay
+   * and reusable persistent cache facts.
    */
   fresh?:
     boolean;
@@ -354,6 +372,119 @@ function failedAcquisitionFinalUrl(
 }
 
 
+function normalizedCacheUrl(
+  raw:
+    string
+): string | null {
+  try {
+    const url =
+      new URL(
+        raw
+      );
+
+    url.hash =
+      "";
+
+    return url.toString();
+  }
+  catch {
+    return null;
+  }
+}
+
+
+function cacheableNavigationStatus(
+  acquisition:
+    DetailAcquisitionResult
+): number | null {
+  const targets =
+    new Set<
+      string
+    >();
+
+
+  for (
+    const raw
+    of [
+      acquisition.requestedUrl,
+      acquisition.finalUrl,
+      acquisition.canonicalUrl
+    ]
+  ) {
+    const normalized =
+      normalizedCacheUrl(
+        raw
+      );
+
+    if (
+      normalized !==
+        null
+    ) {
+      targets.add(
+        normalized
+      );
+    }
+  }
+
+
+  for (
+    let index =
+      acquisition.networkSnapshot.responses.length -
+      1;
+    index >=
+      0;
+    index -=
+      1
+  ) {
+    const response =
+      acquisition.networkSnapshot.responses[
+        index
+      ]!;
+
+
+    if (
+      response.resourceType !==
+        "document"
+    ) {
+      continue;
+    }
+
+
+    const normalized =
+      normalizedCacheUrl(
+        response.url
+      );
+
+
+    if (
+      normalized ===
+        null ||
+      !targets.has(
+        normalized
+      )
+    ) {
+      continue;
+    }
+
+
+    if (
+      Number.isInteger(
+        response.status
+      ) &&
+      response.status >=
+        200 &&
+      response.status <=
+        299
+    ) {
+      return response.status;
+    }
+  }
+
+
+  return null;
+}
+
+
 export class PersistentDetailProcessor {
 
   private readonly runStore:
@@ -361,6 +492,12 @@ export class PersistentDetailProcessor {
 
   private readonly auditStore:
     SQLiteIntelligenceAuditStore;
+
+  private readonly cacheStore:
+    SQLiteCacheStore;
+
+  private readonly cacheTtlMs:
+    number;
 
   private readonly runId:
     string;
@@ -430,6 +567,28 @@ export class PersistentDetailProcessor {
       );
 
 
+    const cacheTtlMs =
+      options.cacheTtlMs ??
+      DEFAULT_DETAIL_CACHE_TTL_MS;
+
+
+    if (
+      !Number.isInteger(
+        cacheTtlMs
+      ) ||
+      cacheTtlMs <=
+        0
+    ) {
+      throw new Error(
+        "cacheTtlMs must be a positive integer."
+      );
+    }
+
+
+    this.cacheTtlMs =
+      cacheTtlMs;
+
+
     this.runStore =
       new SQLiteRunStore(
         path,
@@ -461,6 +620,42 @@ export class PersistentDetailProcessor {
 
       throw error;
     }
+
+
+    try {
+      this.cacheStore =
+        new SQLiteCacheStore(
+          path,
+          {
+            timeoutMs:
+              options.timeoutMs,
+
+            now:
+              this.now
+          }
+        );
+    }
+    catch (error) {
+      try {
+        this.auditStore.close();
+      }
+      catch {
+        /*
+         * Preserve the cache-construction error.
+         */
+      }
+
+      try {
+        this.runStore.close();
+      }
+      catch {
+        /*
+         * Preserve the cache-construction error.
+         */
+      }
+
+      throw error;
+    }
   }
 
 
@@ -472,6 +667,135 @@ export class PersistentDetailProcessor {
       throw new Error(
         "PersistentDetailProcessor is closed."
       );
+    }
+  }
+
+
+  private detailCacheKey(
+    canonicalUrl:
+      string
+  ) {
+    return {
+      kind:
+        "HTTP_RAW" as const,
+
+      canonicalRequest:
+        canonicalUrl,
+
+      relevantHeaders:
+        {},
+
+      scope:
+        DETAIL_CACHE_SCOPE
+    };
+  }
+
+
+  private loadCachedReplay(
+    canonicalUrl:
+      string
+  ) {
+    try {
+      const cached =
+        this.cacheStore.getRaw(
+          this.detailCacheKey(
+            canonicalUrl
+          )
+        );
+
+
+      if (
+        cached ===
+          null
+      ) {
+        return null;
+      }
+
+
+      if (
+        cached.statusCode ===
+          null ||
+        cached.statusCode <
+          200 ||
+        cached.statusCode >
+          299
+      ) {
+        return null;
+      }
+
+
+      const snapshot =
+        parseOfflineReplaySnapshot(
+          cached.payloadJson
+        );
+
+
+      return {
+        cached,
+        snapshot
+      };
+    }
+    catch {
+      /*
+       * Cache must never become business truth.
+       *
+       * A bad cache entry therefore degrades to a live acquisition
+       * instead of changing classifier/resolver/validator behavior.
+       */
+      return null;
+    }
+  }
+
+
+  private cacheSuccessfulReplay(
+    canonicalUrl:
+      string,
+    acquisition:
+      DetailAcquisitionResult,
+    payloadJson:
+      string
+  ): void {
+    const statusCode =
+      cacheableNavigationStatus(
+        acquisition
+      );
+
+
+    if (
+      statusCode ===
+        null
+    ) {
+      return;
+    }
+
+
+    try {
+      this.cacheStore.putRawSuccess({
+        ...this.detailCacheKey(
+          canonicalUrl
+        ),
+
+        statusCode,
+
+        /*
+         * Production collector uses a fresh anonymous
+         * BrowserContext. Authenticated cache scopes must be
+         * introduced explicitly if that architecture changes.
+         */
+        authSensitive:
+          false,
+
+        ttlMs:
+          this.cacheTtlMs,
+
+        payloadJson
+      });
+    }
+    catch {
+      /*
+       * Reusable cache is an optimization only.
+       * Durable run facts remain authoritative.
+       */
     }
   }
 
@@ -645,6 +969,125 @@ export class PersistentDetailProcessor {
           reusable
         );
       }
+
+
+      const cachedReplay =
+        this.loadCachedReplay(
+          canonicalUrl
+        );
+
+
+      if (
+        cachedReplay !==
+          null
+      ) {
+        const payloadJson =
+          cachedReplay.cached
+            .payloadJson;
+
+        const contentHash =
+          replaySnapshotContentHash(
+            payloadJson
+          );
+
+        const cachedFinalUrl =
+          cachedReplay.snapshot
+            .acquisition
+            .finalUrl
+            .trim() ||
+          cachedReplay.snapshot
+            .acquisition
+            .canonicalUrl
+            .trim() ||
+          canonicalUrl;
+
+
+        this.runStore.startDetailFetch(
+          this.runId,
+          canonicalUrl
+        );
+
+
+        this.runStore.finishDetailFetch(
+          this.runId,
+          canonicalUrl,
+          {
+            status:
+              "SUCCEEDED",
+
+            finalUrl:
+              cachedFinalUrl,
+
+            httpStatus:
+              cachedReplay.cached
+                .statusCode,
+
+            durationMs:
+              0,
+
+            errorClass:
+              null,
+
+            errorMessage:
+              null,
+
+            contentHash,
+
+            snapshotPath:
+              null,
+
+            rawFacts: {
+              contentHash,
+
+              extractorVersion:
+                OFFLINE_REPLAY_SCHEMA_VERSION,
+
+              factsJson:
+                payloadJson,
+
+              snapshotPath:
+                null
+            }
+          }
+        );
+
+
+        crashIfRequested(
+          "AFTER_RAW_FACTS_PERSISTED",
+          {
+            runId:
+              this.runId,
+
+            url:
+              canonicalUrl
+          }
+        );
+
+
+        const result =
+          processRawProductFacts(
+            cachedReplay.snapshot
+              .facts,
+            this.siteMode
+          );
+
+
+        this.persistAuditIfNeeded(
+          canonicalUrl,
+          contentHash,
+          result
+        );
+
+
+        return {
+          source:
+            "REPLAY",
+
+          result,
+
+          contentHash
+        };
+      }
     }
 
 
@@ -806,6 +1249,13 @@ export class PersistentDetailProcessor {
       );
 
 
+      this.cacheSuccessfulReplay(
+        canonicalUrl,
+        acquisition,
+        persistedReplayJson
+      );
+
+
       const result =
         processRawProductFacts(
           facts,
@@ -919,11 +1369,25 @@ export class PersistentDetailProcessor {
 
 
     try {
-      this.auditStore.close();
+      this.cacheStore.close();
     }
     catch (error) {
       firstError =
         error;
+    }
+
+
+    try {
+      this.auditStore.close();
+    }
+    catch (error) {
+      if (
+        firstError ===
+          null
+      ) {
+        firstError =
+          error;
+      }
     }
 
 

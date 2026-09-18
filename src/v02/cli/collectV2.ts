@@ -400,7 +400,9 @@ async function createContext(
 
   const browser =
     await chromium.launch({
-      headless
+      headless,
+      handleSIGINT:
+        false
     });
 
   const context =
