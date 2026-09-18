@@ -13,6 +13,7 @@ import {
   MIGRATION_V1_CHECKSUM,
   MIGRATION_V2_CHECKSUM,
   MIGRATION_V3_CHECKSUM,
+  MIGRATION_V4_CHECKSUM,
   runMigrations
 } from "../../../src/v02/storage/sqliteMigrations.ts";
 
@@ -95,7 +96,7 @@ describe(
           expect(
             LATEST_SCHEMA_VERSION
           ).toBe(
-            3
+            4
           );
         }
         finally {
@@ -106,7 +107,7 @@ describe(
 
 
     test(
-      "migration ledger preserves v1 v2 and records v3",
+      "migration ledger preserves v1 through v3 and records v4",
       () => {
         const db =
           new DatabaseSync(
@@ -160,6 +161,16 @@ describe(
 
               checksum:
                 MIGRATION_V3_CHECKSUM
+            },
+            {
+              version:
+                4,
+
+              name:
+                "phase10_v4_cache_reuse",
+
+              checksum:
+                MIGRATION_V4_CHECKSUM
             }
           ]);
         }
@@ -171,7 +182,7 @@ describe(
 
 
     test(
-      "latest schema contains persistence and audit tables",
+      "latest schema contains cache table",
       () => {
         const db =
           new DatabaseSync(
@@ -195,7 +206,8 @@ describe(
               "resolved_fields",
               "evidence",
               "conflicts",
-              "errors"
+              "errors",
+              "cache_entries"
             ]
           ) {
             expect(
@@ -259,7 +271,7 @@ describe(
           expect(
             second
           ).toHaveLength(
-            3
+            4
           );
         }
         finally {

@@ -8,7 +8,7 @@ import type {
 
 
 export const LATEST_SCHEMA_VERSION =
-  3;
+  4;
 
 
 const MIGRATION_V1_NAME =
@@ -531,7 +531,88 @@ export const MIGRATION_V3_CHECKSUM =
       "hex"
     );
 
+
+
+const MIGRATION_V4_NAME =
+  "phase10_v4_cache_reuse";
+
+
+const MIGRATION_V4_SQL = `
+CREATE TABLE cache_entries (
+  cache_key TEXT PRIMARY KEY,
+
+  kind TEXT NOT NULL
+    CHECK (
+      kind IN (
+        'HTTP_RAW',
+        'API_RAW',
+        'DETAIL_SNAPSHOT',
+        'RAW_FACTS',
+        'CLASSIFICATION',
+        'RESOLVED_FIELDS'
+      )
+    ),
+
+  canonical_url TEXT,
+
+  scope TEXT NOT NULL,
+
+  content_hash TEXT,
+
+  version_key TEXT NOT NULL,
+
+  config_hash TEXT,
+
+  contract_version TEXT,
+
+  status_code INTEGER
+    CHECK (
+      status_code IS NULL
+      OR (
+        status_code >= 200
+        AND status_code <= 299
+      )
+    ),
+
+  payload_json TEXT NOT NULL,
+
+  created_at TEXT NOT NULL,
+
+  expires_at TEXT
+) STRICT;
+
+
+CREATE INDEX
+  idx_cache_entries_kind_content
+ON cache_entries (
+  kind,
+  content_hash,
+  version_key
+);
+
+
+CREATE INDEX
+  idx_cache_entries_expiry
+ON cache_entries (
+  expires_at
+);
+`;
+
+
+export const MIGRATION_V4_CHECKSUM =
+  createHash(
+    "sha256"
+  )
+    .update(
+      MIGRATION_V4_SQL,
+      "utf8"
+    )
+    .digest(
+      "hex"
+    );
+
 interface MigrationLedgerRow {
+
 
 
   version: number;
@@ -829,7 +910,63 @@ function verifyMigrationV3(
   }
 }
 
+
+function verifyMigrationV4(
+  db:
+    DatabaseSync
+): void {
+  if (
+    !tableExists(
+      db,
+      "cache_entries"
+    )
+  ) {
+    throw new Error(
+      "Migration v4 invariant failed: cache_entries table is missing."
+    );
+  }
+
+  const row =
+    db.prepare(`
+      SELECT
+        version,
+        name,
+        checksum
+      FROM schema_migrations
+      WHERE version = ?
+    `).get(
+      4
+    ) as
+      | MigrationLedgerRow
+      | undefined;
+
+  if (!row) {
+    throw new Error(
+      "Migration v4 invariant failed: migration ledger row is missing."
+    );
+  }
+
+  if (
+    row.name !==
+      MIGRATION_V4_NAME
+  ) {
+    throw new Error(
+      `Migration v4 name mismatch: ${row.name}`
+    );
+  }
+
+  if (
+    row.checksum !==
+      MIGRATION_V4_CHECKSUM
+  ) {
+    throw new Error(
+      "Migration v4 checksum mismatch."
+    );
+  }
+}
+
 function applyMigrationV1(
+
 
 
   db:
@@ -994,8 +1131,63 @@ function applyMigrationV3(
   }
 }
 
+
+function applyMigrationV4(
+  db:
+    DatabaseSync
+): void {
+  db.exec(
+    "BEGIN IMMEDIATE"
+  );
+
+  try {
+    db.exec(
+      MIGRATION_V4_SQL
+    );
+
+    db.prepare(`
+      INSERT INTO schema_migrations (
+        version,
+        name,
+        checksum,
+        applied_at
+      )
+      VALUES (?, ?, ?, ?)
+    `).run(
+      4,
+      MIGRATION_V4_NAME,
+      MIGRATION_V4_CHECKSUM,
+      new Date()
+        .toISOString()
+    );
+
+    db.exec(
+      "PRAGMA user_version = 4"
+    );
+
+    db.exec(
+      "COMMIT"
+    );
+  }
+  catch (error) {
+    try {
+      db.exec(
+        "ROLLBACK"
+      );
+    }
+    catch {
+      /*
+       * Preserve original migration failure.
+       */
+    }
+
+    throw error;
+  }
+}
+
 /**
  * Apply all pending application-owned schema migrations.
+
 
 
  *
@@ -1073,6 +1265,31 @@ export function runMigrations(
   }
 
   if (
+    current === 3
+  ) {
+    verifyMigrationV1(
+      db
+    );
+
+    verifyMigrationV2(
+      db
+    );
+
+    verifyMigrationV3(
+      db
+    );
+
+    applyMigrationV4(
+      db
+    );
+
+    current =
+      currentSchemaVersion(
+        db
+      );
+  }
+
+  if (
     current !==
     LATEST_SCHEMA_VERSION
   ) {
@@ -1090,6 +1307,10 @@ export function runMigrations(
   );
 
   verifyMigrationV3(
+    db
+  );
+
+  verifyMigrationV4(
     db
   );
 }
