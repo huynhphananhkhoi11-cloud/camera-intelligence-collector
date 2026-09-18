@@ -85,6 +85,10 @@ import {
 } from "./runtimeDiagnostics.js";
 
 import {
+  resolveRunOutputPath
+} from "../platform/downloadsOutputResolver.js";
+
+import {
   SQLiteIntelligenceAuditStore
 } from "../storage/sqliteIntelligenceAuditStore.js";
 import {
@@ -117,6 +121,10 @@ export interface CollectV2RuntimeOptions {
 
   debug?:
     boolean;
+
+  downloadsDirectoryResolver?:
+    () =>
+      string;
 
   onEventError?:
     (
@@ -228,17 +236,6 @@ function stamp():
     );
 }
 
-
-function dateStamp():
-  string {
-
-  return new Date()
-    .toISOString()
-    .slice(
-      0,
-      10
-    );
-}
 
 
 function audit(
@@ -1112,6 +1109,42 @@ export async function runCollectV2(
     }
 
 
+    const outputRun =
+      coordinator.getActiveRun();
+
+
+    if (
+      outputRun ===
+        null ||
+      outputRun.runId !==
+        runId
+    ) {
+
+      throw new Error(
+        "Active run unavailable for output resolution: " +
+        runId
+      );
+    }
+
+
+    const outputPath =
+      resolveRunOutputPath({
+        explicitOutput:
+          options.output,
+
+        inputUrl:
+          startUrl,
+
+        runId,
+
+        startedAt:
+          outputRun.startedAt,
+
+        downloadsDirectoryResolver:
+          runtimeOptions.downloadsDirectoryResolver
+      });
+
+
     publishEvent({
       type:
         "RUN_STARTED",
@@ -1135,18 +1168,11 @@ export async function runCollectV2(
           runIntent.fresh,
 
         /*
-         * Explicit output can be resolved now.
-         *
-         * Default output naming is intentionally left null here
-         * because the current exporter resolves its generated name
-         * later. We do not invent a path before that boundary.
+         * Resolved exactly once from persistent run identity.
+         * Export, manifest and terminal UX share this target.
          */
         outputPath:
-          options.output
-            ? resolve(
-                options.output
-              )
-            : null
+          outputPath
       }
     });
 
@@ -1907,29 +1933,11 @@ coordinator.terminalizeProduct(
         });
 
 
-      const host =
-        new URL(
-          startUrl
-        )
-          .hostname
-          .replace(
-            /^www\./,
-            ""
-          );
-
-
-      const outputPath =
-        options.output
-          ? resolve(
-              options.output
-            )
-          : resolve(
-              process.cwd(),
-              "output",
-              `${host}_camera_v02_${dateStamp()}.xlsx`
-            );
-
-
+      /*
+       * outputPath was resolved once after persistent NEW/RESUME
+       * establishment. Only its parent directory is materialized
+       * immediately before workbook export.
+       */
       await mkdir(
         dirname(
           outputPath
