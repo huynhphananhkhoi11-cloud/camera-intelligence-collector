@@ -21,6 +21,17 @@ export type ProductUrlState =
   | ProductTerminalState;
 
 
+export type DetailFetchStatus =
+  | "STARTED"
+  | "SUCCEEDED"
+  | "FAILED";
+
+
+export type DetailFetchTerminalStatus =
+  | "SUCCEEDED"
+  | "FAILED";
+
+
 export interface CreateRunInput {
   runId: string;
 
@@ -95,13 +106,134 @@ export interface ProductUrlRecord {
 }
 
 
+export interface DetailFetchRecord {
+  fetchId: number;
+
+  runId: string;
+
+  canonicalUrl: string;
+
+  /*
+   * Acquisition attempt number for this URL.
+   *
+   * This is intentionally independent from product_urls.attempts:
+   * one product-processing attempt may contain multiple network
+   * acquisition retries.
+   */
+  attempt: number;
+
+  startedAt: string;
+
+  finishedAt:
+    string |
+    null;
+
+  finalUrl:
+    string |
+    null;
+
+  status:
+    DetailFetchStatus;
+
+  httpStatus:
+    number |
+    null;
+
+  durationMs:
+    number |
+    null;
+
+  errorClass:
+    string |
+    null;
+
+  errorMessage:
+    string |
+    null;
+
+  contentHash:
+    string |
+    null;
+
+  snapshotPath:
+    string |
+    null;
+}
+
+
+export interface RawFactsInput {
+  contentHash: string;
+
+  extractorVersion: string;
+
+  /*
+   * Opaque replay payload.
+   *
+   * Storage validates JSON syntax only; acquisition/extraction owns
+   * the actual replay schema and business meaning.
+   */
+  factsJson: string;
+
+  snapshotPath:
+    string |
+    null;
+}
+
+
+export interface RawFactsRecord
+extends RawFactsInput {
+  rawFactId: number;
+
+  runId: string;
+
+  canonicalUrl: string;
+
+  capturedAt: string;
+}
+
+
+export interface FinishDetailFetchInput {
+  status:
+    DetailFetchTerminalStatus;
+
+  finalUrl:
+    string |
+    null;
+
+  httpStatus:
+    number |
+    null;
+
+  durationMs: number;
+
+  errorClass:
+    string |
+    null;
+
+  errorMessage:
+    string |
+    null;
+
+  contentHash:
+    string |
+    null;
+
+  snapshotPath:
+    string |
+    null;
+
+  rawFacts:
+    RawFactsInput |
+    null;
+}
+
+
 export interface RunStoreReconciliationReport {
   runId: string;
 
   /*
    * Total run-scope product URLs registered in persistent storage.
-   * This preserves the Phase 9 meaning of "discovered" as a total,
-   * while `pending` counts the Phase 10 DISCOVERED queue state.
+   * `pending` is the Phase 10 DISCOVERED queue state.
    */
   discovered: number;
 
@@ -134,7 +266,7 @@ export interface RunStoreReconciliationReport {
  * resolvers resolve,
  * validator decides.
  *
- * RunStore only persists and retrieves lifecycle state.
+ * RunStore persists lifecycle/audit state only.
  */
 export interface RunStore {
   createRun(
@@ -169,12 +301,47 @@ export interface RunStore {
       string
   ): ProductUrlRecord[];
 
+  /*
+   * Begins one product-processing attempt.
+   * Network/acquisition retries are recorded separately by
+   * startDetailFetch().
+   */
   beginAttempt(
     runId:
       string,
     canonicalUrl:
       string
   ): void;
+
+  startDetailFetch(
+    runId:
+      string,
+    canonicalUrl:
+      string
+  ): DetailFetchRecord;
+
+  finishDetailFetch(
+    runId:
+      string,
+    canonicalUrl:
+      string,
+    input:
+      FinishDetailFetchInput
+  ): DetailFetchRecord;
+
+  listDetailFetches(
+    runId:
+      string,
+    canonicalUrl:
+      string
+  ): DetailFetchRecord[];
+
+  listRawFacts(
+    runId:
+      string,
+    canonicalUrl:
+      string
+  ): RawFactsRecord[];
 
   terminalize(
     runId:

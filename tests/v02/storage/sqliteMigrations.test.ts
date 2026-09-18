@@ -11,6 +11,7 @@ import {
 import {
   LATEST_SCHEMA_VERSION,
   MIGRATION_V1_CHECKSUM,
+  MIGRATION_V2_CHECKSUM,
   runMigrations
 } from "../../../src/v02/storage/sqliteMigrations.ts";
 
@@ -63,11 +64,11 @@ function tableExists(
 
 
 describe(
-  "Phase 10B SQLite migration contract",
+  "Phase 10 SQLite migration contract",
   () => {
 
     test(
-      "migration v1 advances application schema version",
+      "migrations advance application schema to latest version",
       () => {
         const db =
           new DatabaseSync(
@@ -79,18 +80,21 @@ describe(
             db
           );
 
-          const version =
+          expect(
             Number(
               pragmaScalar(
                 db,
                 "PRAGMA user_version"
               )
-            );
-
-          expect(
-            version
+            )
           ).toBe(
             LATEST_SCHEMA_VERSION
+          );
+
+          expect(
+            LATEST_SCHEMA_VERSION
+          ).toBe(
+            2
           );
         }
         finally {
@@ -101,7 +105,7 @@ describe(
 
 
     test(
-      "migration v1 creates schema_migrations audit ledger",
+      "migration ledger preserves immutable v1 and records v2",
       () => {
         const db =
           new DatabaseSync(
@@ -113,55 +117,51 @@ describe(
             db
           );
 
-          expect(
-            tableExists(
-              db,
-              "schema_migrations"
-            )
-          ).toBe(true);
-
-          const row =
+          const rows =
             db.prepare(`
               SELECT
                 version,
                 name,
-                checksum,
-                applied_at
+                checksum
               FROM schema_migrations
-              WHERE version = ?
-            `).get(
-              1
-            ) as
-              | Record<string, unknown>
-              | undefined;
+              ORDER BY version
+            `).all() as
+              unknown as
+              Array<{
+                version:
+                  number;
+
+                name:
+                  string;
+
+                checksum:
+                  string;
+              }>;
 
           expect(
-            row
-          ).toBeDefined();
+            rows
+          ).toEqual([
+            {
+              version:
+                1,
 
-          expect(
-            row?.version
-          ).toBe(
-            1
-          );
+              name:
+                "phase10_v1_run_ledger_foundation",
 
-          expect(
-            row?.name
-          ).toBe(
-            "phase10_v1_run_ledger_foundation"
-          );
+              checksum:
+                MIGRATION_V1_CHECKSUM
+            },
+            {
+              version:
+                2,
 
-          expect(
-            row?.checksum
-          ).toBe(
-            MIGRATION_V1_CHECKSUM
-          );
+              name:
+                "phase10_v2_detail_fetches_raw_facts",
 
-          expect(
-            typeof row?.applied_at
-          ).toBe(
-            "string"
-          );
+              checksum:
+                MIGRATION_V2_CHECKSUM
+            }
+          ]);
         }
         finally {
           db.close();
@@ -171,7 +171,7 @@ describe(
 
 
     test(
-      "migration v1 creates runs and product_urls foundation",
+      "latest schema contains run ledger, detail attempts, and raw facts",
       () => {
         const db =
           new DatabaseSync(
@@ -183,33 +183,50 @@ describe(
             db
           );
 
-          expect(
-            tableExists(
-              db,
-              "runs"
-            )
-          ).toBe(true);
+          for (
+            const tableName
+            of [
+              "schema_migrations",
+              "runs",
+              "product_urls",
+              "detail_fetches",
+              "raw_facts"
+            ]
+          ) {
+            expect(
+              tableExists(
+                db,
+                tableName
+              )
+            ).toBe(
+              true
+            );
+          }
 
-          expect(
-            tableExists(
-              db,
-              "product_urls"
-            )
-          ).toBe(true);
+          for (
+            const indexName
+            of [
+              "idx_product_urls_run_state",
+              "idx_detail_fetches_run_url_status",
+              "idx_raw_facts_content_lookup"
+            ]
+          ) {
+            const row =
+              db.prepare(`
+                SELECT
+                  name
+                FROM sqlite_master
+                WHERE
+                  type = 'index'
+                  AND name = ?
+              `).get(
+                indexName
+              );
 
-          const index =
-            db.prepare(`
-              SELECT
-                name
-              FROM sqlite_master
-              WHERE
-                type = 'index'
-                AND name = 'idx_product_urls_run_state'
-            `).get();
-
-          expect(
-            index
-          ).toBeDefined();
+            expect(
+              row
+            ).toBeDefined();
+          }
         }
         finally {
           db.close();
@@ -219,7 +236,7 @@ describe(
 
 
     test(
-      "migration v1 is idempotent and does not duplicate ledger rows",
+      "migrations are idempotent and do not duplicate ledger rows",
       () => {
         const db =
           new DatabaseSync(
@@ -231,22 +248,27 @@ describe(
             db
           );
 
-          const firstAppliedAt =
+          const firstRows =
             db.prepare(`
               SELECT
+                version,
                 applied_at
               FROM schema_migrations
-              WHERE version = 1
-            `).get() as
-              | {
-                  applied_at:
-                    string;
-                }
-              | undefined;
+              ORDER BY version
+            `).all();
 
           runMigrations(
             db
           );
+
+          const secondRows =
+            db.prepare(`
+              SELECT
+                version,
+                applied_at
+              FROM schema_migrations
+              ORDER BY version
+            `).all();
 
           const countRow =
             db.prepare(`
@@ -260,29 +282,16 @@ describe(
                 }
               | undefined;
 
-          const secondAppliedAt =
-            db.prepare(`
-              SELECT
-                applied_at
-              FROM schema_migrations
-              WHERE version = 1
-            `).get() as
-              | {
-                  applied_at:
-                    string;
-                }
-              | undefined;
-
           expect(
             countRow?.count
           ).toBe(
-            1
+            2
           );
 
           expect(
-            secondAppliedAt?.applied_at
-          ).toBe(
-            firstAppliedAt?.applied_at
+            secondRows
+          ).toEqual(
+            firstRows
           );
 
           expect(
@@ -293,7 +302,7 @@ describe(
               )
             )
           ).toBe(
-            1
+            2
           );
         }
         finally {

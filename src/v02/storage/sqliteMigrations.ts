@@ -8,7 +8,7 @@ import type {
 
 
 export const LATEST_SCHEMA_VERSION =
-  1;
+  2;
 
 
 const MIGRATION_V1_NAME =
@@ -126,7 +126,146 @@ export const MIGRATION_V1_CHECKSUM =
     );
 
 
+
+
+const MIGRATION_V2_NAME =
+  "phase10_v2_detail_fetches_raw_facts";
+
+
+const MIGRATION_V2_SQL = `
+CREATE TABLE detail_fetches (
+  fetch_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  run_id TEXT NOT NULL,
+
+  canonical_url TEXT NOT NULL,
+
+  attempt_no INTEGER NOT NULL
+    CHECK (
+      attempt_no >= 1
+    ),
+
+  started_at TEXT NOT NULL,
+
+  finished_at TEXT,
+
+  final_url TEXT,
+
+  status TEXT NOT NULL
+    CHECK (
+      status IN (
+        'STARTED',
+        'SUCCEEDED',
+        'FAILED'
+      )
+    ),
+
+  http_status INTEGER
+    CHECK (
+      http_status IS NULL
+      OR (
+        http_status >= 100
+        AND http_status <= 599
+      )
+    ),
+
+  duration_ms INTEGER
+    CHECK (
+      duration_ms IS NULL
+      OR duration_ms >= 0
+    ),
+
+  error_class TEXT,
+
+  error_message TEXT,
+
+  content_hash TEXT,
+
+  snapshot_path TEXT,
+
+  UNIQUE (
+    run_id,
+    canonical_url,
+    attempt_no
+  ),
+
+  FOREIGN KEY (
+    run_id,
+    canonical_url
+  )
+    REFERENCES product_urls(
+      run_id,
+      canonical_url
+    )
+    ON DELETE CASCADE
+) STRICT;
+
+CREATE INDEX
+  idx_detail_fetches_run_url_status
+ON detail_fetches (
+  run_id,
+  canonical_url,
+  status
+);
+
+CREATE TABLE raw_facts (
+  raw_fact_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  run_id TEXT NOT NULL,
+
+  canonical_url TEXT NOT NULL,
+
+  content_hash TEXT NOT NULL,
+
+  extractor_version TEXT NOT NULL,
+
+  facts_json TEXT NOT NULL,
+
+  captured_at TEXT NOT NULL,
+
+  snapshot_path TEXT,
+
+  UNIQUE (
+    run_id,
+    canonical_url,
+    content_hash,
+    extractor_version
+  ),
+
+  FOREIGN KEY (
+    run_id,
+    canonical_url
+  )
+    REFERENCES product_urls(
+      run_id,
+      canonical_url
+    )
+    ON DELETE CASCADE
+) STRICT;
+
+CREATE INDEX
+  idx_raw_facts_content_lookup
+ON raw_facts (
+  content_hash,
+  extractor_version
+);
+`;
+
+
+export const MIGRATION_V2_CHECKSUM =
+  createHash(
+    "sha256"
+  )
+    .update(
+      MIGRATION_V2_SQL,
+      "utf8"
+    )
+    .digest(
+      "hex"
+    );
+
 interface MigrationLedgerRow {
+
   version: number;
 
   name: string;
@@ -290,7 +429,74 @@ function verifyMigrationV1(
 }
 
 
+
+function verifyMigrationV2(
+  db:
+    DatabaseSync
+): void {
+  if (
+    !tableExists(
+      db,
+      "detail_fetches"
+    )
+  ) {
+    throw new Error(
+      "Migration v2 invariant failed: detail_fetches table is missing."
+    );
+  }
+
+  if (
+    !tableExists(
+      db,
+      "raw_facts"
+    )
+  ) {
+    throw new Error(
+      "Migration v2 invariant failed: raw_facts table is missing."
+    );
+  }
+
+  const row =
+    db.prepare(`
+      SELECT
+        version,
+        name,
+        checksum
+      FROM schema_migrations
+      WHERE version = ?
+    `).get(
+      2
+    ) as
+      | MigrationLedgerRow
+      | undefined;
+
+  if (!row) {
+    throw new Error(
+      "Migration v2 invariant failed: migration ledger row is missing."
+    );
+  }
+
+  if (
+    row.name !==
+      MIGRATION_V2_NAME
+  ) {
+    throw new Error(
+      `Migration v2 name mismatch: ${row.name}`
+    );
+  }
+
+  if (
+    row.checksum !==
+      MIGRATION_V2_CHECKSUM
+  ) {
+    throw new Error(
+      "Migration v2 checksum mismatch."
+    );
+  }
+}
+
 function applyMigrationV1(
+
   db:
     DatabaseSync
 ): void {
@@ -345,8 +551,63 @@ function applyMigrationV1(
 }
 
 
+
+function applyMigrationV2(
+  db:
+    DatabaseSync
+): void {
+  db.exec(
+    "BEGIN IMMEDIATE"
+  );
+
+  try {
+    db.exec(
+      MIGRATION_V2_SQL
+    );
+
+    db.prepare(`
+      INSERT INTO schema_migrations (
+        version,
+        name,
+        checksum,
+        applied_at
+      )
+      VALUES (?, ?, ?, ?)
+    `).run(
+      2,
+      MIGRATION_V2_NAME,
+      MIGRATION_V2_CHECKSUM,
+      new Date()
+        .toISOString()
+    );
+
+    db.exec(
+      "PRAGMA user_version = 2"
+    );
+
+    db.exec(
+      "COMMIT"
+    );
+  }
+  catch (error) {
+    try {
+      db.exec(
+        "ROLLBACK"
+      );
+    }
+    catch {
+      /*
+       * Preserve the original migration failure.
+       */
+    }
+
+    throw error;
+  }
+}
+
 /**
  * Apply all pending application-owned schema migrations.
+
  *
  * Migration files are immutable after release.
  * user_version is the fast application schema marker;
@@ -356,7 +617,7 @@ export function runMigrations(
   db:
     DatabaseSync
 ): void {
-  const current =
+  let current =
     currentSchemaVersion(
       db
     );
@@ -376,23 +637,44 @@ export function runMigrations(
     applyMigrationV1(
       db
     );
+
+    current =
+      currentSchemaVersion(
+        db
+      );
   }
 
-  const finalVersion =
-    currentSchemaVersion(
+  if (
+    current === 1
+  ) {
+    verifyMigrationV1(
       db
     );
 
+    applyMigrationV2(
+      db
+    );
+
+    current =
+      currentSchemaVersion(
+        db
+      );
+  }
+
   if (
-    finalVersion !==
+    current !==
     LATEST_SCHEMA_VERSION
   ) {
     throw new Error(
-      `Migration incomplete: expected schema version ${LATEST_SCHEMA_VERSION}, got ${finalVersion}.`
+      `Migration incomplete: expected schema version ${LATEST_SCHEMA_VERSION}, got ${current}.`
     );
   }
 
   verifyMigrationV1(
+    db
+  );
+
+  verifyMigrationV2(
     db
   );
 }
