@@ -67,6 +67,11 @@ import {
 } from "../runtime/runCoordinator.js";
 
 import {
+  RunEventBus,
+  publishRunEventSafely
+} from "../runtime/runEventBus.js";
+
+import {
   SQLiteIntelligenceAuditStore
 } from "../storage/sqliteIntelligenceAuditStore.js";
 import {
@@ -91,6 +96,19 @@ type SiteMode =
   NonNullable<
     OfferInput["siteMode"]
   >;
+
+
+export interface CollectV2RuntimeOptions {
+  eventBus?:
+    RunEventBus;
+
+  onEventError?:
+    (
+      error:
+        unknown
+    ) =>
+      void;
+}
 
 
 interface CliOptions {
@@ -487,7 +505,10 @@ function isDirectExecution():
 export async function runCollectV2(
   argv:
     string[] =
-      process.argv
+      process.argv,
+
+  runtimeOptions:
+    CollectV2RuntimeOptions = {}
 ): Promise<void> {
 
   const program =
@@ -656,9 +677,23 @@ export async function runCollectV2(
     );
 
 
+  const eventBus =
+    runtimeOptions.eventBus ??
+    new RunEventBus();
+
+
+  const onEventError =
+    runtimeOptions.onEventError;
+
+
   const coordinator =
     new RunCoordinator(
-      databasePath
+      databasePath,
+      {
+        eventBus,
+
+        onEventError
+      }
     );
 
 
@@ -1016,6 +1051,55 @@ export async function runCollectV2(
         }
       );
     }
+
+
+    publishRunEventSafely(
+      eventBus,
+      {
+        type:
+          "RUN_STARTED",
+
+        runId,
+
+        inputUrl:
+          startUrl,
+
+        mode:
+          runIntent.mode,
+
+        options: {
+          headless:
+            options.headless,
+
+          workers:
+            Math.max(
+              1,
+              Math.min(
+                options.concurrency,
+                8
+              )
+            ),
+
+          fresh:
+            runIntent.fresh,
+
+          /*
+           * Explicit output can be resolved now.
+           *
+           * Default output naming is intentionally left null here
+           * because the current exporter resolves its generated name
+           * later. We do not invent a path before that boundary.
+           */
+          outputPath:
+            options.output
+              ? resolve(
+                  options.output
+                )
+              : null
+        }
+      },
+      onEventError
+    );
 
 
     console.log("");

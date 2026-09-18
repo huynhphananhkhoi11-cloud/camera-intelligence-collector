@@ -671,3 +671,92 @@ export class RunEventBus {
     });
   }
 }
+
+
+export type RunEventErrorHandler =
+  (
+    error:
+      unknown
+  ) =>
+    void;
+
+
+function notifyRunEventError(
+  handler:
+    RunEventErrorHandler |
+    undefined,
+
+  error:
+    unknown
+): void {
+
+  if (
+    handler ===
+      undefined
+  ) {
+    return;
+  }
+
+
+  try {
+
+    handler(
+      error
+    );
+  }
+  catch {
+
+    /*
+     * Diagnostics/renderer failures are observability-only.
+     */
+  }
+}
+
+
+export function publishRunEventSafely(
+  bus:
+    RunEventBus,
+
+  payload:
+    RunEventPayload,
+
+  onError?:
+    RunEventErrorHandler
+): RunEventDeliveryReport |
+  null {
+
+  try {
+
+    const report =
+      bus.publish(
+        payload
+      );
+
+
+    for (
+      const failure
+      of report.failures
+    ) {
+
+      notifyRunEventError(
+        onError,
+        failure.error
+      );
+    }
+
+
+    return report;
+  }
+  catch (
+    error
+  ) {
+
+    notifyRunEventError(
+      onError,
+      error
+    );
+
+
+    return null;
+  }
+}
