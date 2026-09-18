@@ -9,10 +9,15 @@ import {
 } from "playwright";
 
 import {
+  createHash
+} from "node:crypto";
+
+import {
   mkdir
 } from "node:fs/promises";
 
 import {
+  dirname,
   resolve
 } from "node:path";
 
@@ -21,22 +26,45 @@ import {
 } from "../discovery/productUrlDiscovery.js";
 
 import {
-  processProductPage,
-  type PipelineResult
-} from "../pipeline/productPipeline.js";
+  collectBrowserDetail
+} from "../extraction/browserDetailCollector.js";
 
 import {
   computeCoverage
 } from "../coverage/coverageEngine.js";
 
 import {
-  RunReconciliation
-} from "../coverage/runReconciliation.js";
-
-import {
   exportWorkbookV2,
   type AuditRow
 } from "../export/excelExporterV2.js";
+
+import {
+  resolveCollectRunIntent
+} from "./collectRunIntent.js";
+
+import {
+  installGracefulInterrupt
+} from "../runtime/gracefulInterrupt.js";
+
+import {
+  DetailAcquisitionFailure,
+  PersistentDetailProcessor
+} from "../runtime/persistentDetailProcessor.js";
+
+import {
+  loadTerminalPipelineResults,
+  toExportErrorRows,
+  toExportReconciliation,
+  type PersistentPipelineVersions
+} from "../runtime/persistentPipelineBridge.js";
+
+import {
+  RunCoordinator
+} from "../runtime/runCoordinator.js";
+
+import {
+  SQLiteIntelligenceAuditStore
+} from "../storage/sqliteIntelligenceAuditStore.js";
 
 import type {
   OfferInput
@@ -65,6 +93,12 @@ interface CliOptions {
   concurrency:
     number;
 
+  resume?:
+    string;
+
+  fresh:
+    boolean;
+
   output?:
     string;
 }
@@ -81,8 +115,34 @@ const VALID_SITE_MODES:
   ];
 
 
+/*
+ * Business truth remains the locked Phase 9 deterministic pipeline.
+ * These identifiers are persistence-version labels, not classifiers
+ * invented by the CLI.
+ */
+const PIPELINE_VERSIONS:
+  PersistentPipelineVersions = {
+    classifierVersion:
+      "phase9-76670ee",
+
+    resolverVersion:
+      "phase9-76670ee",
+
+    auditVersion:
+      "phase9-76670ee"
+  };
+
+
+const CONFIG_SCHEMA =
+  "camera-intelligence.collect-config.v1";
+
+const CODE_VERSION =
+  "phase10i3b2";
+
+
 function intOption(
-  value: string
+  value:
+    string
 ): number {
 
   const parsed =
@@ -92,8 +152,11 @@ function intOption(
     );
 
   if (
-    !Number.isFinite(parsed) ||
-    parsed <= 0
+    !Number.isFinite(
+      parsed
+    ) ||
+    parsed <=
+      0
   ) {
     throw new Error(
       `Invalid positive integer: ${value}`
@@ -104,20 +167,8 @@ function intOption(
 }
 
 
-function canonical(
-  raw: string
-): string {
-
-  const url =
-    new URL(raw);
-
-  url.hash = "";
-
-  return url.toString();
-}
-
-
-function stamp(): string {
+function stamp():
+  string {
 
   return new Date()
     .toISOString()
@@ -128,7 +179,8 @@ function stamp(): string {
 }
 
 
-function dateStamp(): string {
+function dateStamp():
+  string {
 
   return new Date()
     .toISOString()
@@ -172,22 +224,115 @@ function audit(
 }
 
 
+function runConfigHash(
+  siteMode:
+    SiteMode
+): string {
+
+  const payload =
+    JSON.stringify({
+      schema:
+        CONFIG_SCHEMA,
+
+      siteMode,
+
+      versions:
+        PIPELINE_VERSIONS
+    });
+
+  return createHash(
+    "sha256"
+  )
+    .update(
+      payload,
+      "utf8"
+    )
+    .digest(
+      "hex"
+    );
+}
+
+
+/*
+ * Phase 10 currently persists configHash rather than individual
+ * CLI configuration columns. Reconstruct the locked site mode
+ * deterministically by testing all legal values against that hash.
+ */
+function recoverSiteMode(
+  persistedHash:
+    string
+): SiteMode {
+
+  const matches =
+    VALID_SITE_MODES.filter(
+      candidate =>
+        runConfigHash(
+          candidate
+        ) ===
+        persistedHash
+    );
+
+  if (
+    matches.length !==
+    1
+  ) {
+    throw new Error(
+      [
+        "Persistent run configuration is incompatible",
+        "with this collect runtime.",
+        `configHash=${persistedHash}`
+      ].join(
+        " "
+      )
+    );
+  }
+
+  return matches[0]!;
+}
+
+
+function stateDatabasePath():
+  string {
+
+  const override =
+    process.env
+      .CAMINTEL_STATE_DB
+      ?.trim();
+
+  if (override) {
+    return resolve(
+      override
+    );
+  }
+
+  return resolve(
+    process.cwd(),
+    "data",
+    "camera-intelligence.sqlite"
+  );
+}
+
+
 async function gentleLoad(
-  page: Page,
-  url: string
+  page:
+    Page,
+
+  url:
+    string
 ): Promise<void> {
 
   let lastError:
-    unknown = null;
+    unknown =
+      null;
 
   for (
-    let attempt = 1;
-    attempt <= 2;
+    let attempt =
+      1;
+    attempt <=
+      2;
     attempt++
   ) {
-
     try {
-
       await page.goto(
         url,
         {
@@ -203,11 +348,6 @@ async function gentleLoad(
         350
       );
 
-      /*
-       * Raw browser-side string avoids the
-       * tsx/esbuild __name issue encountered
-       * earlier in this project.
-       */
       await page.evaluate(
         "window.scrollTo(0, Math.min(document.body.scrollHeight, 2200))"
       );
@@ -217,12 +357,10 @@ async function gentleLoad(
       );
 
       return;
-
     }
     catch (
       error
     ) {
-
       lastError =
         error;
 
@@ -244,7 +382,8 @@ async function createContext(
     BrowserContext;
 
   close:
-    () => Promise<void>;
+    () =>
+      Promise<void>;
 }> {
 
   const browser =
@@ -272,14 +411,38 @@ async function createContext(
 
     close:
       async () => {
-        await context.close();
-        await browser.close();
+        try {
+          await context.close();
+        }
+        finally {
+          await browser.close();
+        }
       }
   };
 }
 
 
-async function main(): Promise<void> {
+function interruptRunningRun(
+  coordinator:
+    RunCoordinator
+): void {
+
+  const active =
+    coordinator.getActiveRun();
+
+  if (
+    active?.status !==
+    "RUNNING"
+  ) {
+    return;
+  }
+
+  coordinator.interruptActiveRun();
+}
+
+
+async function main():
+  Promise<void> {
 
   const program =
     new Command();
@@ -292,8 +455,8 @@ async function main(): Promise<void> {
       "Camera Intelligence Collector v0.2"
     )
     .argument(
-      "<url>",
-      "Catalog/category URL to collect"
+      "[url]",
+      "Catalog/category URL for a new run"
     )
     .option(
       "--site-mode <mode>",
@@ -324,16 +487,21 @@ async function main(): Promise<void> {
       3
     )
     .option(
+      "--resume <runId>",
+      "Resume a persistent run by runId"
+    )
+    .option(
+      "--fresh",
+      "Bypass reusable run-local facts for a new run",
+      false
+    )
+    .option(
       "--output <path>",
       "Explicit xlsx output path"
     );
 
   program.parse();
 
-  const startUrl =
-    canonical(
-      program.args[0]
-    );
 
   const rawOptions =
     program.opts<{
@@ -352,12 +520,18 @@ async function main(): Promise<void> {
       concurrency:
         number;
 
+      resume?:
+        string;
+
+      fresh:
+        boolean;
+
       output?:
         string;
     }>();
 
 
-  const siteMode =
+  const requestedSiteMode =
     rawOptions.siteMode
       .toUpperCase() as
         SiteMode;
@@ -365,578 +539,1153 @@ async function main(): Promise<void> {
 
   if (
     !VALID_SITE_MODES.includes(
-      siteMode
+      requestedSiteMode
     )
   ) {
-
     throw new Error(
       `Invalid --site-mode. Use: ${VALID_SITE_MODES.join(", ")}`
     );
   }
 
 
+  const runIntent =
+    resolveCollectRunIntent({
+      url:
+        program.args[0],
+
+      resumeRunId:
+        rawOptions.resume,
+
+      fresh:
+        rawOptions.fresh
+    });
+
+
   const options:
     CliOptions = {
       ...rawOptions,
 
-      siteMode
+      siteMode:
+        requestedSiteMode
     };
+
+
+  const siteModeExplicit =
+    program.getOptionValueSource(
+      "siteMode"
+    ) ===
+    "cli";
+
+
+  const databasePath =
+    stateDatabasePath();
+
+
+  await mkdir(
+    dirname(
+      databasePath
+    ),
+    {
+      recursive:
+        true
+    }
+  );
 
 
   const auditRows:
     AuditRow[] = [];
 
-  const catalogQueue:
-    string[] = [
-      startUrl
-    ];
 
-  const catalogKnown =
-    new Set<string>([
-      startUrl
-    ]);
-
-  const catalogVisited =
-    new Set<string>();
-
-  const productUrls =
-    new Set<string>();
-
-
-  console.log("");
-  console.log(
-    "=== CAMERA INTELLIGENCE COLLECTOR v0.2 ==="
-  );
-
-  console.log(
-    `Root: ${startUrl}`
-  );
-
-  console.log(
-    `Site mode prior: ${siteMode}`
-  );
-
-  console.log(
-    `Headless: ${options.headless}`
-  );
-
-
+  /*
+   * Browser is created before a persistent run is activated.
+   * If Chromium itself cannot launch, no RUNNING run is stranded.
+   */
   const {
     context,
-    close
+    close:
+      closeBrowser
   } =
     await createContext(
       options.headless
     );
 
 
+  const coordinator =
+    new RunCoordinator(
+      databasePath
+    );
+
+
+  let runEstablished =
+    false;
+
+
   try {
+    let startUrl:
+      string;
+
+    let siteMode:
+      SiteMode;
+
+    let runId:
+      string;
+
+    let urls:
+      string[];
+
+    let catalogPagesDiscovered =
+      0;
+
+    let catalogPagesVisited =
+      0;
+
 
     /*
      * ======================================
-     * CATALOG DISCOVERY
+     * RESUME
      * ======================================
      */
-
-    const catalogPage =
-      await context.newPage();
-
-
-    while (
-      catalogQueue.length >
-        0 &&
-      catalogVisited.size <
-        options.maxPages
+    if (
+      runIntent.mode ===
+      "RESUME"
     ) {
+      const plan =
+        coordinator.resumeRun(
+          runIntent.runId
+        );
 
-      const current =
-        catalogQueue.shift();
+      runEstablished =
+        true;
 
-      if (
-        !current ||
-        catalogVisited.has(
-          current
-        )
-      ) {
-        continue;
+      runId =
+        plan.runId;
+
+
+      const activeRun =
+        coordinator.getActiveRun();
+
+      if (!activeRun) {
+        throw new Error(
+          `Resumed run disappeared: ${runId}`
+        );
       }
 
-      console.log(
-        `[CATALOG ${catalogVisited.size + 1}] ${current}`
+
+      startUrl =
+        activeRun.inputUrl;
+
+      /*
+       * Validate persisted URL before any worker starts.
+       */
+      new URL(
+        startUrl
       );
 
+
+      siteMode =
+        recoverSiteMode(
+          activeRun.configHash
+        );
+
+
+      if (
+        siteModeExplicit &&
+        requestedSiteMode !==
+          siteMode
+      ) {
+        throw new Error(
+          [
+            "Explicit --site-mode does not match",
+            "the persisted run configuration.",
+            `persisted=${siteMode}`,
+            `requested=${requestedSiteMode}`
+          ].join(
+            " "
+          )
+        );
+      }
+
+
+      urls =
+        plan.queuedUrls;
+
+
+      audit(
+        auditRows,
+        startUrl,
+        "RESUME",
+        "INFO",
+        [
+          `run=${runId}`,
+          `queued=${urls.length}`,
+          `alreadyDiscovered=${plan.alreadyDiscovered}`,
+          `recoveredInProgress=${plan.recoveredInProgress}`,
+          `requeuedErrors=${plan.requeuedRetriableErrors}`,
+          `staleFetches=${plan.staleFetchesRecovered}`,
+          `skippedTerminal=${plan.skippedTerminal}`
+        ].join(
+          "; "
+        )
+      );
+    }
+    else {
+      /*
+       * ======================================
+       * NEW RUN: CATALOG DISCOVERY
+       * ======================================
+       */
+
+      startUrl =
+        runIntent.url;
+
+      siteMode =
+        requestedSiteMode;
+
+
+      const catalogQueue:
+        string[] = [
+          startUrl
+        ];
+
+      const catalogKnown =
+        new Set<string>([
+          startUrl
+        ]);
+
+      const catalogVisited =
+        new Set<string>();
+
+      const productUrls =
+        new Set<string>();
+
+
+      const catalogPage =
+        await context.newPage();
+
+
       try {
-
-        await gentleLoad(
-          catalogPage,
-          current
-        );
-
-        const discovery =
-          await discoverProductUrls(
-            catalogPage
-          );
-
-        catalogVisited.add(
-          current
-        );
-
-
-        for (
-          const url
-          of discovery.productUrls
+        while (
+          catalogQueue.length >
+            0 &&
+          catalogVisited.size <
+            options.maxPages
         ) {
+          const current =
+            catalogQueue.shift();
 
           if (
-            productUrls.size >=
-              options.maxProducts
-          ) {
-            break;
-          }
-
-          productUrls.add(
-            url
-          );
-        }
-
-
-        for (
-          const url
-          of discovery.paginationUrls
-        ) {
-
-          if (
-            catalogKnown.size >=
-              options.maxPages
-          ) {
-            break;
-          }
-
-          if (
-            !catalogKnown.has(
-              url
+            !current ||
+            catalogVisited.has(
+              current
             )
           ) {
+            continue;
+          }
 
-            catalogKnown.add(
-              url
+
+          console.log(
+            `[CATALOG ${catalogVisited.size + 1}] ${current}`
+          );
+
+
+          try {
+            await gentleLoad(
+              catalogPage,
+              current
             );
 
-            catalogQueue.push(
-              url
+
+            const discovery =
+              await discoverProductUrls(
+                catalogPage
+              );
+
+
+            catalogVisited.add(
+              current
+            );
+
+
+            for (
+              const url
+              of discovery.productUrls
+            ) {
+              if (
+                productUrls.size >=
+                  options.maxProducts
+              ) {
+                break;
+              }
+
+              productUrls.add(
+                url
+              );
+            }
+
+
+            for (
+              const url
+              of discovery.paginationUrls
+            ) {
+              if (
+                catalogKnown.size >=
+                  options.maxPages
+              ) {
+                break;
+              }
+
+              if (
+                !catalogKnown.has(
+                  url
+                )
+              ) {
+                catalogKnown.add(
+                  url
+                );
+
+                catalogQueue.push(
+                  url
+                );
+              }
+            }
+
+
+            audit(
+              auditRows,
+              current,
+              "CATALOG",
+              "OK",
+              `products=${discovery.productUrls.length}; weak=${discovery.weakCandidates.length}; pagination=${discovery.paginationUrls.length}`
+            );
+          }
+          catch (
+            error
+          ) {
+            catalogVisited.add(
+              current
+            );
+
+            audit(
+              auditRows,
+              current,
+              "CATALOG",
+              "ERROR",
+              String(
+                error
+              )
+            );
+
+            console.error(
+              `  ERROR: ${String(error)}`
             );
           }
         }
-
-
-        audit(
-          auditRows,
-          current,
-          "CATALOG",
-          "OK",
-          `products=${discovery.productUrls.length}; weak=${discovery.weakCandidates.length}; pagination=${discovery.paginationUrls.length}`
-        );
-
       }
-      catch (
-        error
-      ) {
-
-        catalogVisited.add(
-          current
-        );
-
-        audit(
-          auditRows,
-          current,
-          "CATALOG",
-          "ERROR",
-          String(error)
-        );
-
-        console.error(
-          `  ERROR: ${String(error)}`
-        );
+      finally {
+        await catalogPage.close();
       }
+
+
+      catalogPagesDiscovered =
+        catalogKnown.size;
+
+      catalogPagesVisited =
+        catalogVisited.size;
+
+
+      const discoveredUrls =
+        Array.from(
+          productUrls
+        ).slice(
+          0,
+          options.maxProducts
+        );
+
+
+      runId =
+        stamp();
+
+
+      /*
+       * Critical Phase 10 boundary:
+       * every run-scope URL is durable before detail scheduling.
+       */
+      const started =
+        coordinator.startNewRun({
+          run: {
+            runId,
+
+            inputUrl:
+              startUrl,
+
+            canonicalOrigin:
+              new URL(
+                startUrl
+              ).origin,
+
+            startedAt:
+              new Date()
+                .toISOString(),
+
+            codeVersion:
+              CODE_VERSION,
+
+            configHash:
+              runConfigHash(
+                siteMode
+              )
+          },
+
+          productUrls:
+            discoveredUrls.map(
+              canonicalUrl => ({
+                canonicalUrl,
+
+                discoveryScore:
+                  null,
+
+                sourcesJson:
+                  JSON.stringify({
+                    kind:
+                      "CATALOG_DISCOVERY",
+
+                    root:
+                      startUrl
+                  })
+              })
+            )
+        });
+
+
+      runEstablished =
+        true;
+
+      urls =
+        started.queuedUrls;
     }
 
 
-    await catalogPage.close();
-
-
-    const urls =
-      Array.from(
-        productUrls
-      ).slice(
-        0,
-        options.maxProducts
-      );
-
-
-    /*
-     * Phase 9 zero-silent-drop boundary.
-     *
-     * Every run-scope detail URL is registered before
-     * any detail worker can process it.
-     *
-     * Persistent DISCOVERED state/resume belongs to
-     * the Phase 10 SQLite ledger.
-     */
-    const runId =
-      stamp();
-
-    const reconciliation =
-      new RunReconciliation(
-        runId,
-        urls
-      );
-
-
     console.log("");
     console.log(
-      `Catalog pages visited: ${catalogVisited.size}`
+      "=== CAMERA INTELLIGENCE COLLECTOR v0.2 ==="
     );
 
     console.log(
-      `Product URLs discovered: ${urls.length}`
+      `Mode: ${runIntent.mode}`
+    );
+
+    console.log(
+      `Run: ${runId}`
+    );
+
+    console.log(
+      `Root: ${startUrl}`
+    );
+
+    console.log(
+      `Site mode prior: ${siteMode}`
+    );
+
+    console.log(
+      `Headless: ${options.headless}`
+    );
+
+    console.log(
+      `State DB: ${databasePath}`
+    );
+
+    console.log(
+      `Catalog pages visited this process: ${catalogPagesVisited}`
+    );
+
+    console.log(
+      `Detail URLs queued this process: ${urls.length}`
     );
 
     console.log("");
 
 
-    /*
-     * ======================================
-     * DETAIL CRAWL
-     * ======================================
-     */
-
-    const results:
-      PipelineResult[] = [];
-
-    let nextIndex =
-      0;
-
-    let detailAttempted =
-      0;
-
-    let detailCompleted =
-      0;
+    let signalFailure:
+      unknown =
+        null;
 
 
-    const worker =
-      async (
-        workerId:
-          number
-      ): Promise<void> => {
+    const uninstallSignal =
+      installGracefulInterrupt(
+        process,
+        coordinator,
+        {
+          onInterrupt:
+            result => {
+              if (
+                result.interrupted
+              ) {
+                console.log("");
+                console.log(
+                  `Interrupt requested. Run: ${result.runId}`
+                );
+              }
+            },
 
-        const page =
-          await context.newPage();
+          onError:
+            error => {
+              signalFailure =
+                error;
 
-        try {
-
-          while (
-            true
-          ) {
-
-            const index =
-              nextIndex++;
-
-            if (
-              index >=
-              urls.length
-            ) {
-              break;
-            }
-
-            const url =
-              urls[index];
-
-            detailAttempted++;
-
-
-            console.log(
-              `[DETAIL ${index + 1}/${urls.length} W${workerId}] ${url}`
-            );
-
-
-            try {
-
-              await gentleLoad(
-                page,
-                url
+              console.error("");
+              console.error(
+                "SIGINT persistence failure:"
               );
 
-              const result =
-                await processProductPage(
-                  page,
-                  siteMode
+              console.error(
+                error
+              );
+            }
+        }
+      );
+
+
+    const detailProcessor =
+      new PersistentDetailProcessor(
+        databasePath,
+        runId,
+        {
+          siteMode,
+
+          versions:
+            PIPELINE_VERSIONS
+        }
+      );
+
+
+    const errorStore =
+      new SQLiteIntelligenceAuditStore(
+        databasePath
+      );
+
+
+    try {
+      /*
+       * ======================================
+       * DETAIL CRAWL / OFFLINE REPLAY
+       * ======================================
+       */
+
+      let nextIndex =
+        0;
+
+      let detailAttempted =
+        0;
+
+      let detailCompleted =
+        0;
+
+
+      const worker =
+        async (
+          workerId:
+            number
+        ): Promise<void> => {
+
+          const page =
+            await context.newPage();
+
+
+          try {
+            while (
+              true
+            ) {
+              if (
+                signalFailure !==
+                null
+              ) {
+                throw signalFailure;
+              }
+
+
+              if (
+                coordinator
+                  .isInterruptionRequested()
+              ) {
+                break;
+              }
+
+
+              const index =
+                nextIndex++;
+
+              if (
+                index >=
+                urls.length
+              ) {
+                break;
+              }
+
+
+              const url =
+                urls[index]!;
+
+
+              /*
+               * SIGINT may land between taking a queue index and
+               * beginProduct(). If that happens the URL is still
+               * DISCOVERED and must simply remain for resume.
+               */
+              try {
+                coordinator.beginProduct(
+                  url
+                );
+              }
+              catch (
+                error
+              ) {
+                if (
+                  coordinator
+                    .isInterruptionRequested()
+                ) {
+                  break;
+                }
+
+                throw error;
+              }
+
+
+              detailAttempted++;
+
+
+              console.log(
+                `[DETAIL ${index + 1}/${urls.length} W${workerId}] ${url}`
+              );
+
+
+              try {
+                /*
+                 * Do not pre-navigate the detail page here.
+                 *
+                 * collectBrowserDetail() attaches its observer before
+                 * navigation. PersistentDetailProcessor may skip the
+                 * acquisition callback entirely when replay facts exist.
+                 */
+                const processed =
+                  await detailProcessor.process(
+                    url,
+
+                    () =>
+                      collectBrowserDetail(
+                        page,
+                        url
+                      ),
+
+                    {
+                      fresh:
+                        runIntent.fresh
+                    }
+                  );
+
+
+                coordinator.terminalizeProduct(
+                  url,
+                  processed.result
+                    .validation
+                    .decision
                 );
 
-              reconciliation.markDecision(
-                url,
-                result.validation.decision
-              );
 
-              results.push(
-                result
-              );
-
-              detailCompleted++;
+                detailCompleted++;
 
 
-              audit(
-                auditRows,
-                url,
-                "DETAIL",
-                "OK",
-                `${result.validation.decision}; entity=${result.analysis.entity.type}; forms=${result.analysis.forms.join("+") || "NONE"}`
-              );
+                audit(
+                  auditRows,
+                  url,
+                  "DETAIL",
+                  "OK",
+                  [
+                    processed.result
+                      .validation
+                      .decision,
 
-            }
-            catch (
-              error
-            ) {
+                    `source=${processed.source}`,
 
-              const errorClass =
-                error instanceof Error
-                  ? error.name ||
-                    "Error"
-                  : "UnknownError";
+                    `entity=${processed.result.analysis.entity.type}`,
 
-              const errorMessage =
-                error instanceof Error
-                  ? error.message
-                  : String(error);
+                    `forms=${processed.result.analysis.forms.join("+") || "NONE"}`
+                  ].join(
+                    "; "
+                  )
+                );
+              }
+              catch (
+                error
+              ) {
+                /*
+                 * Expected acquisition failures have an explicit
+                 * structured technical contract.
+                 *
+                 * Unknown/invariant failures are NOT silently converted
+                 * into URL ERROR. They escape and the run is interrupted,
+                 * leaving IN_PROGRESS recoverable by resume.
+                 */
+                if (
+                  !(
+                    error instanceof
+                    DetailAcquisitionFailure
+                  )
+                ) {
+                  throw error;
+                }
 
-              reconciliation.markError(
-                url,
-                {
+
+                errorStore.appendError({
+                  runId,
+
+                  canonicalUrl:
+                    url,
+
                   stage:
-                    "DETAIL",
+                    error.stage,
 
-                  errorClass,
+                  errorClass:
+                    error.code,
 
                   message:
-                    errorMessage,
+                    error.message,
 
                   attempts:
                     1,
 
                   lastStatus:
-                    null,
+                    error.status,
 
                   retriable:
-                    true,
+                    error.retriable,
 
                   diagnosticPath:
                     null
-                }
-              );
+                });
 
-              audit(
-                auditRows,
-                url,
-                "DETAIL",
-                "ERROR",
-                errorMessage
-              );
 
-              console.error(
-                `  ERROR: ${errorMessage}`
-              );
+                coordinator.terminalizeProduct(
+                  url,
+                  "ERROR"
+                );
+
+
+                audit(
+                  auditRows,
+                  url,
+                  error.stage,
+                  "ERROR",
+                  error.message
+                );
+
+
+                console.error(
+                  `  ERROR: ${error.message}`
+                );
+              }
             }
           }
+          finally {
+            await page.close();
+          }
+        };
 
+
+      const concurrency =
+        Math.max(
+          1,
+          Math.min(
+            options.concurrency,
+            8
+          )
+        );
+
+
+      try {
+        await Promise.all(
+          Array.from(
+            {
+              length:
+                concurrency
+            },
+
+            (
+              _,
+              index
+            ) =>
+              worker(
+                index +
+                1
+              )
+          )
+        );
+      }
+      catch (
+        error
+      ) {
+        /*
+         * Unexpected detail/invariant failure:
+         * make the run explicitly resumable instead of leaving
+         * a stale RUNNING owner process.
+         */
+        try {
+          interruptRunningRun(
+            coordinator
+          );
         }
-        finally {
-
-          await page.close();
+        catch (
+          interruptError
+        ) {
+          throw new AggregateError(
+            [
+              error,
+              interruptError
+            ],
+            `Runtime failure and run interruption both failed: ${runId}`
+          );
         }
-      };
+
+        throw error;
+      }
 
 
-    const concurrency =
-      Math.max(
-        1,
-        Math.min(
-          options.concurrency,
-          8
+      if (
+        signalFailure !==
+        null
+      ) {
+        throw signalFailure;
+      }
+
+
+      /*
+       * ======================================
+       * GRACEFUL INTERRUPT EXIT
+       * ======================================
+       */
+      if (
+        coordinator
+          .isInterruptionRequested()
+      ) {
+        const interrupted =
+          coordinator.getActiveRun();
+
+
+        console.log("");
+        console.log(
+          "=== INTERRUPTED ==="
+        );
+
+        console.log(
+          `Run: ${runId}`
+        );
+
+        console.log(
+          `Status: ${interrupted?.status ?? "INTERRUPTED"}`
+        );
+
+        console.log(
+          `Detail attempts this process: ${detailAttempted}`
+        );
+
+        console.log(
+          `Completed this process: ${detailCompleted}`
+        );
+
+        process.exitCode =
+          130;
+
+        return;
+      }
+
+
+      /*
+       * ======================================
+       * PERSISTED RECONCILIATION
+       * ======================================
+       */
+      const persistedReport =
+        coordinator.reconciliation();
+
+
+      const reconciliationReport =
+        toExportReconciliation(
+          persistedReport
+        );
+
+
+      /*
+       * Reconstruct the ENTIRE business-terminal result set
+       * from persistent raw facts, including products completed
+       * by a process that died before export.
+       */
+      const results =
+        loadTerminalPipelineResults(
+          databasePath,
+          runId,
+          siteMode
+        );
+
+
+      const expectedBusinessTerminal =
+        reconciliationReport.accepted +
+        reconciliationReport.review +
+        reconciliationReport.excluded;
+
+
+      if (
+        results.length !==
+        expectedBusinessTerminal
+      ) {
+        throw new Error(
+          [
+            "Persisted export reconstruction mismatch.",
+            `run=${runId}`,
+            `results=${results.length}`,
+            `businessTerminal=${expectedBusinessTerminal}`
+          ].join(
+            " "
+          )
+        );
+      }
+
+
+      const errors =
+        toExportErrorRows(
+          errorStore.listErrors(
+            runId
+          )
+        );
+
+
+      audit(
+        auditRows,
+        startUrl,
+        "DETAIL",
+        "INFO",
+        [
+          "reconciliation=PASS",
+          `run=${runId}`,
+          `discovered=${reconciliationReport.discovered}`,
+          `accept=${reconciliationReport.accepted}`,
+          `review=${reconciliationReport.review}`,
+          `exclude=${reconciliationReport.excluded}`,
+          `error=${reconciliationReport.error}`,
+          `inProgress=${reconciliationReport.inProgress}`
+        ].join(
+          "; "
         )
       );
 
 
-    await Promise.all(
-      Array.from(
-        {
-          length:
-            concurrency
-        },
+      /*
+       * ======================================
+       * COVERAGE + EXPORT
+       * ======================================
+       *
+       * Catalog counters are not persisted in the current Phase 10
+       * schema. On resume, 0/0 intentionally renders catalog
+       * coverage as N/A rather than inventing historical traversal.
+       */
+      const coverage =
+        computeCoverage({
+          catalogPagesDiscovered,
 
-        (_, index) =>
-          worker(
-            index + 1
-          )
-      )
-    );
+          catalogPagesVisited,
 
+          productUrlsDiscovered:
+            reconciliationReport.discovered,
 
-    const reconciliationReport =
-      reconciliation.assertComplete();
+          detailPagesAttempted:
+            detailAttempted,
 
-    audit(
-      auditRows,
-      startUrl,
-      "DETAIL",
-      "INFO",
-      [
-        "reconciliation=PASS",
-        `run=${runId}`,
-        `discovered=${reconciliationReport.discovered}`,
-        `accept=${reconciliationReport.accepted}`,
-        `review=${reconciliationReport.review}`,
-        `exclude=${reconciliationReport.excluded}`,
-        `error=${reconciliationReport.error}`,
-        `inProgress=${reconciliationReport.inProgress}`
-      ].join(
-        "; "
-      )
-    );
+          detailPagesCompleted:
+            results.length,
 
-    /*
-     * ======================================
-     * COVERAGE + EXPORT
-     * ======================================
-     */
-
-    const coverage =
-      computeCoverage({
-        catalogPagesDiscovered:
-          catalogKnown.size,
-
-        catalogPagesVisited:
-          catalogVisited.size,
-
-        productUrlsDiscovered:
-          urls.length,
-
-        detailPagesAttempted:
-          detailAttempted,
-
-        detailPagesCompleted:
-          detailCompleted,
-
-        results
-      });
+          results
+        });
 
 
-    const host =
-      new URL(
-        startUrl
-      )
-        .hostname
-        .replace(
-          /^www\./,
-          ""
-        );
-
-
-    const outputPath =
-      options.output
-        ? resolve(
-            options.output
-          )
-        : resolve(
-            process.cwd(),
-            "output",
-            `${host}_camera_v02_${dateStamp()}.xlsx`
+      const host =
+        new URL(
+          startUrl
+        )
+          .hostname
+          .replace(
+            /^www\./,
+            ""
           );
 
 
-    await mkdir(
-      resolve(
-        process.cwd(),
-        "output"
-      ),
-      {
-        recursive:
-          true
-      }
-    );
+      const outputPath =
+        options.output
+          ? resolve(
+              options.output
+            )
+          : resolve(
+              process.cwd(),
+              "output",
+              `${host}_camera_v02_${dateStamp()}.xlsx`
+            );
 
 
-    audit(
-      auditRows,
-      startUrl,
-      "EXPORT",
-      "INFO",
-      `run=${runId}`
-    );
+      await mkdir(
+        dirname(
+          outputPath
+        ),
+        {
+          recursive:
+            true
+        }
+      );
 
 
-    await exportWorkbookV2(
-      outputPath,
-      {
-        runId,
-
-        results,
-
-        coverage,
-
-        reconciliation:
-          reconciliationReport,
-
-        errors:
-          reconciliation.errorRows(),
-
-        audit:
-          auditRows
-      }
-    );
+      audit(
+        auditRows,
+        startUrl,
+        "EXPORT",
+        "INFO",
+        `run=${runId}`
+      );
 
 
-    console.log("");
-    console.log(
-      "=== COMPLETE ==="
-    );
+      /*
+       * Critical ordering:
+       *
+       * workbook write first
+       * completeRun second
+       *
+       * A crash during export therefore leaves the run resumable.
+       * Phase 10J will add export_manifest for artifact-level proof.
+       */
+      await exportWorkbookV2(
+        outputPath,
+        {
+          runId,
 
-    console.log(
-      `Accepted: ${coverage.accepted}`
-    );
+          results,
 
-    console.log(
-      `Review: ${coverage.review}`
-    );
+          coverage,
 
-    console.log(
-      `Excluded: ${coverage.excluded}`
-    );
+          reconciliation:
+            reconciliationReport,
 
-    for (
-      const metric
-      of coverage.metrics
-    ) {
+          errors,
 
-      const ratio =
-        metric.ratio === null
-          ? "N/A"
-          : `${(
-              metric.ratio *
-              100
-            ).toFixed(1)}%`;
+          audit:
+            auditRows
+        }
+      );
+
+
+      const finalized =
+        coordinator.finalizeRun();
+
+
+      console.log("");
+      console.log(
+        "=== COMPLETE ==="
+      );
 
       console.log(
-        `${metric.label}: ${ratio} [${metric.status}]`
+        `Run: ${runId}`
+      );
+
+      console.log(
+        `Run status: ${finalized.status}`
+      );
+
+      console.log(
+        `Accepted: ${coverage.accepted}`
+      );
+
+      console.log(
+        `Review: ${coverage.review}`
+      );
+
+      console.log(
+        `Excluded: ${coverage.excluded}`
+      );
+
+      console.log(
+        `Errors: ${reconciliationReport.error}`
+      );
+
+
+      for (
+        const metric
+        of coverage.metrics
+      ) {
+        const ratio =
+          metric.ratio ===
+          null
+            ? "N/A"
+            : `${(
+                metric.ratio *
+                100
+              ).toFixed(1)}%`;
+
+        console.log(
+          `${metric.label}: ${ratio} [${metric.status}]`
+        );
+      }
+
+
+      console.log(
+        `Excel: ${outputPath}`
       );
     }
+    finally {
+      uninstallSignal();
 
-    console.log(
-      `Excel: ${outputPath}`
-    );
+      /*
+       * Both stores must be given a close attempt even when
+       * one close operation itself fails.
+       */
+      try {
+        detailProcessor.close();
+      }
+      finally {
+        errorStore.close();
+      }
+    }
+  }
+  catch (
+    error
+  ) {
+    /*
+     * Any fatal error after run activation leaves a resumable
+     * INTERRUPTED run rather than an orphan RUNNING row.
+     */
+    if (
+      runEstablished
+    ) {
+      try {
+        interruptRunningRun(
+          coordinator
+        );
+      }
+      catch (
+        interruptError
+      ) {
+        throw new AggregateError(
+          [
+            error,
+            interruptError
+          ],
+          "Fatal runtime error and persistent interruption both failed."
+        );
+      }
+    }
 
+    throw error;
   }
   finally {
-
-    await close();
+    try {
+      coordinator.close();
+    }
+    finally {
+      await closeBrowser();
+    }
   }
 }
 
@@ -944,7 +1693,6 @@ async function main(): Promise<void> {
 main()
   .catch(
     error => {
-
       console.error("");
       console.error(
         "FATAL:"
