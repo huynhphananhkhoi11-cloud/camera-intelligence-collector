@@ -14,6 +14,7 @@ import {
   MIGRATION_V2_CHECKSUM,
   MIGRATION_V3_CHECKSUM,
   MIGRATION_V4_CHECKSUM,
+  MIGRATION_V5_CHECKSUM,
   runMigrations
 } from "../../../src/v02/storage/sqliteMigrations.ts";
 
@@ -21,34 +22,42 @@ import {
 function pragmaScalar(
   db:
     DatabaseSync,
+
   pragma:
     string
 ): unknown {
+
   const row =
     db.prepare(
       pragma
-    ).get();
+    ).get() as
+      | Record<string, unknown>
+      | undefined;
 
-  if (
-    !row ||
-    typeof row !==
-      "object"
-  ) {
+
+  if (!row) {
     return undefined;
   }
 
-  return Object.values(
-    row
-  )[0];
+
+  const values =
+    Object.values(
+      row
+    );
+
+
+  return values[0];
 }
 
 
 function tableExists(
   db:
     DatabaseSync,
+
   tableName:
     string
 ): boolean {
+
   return (
     db.prepare(`
       SELECT
@@ -72,15 +81,18 @@ describe(
     test(
       "migrations advance application schema to latest version",
       () => {
+
         const db =
           new DatabaseSync(
             ":memory:"
           );
 
+
         try {
           runMigrations(
             db
           );
+
 
           expect(
             Number(
@@ -93,10 +105,11 @@ describe(
             LATEST_SCHEMA_VERSION
           );
 
+
           expect(
             LATEST_SCHEMA_VERSION
           ).toBe(
-            4
+            5
           );
         }
         finally {
@@ -107,17 +120,20 @@ describe(
 
 
     test(
-      "migration ledger preserves v1 through v3 and records v4",
+      "migration ledger preserves v1 through v4 and records v5",
       () => {
+
         const db =
           new DatabaseSync(
             ":memory:"
           );
 
+
         try {
           runMigrations(
             db
           );
+
 
           const rows =
             db.prepare(`
@@ -128,6 +144,7 @@ describe(
               FROM schema_migrations
               ORDER BY version
             `).all();
+
 
           expect(
             rows
@@ -171,6 +188,16 @@ describe(
 
               checksum:
                 MIGRATION_V4_CHECKSUM
+            },
+            {
+              version:
+                5,
+
+              name:
+                "phase10_v5_export_manifest",
+
+              checksum:
+                MIGRATION_V5_CHECKSUM
             }
           ]);
         }
@@ -182,17 +209,20 @@ describe(
 
 
     test(
-      "latest schema contains cache table",
+      "latest schema contains all Phase 10 tables including export_manifest",
       () => {
+
         const db =
           new DatabaseSync(
             ":memory:"
           );
 
+
         try {
           runMigrations(
             db
           );
+
 
           for (
             const tableName
@@ -207,7 +237,8 @@ describe(
               "evidence",
               "conflicts",
               "errors",
-              "cache_entries"
+              "cache_entries",
+              "export_manifest"
             ]
           ) {
             expect(
@@ -230,15 +261,18 @@ describe(
     test(
       "migrations remain idempotent",
       () => {
+
         const db =
           new DatabaseSync(
             ":memory:"
           );
 
+
         try {
           runMigrations(
             db
           );
+
 
           const first =
             db.prepare(`
@@ -249,9 +283,11 @@ describe(
               ORDER BY version
             `).all();
 
+
           runMigrations(
             db
           );
+
 
           const second =
             db.prepare(`
@@ -262,16 +298,18 @@ describe(
               ORDER BY version
             `).all();
 
+
           expect(
             second
           ).toEqual(
             first
           );
 
+
           expect(
             second
           ).toHaveLength(
-            4
+            5
           );
         }
         finally {
@@ -284,15 +322,18 @@ describe(
     test(
       "migration rejects newer unsupported schema",
       () => {
+
         const db =
           new DatabaseSync(
             ":memory:"
           );
 
+
         try {
           db.exec(
             "PRAGMA user_version = 999"
           );
+
 
           expect(
             () =>

@@ -8,7 +8,7 @@ import type {
 
 
 export const LATEST_SCHEMA_VERSION =
-  4;
+  5;
 
 
 const MIGRATION_V1_NAME =
@@ -611,6 +611,71 @@ export const MIGRATION_V4_CHECKSUM =
       "hex"
     );
 
+
+
+const MIGRATION_V5_NAME =
+  "phase10_v5_export_manifest";
+
+
+const MIGRATION_V5_SQL = `
+CREATE TABLE export_manifest (
+  export_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  run_id TEXT NOT NULL,
+
+  path TEXT NOT NULL,
+
+  file_hash TEXT NOT NULL
+    CHECK (
+      length(file_hash) = 64
+    ),
+
+  file_size INTEGER NOT NULL
+    CHECK (
+      file_size >= 0
+    ),
+
+  schema_version TEXT NOT NULL,
+
+  created_at TEXT NOT NULL,
+
+  UNIQUE (
+    run_id,
+    path
+  ),
+
+  FOREIGN KEY (
+    run_id
+  )
+    REFERENCES runs(
+      run_id
+    )
+    ON DELETE CASCADE
+) STRICT;
+
+
+CREATE INDEX
+  idx_export_manifest_run_created
+ON export_manifest (
+  run_id,
+  created_at,
+  export_id
+);
+`;
+
+
+export const MIGRATION_V5_CHECKSUM =
+  createHash(
+    "sha256"
+  )
+    .update(
+      MIGRATION_V5_SQL,
+      "utf8"
+    )
+    .digest(
+      "hex"
+    );
+
 interface MigrationLedgerRow {
 
 
@@ -965,6 +1030,67 @@ function verifyMigrationV4(
   }
 }
 
+
+
+function verifyMigrationV5(
+  db:
+    DatabaseSync
+): void {
+
+  if (
+    !tableExists(
+      db,
+      "export_manifest"
+    )
+  ) {
+    throw new Error(
+      "Migration v5 invariant failed: export_manifest table is missing."
+    );
+  }
+
+
+  const row =
+    db.prepare(`
+      SELECT
+        version,
+        name,
+        checksum
+      FROM schema_migrations
+      WHERE version = ?
+    `).get(
+      5
+    ) as
+      | MigrationLedgerRow
+      | undefined;
+
+
+  if (!row) {
+    throw new Error(
+      "Migration v5 invariant failed: migration ledger row is missing."
+    );
+  }
+
+
+  if (
+    row.name !==
+    MIGRATION_V5_NAME
+  ) {
+    throw new Error(
+      "Migration v5 name mismatch."
+    );
+  }
+
+
+  if (
+    row.checksum !==
+    MIGRATION_V5_CHECKSUM
+  ) {
+    throw new Error(
+      "Migration v5 checksum mismatch."
+    );
+  }
+}
+
 function applyMigrationV1(
 
 
@@ -1185,6 +1311,70 @@ function applyMigrationV4(
   }
 }
 
+
+
+function applyMigrationV5(
+  db:
+    DatabaseSync
+): void {
+
+  db.exec(
+    "BEGIN IMMEDIATE"
+  );
+
+  try {
+    db.exec(
+      MIGRATION_V5_SQL
+    );
+
+
+    db.prepare(`
+      INSERT INTO schema_migrations (
+        version,
+        name,
+        checksum,
+        applied_at
+      )
+      VALUES (?, ?, ?, ?)
+    `).run(
+      5,
+      MIGRATION_V5_NAME,
+      MIGRATION_V5_CHECKSUM,
+      new Date()
+        .toISOString()
+    );
+
+
+    db.exec(
+      "PRAGMA user_version = 5"
+    );
+
+
+    db.exec(
+      "COMMIT"
+    );
+  }
+  catch (error) {
+    try {
+      db.exec(
+        "ROLLBACK"
+      );
+    }
+    catch {
+      /*
+       * Preserve the original migration failure.
+       */
+    }
+
+    throw error;
+  }
+
+
+  verifyMigrationV5(
+    db
+  );
+}
+
 /**
  * Apply all pending application-owned schema migrations.
 
@@ -1199,118 +1389,120 @@ export function runMigrations(
   db:
     DatabaseSync
 ): void {
+
   let current =
     currentSchemaVersion(
       db
     );
+
 
   if (
     current >
     LATEST_SCHEMA_VERSION
   ) {
     throw new Error(
-      `Database schema version ${current} is newer than supported version ${LATEST_SCHEMA_VERSION}.`
+      `SQLite schema version ${current} is newer than supported version ${LATEST_SCHEMA_VERSION}.`
     );
   }
 
+
   if (
-    current === 0
+    current <
+    1
   ) {
     applyMigrationV1(
       db
     );
 
     current =
-      currentSchemaVersion(
-        db
-      );
-  }
-
-  if (
-    current === 1
-  ) {
-    verifyMigrationV1(
-      db
-    );
-
-    applyMigrationV2(
-      db
-    );
-
-    current =
-      currentSchemaVersion(
-        db
-      );
-  }
-
-  if (
-    current === 2
-  ) {
-    verifyMigrationV1(
-      db
-    );
-
-    verifyMigrationV2(
-      db
-    );
-
-    applyMigrationV3(
-      db
-    );
-
-    current =
-      currentSchemaVersion(
-        db
-      );
-  }
-
-  if (
-    current === 3
-  ) {
-    verifyMigrationV1(
-      db
-    );
-
-    verifyMigrationV2(
-      db
-    );
-
-    verifyMigrationV3(
-      db
-    );
-
-    applyMigrationV4(
-      db
-    );
-
-    current =
-      currentSchemaVersion(
-        db
-      );
-  }
-
-  if (
-    current !==
-    LATEST_SCHEMA_VERSION
-  ) {
-    throw new Error(
-      `Migration incomplete: expected schema version ${LATEST_SCHEMA_VERSION}, got ${current}.`
-    );
+      1;
   }
 
   verifyMigrationV1(
     db
   );
 
+
+  if (
+    current <
+    2
+  ) {
+    applyMigrationV2(
+      db
+    );
+
+    current =
+      2;
+  }
+
   verifyMigrationV2(
     db
   );
+
+
+  if (
+    current <
+    3
+  ) {
+    applyMigrationV3(
+      db
+    );
+
+    current =
+      3;
+  }
 
   verifyMigrationV3(
     db
   );
 
+
+  if (
+    current <
+    4
+  ) {
+    applyMigrationV4(
+      db
+    );
+
+    current =
+      4;
+  }
+
   verifyMigrationV4(
     db
   );
+
+
+  if (
+    current <
+    5
+  ) {
+    applyMigrationV5(
+      db
+    );
+
+    current =
+      5;
+  }
+
+  verifyMigrationV5(
+    db
+  );
+
+
+  const finalVersion =
+    currentSchemaVersion(
+      db
+    );
+
+
+  if (
+    finalVersion !==
+    LATEST_SCHEMA_VERSION
+  ) {
+    throw new Error(
+      `SQLite migration invariant failed: expected schema ${LATEST_SCHEMA_VERSION}, got ${finalVersion}.`
+    );
+  }
 }

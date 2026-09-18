@@ -65,6 +65,14 @@ import {
 import {
   SQLiteIntelligenceAuditStore
 } from "../storage/sqliteIntelligenceAuditStore.js";
+import {
+  EXPORT_MANIFEST_SCHEMA_VERSION,
+  inspectExportArtifact
+} from "../storage/exportManifestStore.js";
+
+import {
+  SQLiteExportManifestStore
+} from "../storage/sqliteExportManifestStore.js";
 
 import type {
   OfferInput
@@ -137,7 +145,7 @@ const CONFIG_SCHEMA =
   "camera-intelligence.collect-config.v1";
 
 const CODE_VERSION =
-  "phase10i3b2";
+  "phase10j1";
 
 
 function intOption(
@@ -1063,6 +1071,11 @@ async function main():
         databasePath
       );
 
+    const exportManifestStore =
+      new SQLiteExportManifestStore(
+        databasePath
+      );
+
 
     try {
       /*
@@ -1552,10 +1565,11 @@ async function main():
        * Critical ordering:
        *
        * workbook write first
-       * completeRun second
+       * completed export_manifest second
+       * completeRun third
        *
        * A crash during export therefore leaves the run resumable.
-       * Phase 10J will add export_manifest for artifact-level proof.
+       * A manifest row therefore proves a completed workbook write.
        */
       await exportWorkbookV2(
         outputPath,
@@ -1576,6 +1590,43 @@ async function main():
         }
       );
 
+
+      const exportedArtifact =
+        await inspectExportArtifact(
+          outputPath
+        );
+
+
+      exportManifestStore.recordCompletedExport({
+        runId,
+
+        path:
+          exportedArtifact.path,
+
+        fileHash:
+          exportedArtifact.fileHash,
+
+        fileSize:
+          exportedArtifact.fileSize,
+
+        schemaVersion:
+          EXPORT_MANIFEST_SCHEMA_VERSION
+      });
+
+
+      audit(
+        auditRows,
+        startUrl,
+        "EXPORT_MANIFEST",
+        "OK",
+        [
+          `run=${runId}`,
+          `bytes=${exportedArtifact.fileSize}`,
+          `sha256=${exportedArtifact.fileHash}`
+        ].join(
+          "; "
+        )
+      );
 
       const finalized =
         coordinator.finalizeRun();
@@ -1645,7 +1696,12 @@ async function main():
         detailProcessor.close();
       }
       finally {
-        errorStore.close();
+        try {
+          errorStore.close();
+        }
+        finally {
+          exportManifestStore.close();
+        }
       }
     }
   }
