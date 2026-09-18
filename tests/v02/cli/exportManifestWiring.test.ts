@@ -146,7 +146,7 @@ describe(
         expect(
           cliSource
         ).toContain(
-          '"phase10j1"'
+          "EXPORT_MANIFEST_SCHEMA_VERSION"
         );
       }
     );

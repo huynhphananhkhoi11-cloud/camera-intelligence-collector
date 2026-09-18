@@ -79,6 +79,10 @@ import type {
 } from "../offerClassifier.js";
 
 
+import {
+  crashIfRequested
+} from "../runtime/crashInjection.js";
+
 type SiteMode =
   NonNullable<
     OfferInput["siteMode"]
@@ -145,7 +149,7 @@ const CONFIG_SCHEMA =
   "camera-intelligence.collect-config.v1";
 
 const CODE_VERSION =
-  "phase10j1";
+  "phase10j2";
 
 
 function intOption(
@@ -970,6 +974,13 @@ async function main():
 
       urls =
         started.queuedUrls;
+
+      crashIfRequested(
+        "AFTER_URL_REGISTER",
+        {
+          runId
+        }
+      );
     }
 
 
@@ -1148,6 +1159,14 @@ async function main():
                 coordinator.beginProduct(
                   url
                 );
+
+              crashIfRequested(
+                "AFTER_BEGIN_PRODUCT",
+                {
+                  runId,
+                  url
+                }
+              );
               }
               catch (
                 error
@@ -1196,11 +1215,27 @@ async function main():
                   );
 
 
-                coordinator.terminalizeProduct(
+                                crashIfRequested(
+                  "AFTER_CLASSIFICATION",
+                  {
+                    runId,
+                    url
+                  }
+                );
+
+coordinator.terminalizeProduct(
                   url,
                   processed.result
                     .validation
                     .decision
+                );
+
+                crashIfRequested(
+                  "AFTER_TERMINALIZATION",
+                  {
+                    runId,
+                    url
+                  }
                 );
 
 
@@ -1571,6 +1606,13 @@ async function main():
        * A crash during export therefore leaves the run resumable.
        * A manifest row therefore proves a completed workbook write.
        */
+      crashIfRequested(
+        "BEFORE_EXPORT",
+        {
+          runId
+        }
+      );
+
       await exportWorkbookV2(
         outputPath,
         {
@@ -1590,6 +1632,13 @@ async function main():
         }
       );
 
+
+      crashIfRequested(
+        "AFTER_WORKBOOK_BEFORE_MANIFEST",
+        {
+          runId
+        }
+      );
 
       const exportedArtifact =
         await inspectExportArtifact(
@@ -1626,6 +1675,13 @@ async function main():
         ].join(
           "; "
         )
+      );
+
+      crashIfRequested(
+        "AFTER_MANIFEST_BEFORE_FINALIZE",
+        {
+          runId
+        }
       );
 
       const finalized =

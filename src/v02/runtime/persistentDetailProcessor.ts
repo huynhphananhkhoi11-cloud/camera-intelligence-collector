@@ -39,6 +39,10 @@ import {
 } from "./persistentPipelineBridge.js";
 
 
+import {
+  crashIfRequested
+} from "./crashInjection.js";
+
 export type DetailAcquirer =
   () =>
     Promise<
@@ -789,6 +793,17 @@ export class PersistentDetailProcessor {
 
       fetchFinished =
         true;
+
+      crashIfRequested(
+        "AFTER_RAW_FACTS_PERSISTED",
+        {
+          runId:
+            this.runId,
+
+          url:
+            canonicalUrl
+        }
+      );
 
 
       const result =
