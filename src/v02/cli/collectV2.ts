@@ -68,7 +68,8 @@ import {
 
 import {
   RunEventBus,
-  publishRunEventSafely
+  publishRunEventSafely,
+  type RunEventPayload
 } from "../runtime/runEventBus.js";
 
 import {
@@ -686,6 +687,32 @@ export async function runCollectV2(
     runtimeOptions.onEventError;
 
 
+  const publishEvent =
+    (
+      payload:
+        RunEventPayload
+    ): void => {
+
+      publishRunEventSafely(
+        eventBus,
+        payload,
+        onEventError
+      );
+    };
+
+
+  const elapsedMs =
+    (
+      startedAt:
+        number
+    ): number =>
+      Math.max(
+        0,
+        Date.now() -
+          startedAt
+      );
+
+
   const coordinator =
     new RunCoordinator(
       databasePath,
@@ -1053,53 +1080,49 @@ export async function runCollectV2(
     }
 
 
-    publishRunEventSafely(
-      eventBus,
-      {
-        type:
-          "RUN_STARTED",
+    publishEvent({
+      type:
+        "RUN_STARTED",
 
-        runId,
+      runId,
 
-        inputUrl:
-          startUrl,
+      inputUrl:
+        startUrl,
 
-        mode:
-          runIntent.mode,
+      mode:
+        runIntent.mode,
 
-        options: {
-          headless:
-            options.headless,
+      options: {
+        headless:
+          options.headless,
 
-          workers:
-            Math.max(
-              1,
-              Math.min(
-                options.concurrency,
-                8
+        workers:
+          Math.max(
+            1,
+            Math.min(
+              options.concurrency,
+              8
+            )
+          ),
+
+        fresh:
+          runIntent.fresh,
+
+        /*
+         * Explicit output can be resolved now.
+         *
+         * Default output naming is intentionally left null here
+         * because the current exporter resolves its generated name
+         * later. We do not invent a path before that boundary.
+         */
+        outputPath:
+          options.output
+            ? resolve(
+                options.output
               )
-            ),
-
-          fresh:
-            runIntent.fresh,
-
-          /*
-           * Explicit output can be resolved now.
-           *
-           * Default output naming is intentionally left null here
-           * because the current exporter resolves its generated name
-           * later. We do not invent a path before that boundary.
-           */
-          outputPath:
-            options.output
-              ? resolve(
-                  options.output
-                )
-              : null
-        }
-      },
-      onEventError
-    );
+            : null
+      }
+    });
 
 
     console.log("");
@@ -1223,6 +1246,21 @@ export async function runCollectV2(
         0;
 
 
+      const detailStageStartedAt =
+        Date.now();
+
+
+      publishEvent({
+        type:
+          "STAGE_STARTED",
+
+        runId,
+
+        stage:
+          "DETAIL_COLLECTION"
+      });
+
+
       const worker =
         async (
           workerId:
@@ -1300,6 +1338,29 @@ export async function runCollectV2(
               }
 
 
+              const detailStartedAt =
+                Date.now();
+
+
+              publishEvent({
+                type:
+                  "DETAIL_STARTED",
+
+                runId,
+
+                url,
+
+                workerId,
+
+                index:
+                  index +
+                  1,
+
+                total:
+                  urls.length
+              });
+
+
               detailAttempted++;
 
 
@@ -1355,6 +1416,28 @@ coordinator.terminalizeProduct(
                     url
                   }
                 );
+
+
+                publishEvent({
+                  type:
+                    "DETAIL_FINISHED",
+
+                  runId,
+
+                  url,
+
+                  workerId,
+
+                  decision:
+                    processed.result
+                      .validation
+                      .decision,
+
+                  durationMs:
+                    elapsedMs(
+                      detailStartedAt
+                    )
+                });
 
 
                 detailCompleted++;
@@ -1434,6 +1517,48 @@ coordinator.terminalizeProduct(
                   url,
                   "ERROR"
                 );
+
+
+                publishEvent({
+                  type:
+                    "ERROR_RECORDED",
+
+                  runId,
+
+                  url,
+
+                  stage:
+                    error.stage,
+
+                  errorClass:
+                    error.code,
+
+                  retriable:
+                    error.retriable,
+
+                  attempts:
+                    1
+                });
+
+
+                publishEvent({
+                  type:
+                    "DETAIL_FINISHED",
+
+                  runId,
+
+                  url,
+
+                  workerId,
+
+                  decision:
+                    "ERROR",
+
+                  durationMs:
+                    elapsedMs(
+                      detailStartedAt
+                    )
+                });
 
 
                 audit(
@@ -1564,11 +1689,53 @@ coordinator.terminalizeProduct(
       }
 
 
+      publishEvent({
+        type:
+          "STAGE_COMPLETED",
+
+        runId,
+
+        stage:
+          "DETAIL_COLLECTION",
+
+        durationMs:
+          elapsedMs(
+            detailStageStartedAt
+          ),
+
+        summary: {
+          attempted:
+            detailAttempted,
+
+          completed:
+            detailCompleted,
+
+          queued:
+            urls.length
+        }
+      });
+
+
       /*
        * ======================================
        * PERSISTED RECONCILIATION
        * ======================================
        */
+      const reconciliationStageStartedAt =
+        Date.now();
+
+
+      publishEvent({
+        type:
+          "STAGE_STARTED",
+
+        runId,
+
+        stage:
+          "AUDIT_RECONCILE"
+      });
+
+
       const persistedReport =
         coordinator.reconciliation();
 
@@ -1641,6 +1808,42 @@ coordinator.terminalizeProduct(
           "; "
         )
       );
+
+
+      publishEvent({
+        type:
+          "STAGE_COMPLETED",
+
+        runId,
+
+        stage:
+          "AUDIT_RECONCILE",
+
+        durationMs:
+          elapsedMs(
+            reconciliationStageStartedAt
+          ),
+
+        summary: {
+          discovered:
+            reconciliationReport.discovered,
+
+          accepted:
+            reconciliationReport.accepted,
+
+          review:
+            reconciliationReport.review,
+
+          excluded:
+            reconciliationReport.excluded,
+
+          error:
+            reconciliationReport.error,
+
+          inProgress:
+            reconciliationReport.inProgress
+        }
+      });
 
 
       /*
@@ -1724,6 +1927,32 @@ coordinator.terminalizeProduct(
        * A crash during export therefore leaves the run resumable.
        * A manifest row therefore proves a completed workbook write.
        */
+      const exportStageStartedAt =
+        Date.now();
+
+
+      publishEvent({
+        type:
+          "STAGE_STARTED",
+
+        runId,
+
+        stage:
+          "EXCEL_EXPORT"
+      });
+
+
+      publishEvent({
+        type:
+          "EXPORT_STARTED",
+
+        runId,
+
+        targetPath:
+          outputPath
+      });
+
+
       crashIfRequested(
         "BEFORE_EXPORT",
         {
@@ -1794,6 +2023,47 @@ coordinator.terminalizeProduct(
           "; "
         )
       );
+
+      publishEvent({
+        type:
+          "EXPORT_COMPLETED",
+
+        runId,
+
+        targetPath:
+          exportedArtifact.path,
+
+        fileHash:
+          exportedArtifact.fileHash,
+
+        fileSize:
+          exportedArtifact.fileSize
+      });
+
+
+      publishEvent({
+        type:
+          "STAGE_COMPLETED",
+
+        runId,
+
+        stage:
+          "EXCEL_EXPORT",
+
+        durationMs:
+          elapsedMs(
+            exportStageStartedAt
+          ),
+
+        summary: {
+          fileSize:
+            exportedArtifact.fileSize,
+
+          fileHash:
+            exportedArtifact.fileHash
+        }
+      });
+
 
       crashIfRequested(
         "AFTER_MANIFEST_BEFORE_FINALIZE",
@@ -1886,10 +2156,41 @@ coordinator.terminalizeProduct(
      * Any fatal error after run activation leaves a resumable
      * INTERRUPTED run rather than an orphan RUNNING row.
      */
+    let failure:
+      unknown =
+        error;
+
+
+    let failedRunId:
+      string |
+      null =
+        null;
+
+
     if (
       runEstablished
     ) {
+
+      /*
+       * Best-effort correlation only.
+       *
+       * Failure to inspect the active run must never mask the
+       * original runtime failure.
+       */
       try {
+
+        failedRunId =
+          coordinator
+            .getActiveRun()
+            ?.runId ??
+          null;
+      }
+      catch {
+      }
+
+
+      try {
+
         interruptRunningRun(
           coordinator
         );
@@ -1897,17 +2198,43 @@ coordinator.terminalizeProduct(
       catch (
         interruptError
       ) {
-        throw new AggregateError(
-          [
-            error,
-            interruptError
-          ],
-          "Fatal runtime error and persistent interruption both failed."
-        );
+
+        failure =
+          new AggregateError(
+            [
+              error,
+              interruptError
+            ],
+            "Fatal runtime error and persistent interruption both failed."
+          );
       }
     }
 
-    throw error;
+
+    publishEvent({
+      type:
+        "RUN_FAILED",
+
+      runId:
+        failedRunId,
+
+      errorClass:
+        failure instanceof
+          Error
+          ? failure.name
+          : "UnknownError",
+
+      message:
+        failure instanceof
+          Error
+          ? failure.message
+          : String(
+              failure
+            )
+    });
+
+
+    throw failure;
   }
   finally {
     try {
