@@ -329,7 +329,7 @@ export class BulkCollector {
 
     for (
       const result
-      of qualifiedDetails
+      of successful
     ) {
 
       const qualification =
@@ -382,7 +382,7 @@ export class BulkCollector {
 
     for (
       const result
-      of successful
+      of qualifiedDetails
     ) {
       resultByRequestedUrl.set(
         result.identity.requestedUrl,
