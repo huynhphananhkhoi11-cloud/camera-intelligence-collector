@@ -9,6 +9,7 @@ import type {
 
 export type ObservationField =
   | "PRODUCT_NAME"
+  | "BREADCRUMB"
   | "CATEGORY"
   | "PRICE"
   | "PRICE_CURRENCY"
@@ -25,7 +26,7 @@ export type ObservationField =
   | "PAYMENT"
   | "DOCUMENTS"
   | "DELIVERY"
-  | "CTA"
+  | "ACTION_TEXT"
   | "SKU"
   | "PRODUCT_ID"
   | "BRAND"
