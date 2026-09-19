@@ -1,0 +1,283 @@
+name: phase11i1-regression-lock
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - agent/phase11i1-autofix
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Critical regression contracts
+        run: |
+          npx vitest run \
+            tests/v02/discovery/productCandidateSelection.test.ts \
+            tests/v02/discovery/productUrlSelectionRegression.test.ts \
+            tests/v02/cli/collectV2ProductSelectionIntegration.test.ts \
+            tests/v02/rawProductPrimaryScope.test.ts \
+            tests/v02/extraction/productDetailSemanticFallback.test.ts \
+            tests/v02/entityClassifier.test.ts \
+            tests/v02/offerClassifier.test.ts \
+            tests/v02/priceParser.test.ts \
+            tests/v02/resolvers/fieldResolvers.test.ts \
+            tests/v02/validation/validatorConflictContract.test.ts
+
+      - run: npm test
+      - run: npm run check
+      - run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Live regression lock
+        run: |
+          set -euo pipefail
+
+          node --input-type=module <<'NODE'
+          import { spawnSync } from "node:child_process";
+          import { existsSync } from "node:fs";
+          import ExcelJS from "exceljs";
+
+          const cli = "./dist/v02/cli/collectV2.js";
+
+          const cases = [
+            {
+              id: "sony-rental",
+              url: "https://thuemayanhsaigon.com/equipment/21",
+              siteMode: "RENTAL",
+              route: "ACCEPT",
+              words: ["sony", "a6400"],
+              rentalPrice: 360000
+            },
+            {
+              id: "camerahouse-rental",
+              url: "https://camerahouse.vn/products/body-sony-a6400",
+              siteMode: "RENTAL",
+              route: "ACCEPT",
+              words: ["sony", "a6400"],
+              rentalPrice: 250000
+            },
+            {
+              id: "r50-sale",
+              url: "https://mayanhtop1.com/canon-eos-r50-new",
+              siteMode: "SALE_NEW",
+              route: "ACCEPT",
+              words: ["canon", "r50"],
+              salePrice: 18000000
+            },
+            {
+              id: "vjshop-sale",
+              url: "https://vjshop.vn/may-anh-mirrorless/sony-alpha-a6400-black-base-lens-sigma-18-50mm-f28",
+              siteMode: "SALE_NEW",
+              route: "ACCEPT",
+              words: ["sony", "a6400"],
+              salePrice: 27480000
+            },
+            {
+              id: "tripod-negative",
+              url: "https://thuelens.com/lens/cho-thue-chan-may-quay-benro-kh-25",
+              siteMode: "RENTAL",
+              route: "EXCLUDE",
+              words: ["benro"]
+            },
+            {
+              id: "contact-negative",
+              url: "https://thuemayanhsaigon.com/contact",
+              siteMode: "RENTAL",
+              acceptedMax: 0
+            },
+            {
+              id: "catalog-score-bound",
+              url: "https://www.thuemayanhbt.com/categories",
+              siteMode: "RENTAL",
+              noTechnicalError: true
+            }
+          ];
+
+          const routeSheets = [
+            ["Dữ liệu đối thủ", "ACCEPT"],
+            ["Cần kiểm tra", "REVIEW"],
+            ["Không liên quan", "EXCLUDE"]
+          ];
+
+          const cellText = value => {
+            if (value === null || value === undefined) return "";
+            if (typeof value === "object") {
+              if ("text" in value) return String(value.text ?? "");
+              if ("result" in value) return String(value.result ?? "");
+              if ("hyperlink" in value) return String(value.hyperlink ?? "");
+            }
+            return String(value);
+          };
+
+          const normalizeUrl = value => {
+            try {
+              const parsed = new URL(String(value));
+              parsed.hash = "";
+              parsed.search = "";
+              parsed.hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
+              let text = parsed.toString();
+              if (text.endsWith("/")) text = text.slice(0, -1);
+              return text;
+            } catch {
+              return String(value ?? "").trim().replace(/\/$/, "");
+            }
+          };
+
+          const amount = value => {
+            if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+            const parsed = Number(cellText(value).replace(/[^0-9.-]/g, ""));
+            return Number.isFinite(parsed) ? parsed : 0;
+          };
+
+          const readRows = async path => {
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.readFile(path);
+            const rows = [];
+
+            for (const [sheetName, route] of routeSheets) {
+              const sheet = workbook.getWorksheet(sheetName);
+              if (!sheet) continue;
+
+              const headers = [];
+              sheet.getRow(1).eachCell((cell, column) => {
+                headers[column] = cellText(cell.value).trim();
+              });
+
+              sheet.eachRow((row, rowNumber) => {
+                if (rowNumber === 1) return;
+                const record = { __route: route };
+                row.eachCell((cell, column) => {
+                  record[headers[column] ?? String(column)] = cell.value ?? "";
+                });
+
+                const meaningful = Object.entries(record).some(
+                  ([key, value]) => key !== "__route" && cellText(value).trim() !== ""
+                );
+
+                if (meaningful) rows.push(record);
+              });
+            }
+
+            return rows;
+          };
+
+          for (const item of cases) {
+            const output = `/tmp/${item.id}.xlsx`;
+            const db = `/tmp/${item.id}.sqlite`;
+
+            const run = spawnSync(
+              process.execPath,
+              [
+                cli,
+                item.url,
+                "--headless",
+                "--fresh",
+                "--site-mode",
+                item.siteMode,
+                "--max-pages",
+                "1",
+                "--max-products",
+                "1",
+                "--concurrency",
+                "1",
+                "--output",
+                output
+              ],
+              {
+                encoding: "utf8",
+                timeout: 120000,
+                env: {
+                  ...process.env,
+                  CAMINTEL_STATE_DB: db
+                }
+              }
+            );
+
+            process.stdout.write(run.stdout ?? "");
+            process.stderr.write(run.stderr ?? "");
+
+            const reportedErrors = Number(
+              String(run.stdout ?? "").match(/Errors:\s*(\d+)/i)?.[1] ?? "0"
+            );
+
+            if (run.error || run.status !== 0 || reportedErrors > 0 || !existsSync(output)) {
+              throw new Error(
+                `${item.id}: technical failure status=${run.status} errors=${reportedErrors} error=${run.error?.message ?? ""}`
+              );
+            }
+
+            const rows = await readRows(output);
+            const accepted = rows.filter(row => row.__route === "ACCEPT");
+
+            if (Number.isFinite(item.acceptedMax) && accepted.length > item.acceptedMax) {
+              throw new Error(
+                `${item.id}: accepted count ${accepted.length} > ${item.acceptedMax}`
+              );
+            }
+
+            if (!item.route) {
+              continue;
+            }
+
+            const matched =
+              rows.find(row => normalizeUrl(cellText(row.URL)) === normalizeUrl(item.url)) ??
+              null;
+
+            if (!matched) {
+              throw new Error(
+                `${item.id}: requested URL not present; observed=${rows.map(row => cellText(row.URL)).join(",")}`
+              );
+            }
+
+            if (matched.__route !== item.route) {
+              throw new Error(
+                `${item.id}: expected route=${item.route}, actual=${matched.__route}`
+              );
+            }
+
+            const name = cellText(matched["Tên sản phẩm"]).toLowerCase();
+            for (const word of item.words ?? []) {
+              if (!name.includes(word.toLowerCase())) {
+                throw new Error(
+                  `${item.id}: product name missing ${word}: ${name}`
+                );
+              }
+            }
+
+            if (Number.isFinite(item.rentalPrice)) {
+              const actual = amount(matched["Giá thuê/ngày"]);
+              if (actual !== item.rentalPrice) {
+                throw new Error(
+                  `${item.id}: rental price expected=${item.rentalPrice}, actual=${actual}`
+                );
+              }
+            }
+
+            if (Number.isFinite(item.salePrice)) {
+              const actual = amount(matched["Giá bán"]);
+              if (actual !== item.salePrice) {
+                throw new Error(
+                  `${item.id}: sale price expected=${item.salePrice}, actual=${actual}`
+                );
+              }
+            }
+          }
+
+          console.log("PHASE11I1_REGRESSION_LOCK=PASS");
+          NODE
