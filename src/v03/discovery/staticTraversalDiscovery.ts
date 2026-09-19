@@ -54,26 +54,68 @@ const DEFAULT_MAX_DEPTH =
   2;
 
 
-function sameOrigin(
+function siteKey(
+  value:
+    string
+): string |
+  null {
+
+  try {
+
+    const url =
+      new URL(
+        value
+      );
+
+
+    return (
+      url.protocol +
+      "//" +
+      url.hostname
+        .replace(
+          /^www\./i,
+          ""
+        )
+        .toLowerCase() +
+      (
+        url.port
+          ? ":" +
+            url.port
+          : ""
+      )
+    );
+  }
+  catch {
+    return null;
+  }
+}
+
+
+function sameSite(
   left:
     string,
   right:
     string
 ): boolean {
 
-  try {
-    return (
-      new URL(
-        left
-      ).origin ===
-      new URL(
-        right
-      ).origin
+  const leftKey =
+    siteKey(
+      left
     );
-  }
-  catch {
-    return false;
-  }
+
+
+  const rightKey =
+    siteKey(
+      right
+    );
+
+
+  return (
+    leftKey !==
+      null &&
+    leftKey ===
+      rightKey
+  );
 }
 
 
@@ -322,7 +364,7 @@ export class StaticTraversalDiscovery {
               if (
                 resolved ===
                   null ||
-                !sameOrigin(
+                !sameSite(
                   resolved,
                   rootUrl
                 )
