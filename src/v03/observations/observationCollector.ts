@@ -8,6 +8,7 @@ import {
 
 import type {
   ObservationContextKind,
+  ObservationOwnership,
   ObservationSemanticRole
 } from "../contracts/observationContract.js";
 
@@ -431,7 +432,21 @@ function pushObservation(
   locator:
     string,
   context?:
-    string
+    string,
+  metadata?:
+    {
+      readonly semanticRole?:
+        ObservationSemanticRole |
+        null;
+
+      readonly ownership?:
+        ObservationOwnership |
+        null;
+
+      readonly contextKind?:
+        ObservationContextKind |
+        null;
+    }
 ): void {
 
   const cleaned =
@@ -457,6 +472,15 @@ function pushObservation(
     locator,
     context:
       context ??
+      null,
+    semanticRole:
+      metadata?.semanticRole ??
+      null,
+    ownership:
+      metadata?.ownership ??
+      null,
+    contextKind:
+      metadata?.contextKind ??
       null
   });
 }
@@ -635,7 +659,14 @@ function normalizedSemanticText(
 function priceSemanticRole(
   observation:
     ProductObservation
-): ObservationSemanticRole {
+): ObservationSemanticRole |
+  null {
+
+  const raw =
+    normalizedSemanticText(
+      observation.rawValue
+    );
+
 
   const text =
     normalizedSemanticText(
@@ -674,7 +705,7 @@ function priceSemanticRole(
 
 
   if (
-    /(?:gia\s*cu|gia\s*niem\s*yet|gia\s*goc|list\s*price|old\s*price|was\s*:)/iu
+    /(?:gia\s*cu|gia\s*niem\s*yet|gia\s*goc|list\s*price|old[-_\s]*price|regular[-_\s]*price|was\s*:)/iu
       .test(
         text
       )
@@ -694,7 +725,17 @@ function priceSemanticRole(
 
 
   if (
-    /(?:lowprice|highprice|variant|option)/iu
+    /(?:^|\s)[+\-]\s*\d[\d.,\s]*(?:d|₫|vnd)(?:\s|$)/iu
+      .test(
+        raw
+      )
+  ) {
+    return "VARIANT_DELTA";
+  }
+
+
+  if (
+    /(?:lowprice|highprice|variant[-_\s]*price|full[-_\s]*variant[-_\s]*price)/iu
       .test(
         text
       )
@@ -703,14 +744,31 @@ function priceSemanticRole(
   }
 
 
-  return "CURRENT_PRODUCT_PRICE";
+  if (
+    /Product\.offers\[\d+\]\.price$/u
+      .test(
+        observation.locator ??
+        ""
+      ) ||
+    /(?:current[-_\s]*price|sale[-_\s]*price|selling[-_\s]*price|special[-_\s]*price|final[-_\s]*price|our[-_\s]*price|product[-_\s]*price|class(?:es)?[=:][^|]*(?:^|\s)price(?:\s|$))/iu
+      .test(
+        text
+      )
+  ) {
+    return "CURRENT_PRODUCT_PRICE";
+  }
+
+
+  return null;
 }
 
 
-function priceContextKind(
+function priceContextKind(function priceContextKind(
   role:
-    ObservationSemanticRole
-): ObservationContextKind {
+    ObservationSemanticRole |
+    null
+): ObservationContextKind |
+  null {
 
   if (
     role ===
@@ -740,7 +798,63 @@ function priceContextKind(
   }
 
 
-  return "SALE";
+  if (
+    role ===
+      "CURRENT_PRODUCT_PRICE" ||
+    role ===
+      "VARIANT_PRICE" ||
+    role ===
+      "VARIANT_DELTA"
+  ) {
+    return "SALE";
+  }
+
+
+  return null;
+}
+
+
+function inferredOwnership(
+  observation:
+    ProductObservation
+): ObservationOwnership {
+
+  const locator =
+    observation.locator ??
+    "";
+
+
+  if (
+    observation.sourceKind ===
+      "JSON_LD" &&
+    locator.startsWith(
+      "Product."
+    )
+  ) {
+    return "PRIMARY_PRODUCT";
+  }
+
+
+  if (
+    /^(?:visible-price|variant-price|condition-select|condition-radio|spec-table|spec-dl|visible-rating|visible-review-count|visible-availability)\[/u
+      .test(
+        locator
+      )
+  ) {
+    return "PRIMARY_PRODUCT";
+  }
+
+
+  if (
+    observation.context?.includes(
+      "Primary-product scoped"
+    )
+  ) {
+    return "PRIMARY_PRODUCT";
+  }
+
+
+  return "UNKNOWN";
 }
 
 
@@ -765,21 +879,47 @@ function annotateObservationSemantics(
         );
 
 
-      observation.semanticRole ??=
-        role;
+      if (
+        observation.semanticRole ===
+          undefined ||
+        observation.semanticRole ===
+          null
+      ) {
+        observation.semanticRole =
+          role;
+      }
 
-      observation.ownership ??=
-        role ===
-          "GIFT_VALUE" ||
-        role ===
-          "ACCESSORY_PRICE"
-          ? "RELATED"
-          : "PRIMARY_PRODUCT";
 
-      observation.contextKind ??=
-        priceContextKind(
-          role
-        );
+      if (
+        observation.ownership ===
+          undefined ||
+        observation.ownership ===
+          null
+      ) {
+        observation.ownership =
+          role ===
+            "GIFT_VALUE" ||
+          role ===
+            "ACCESSORY_PRICE"
+            ? "RELATED"
+            : inferredOwnership(
+                observation
+              );
+      }
+
+
+      if (
+        observation.contextKind ===
+          undefined ||
+        observation.contextKind ===
+          null
+      ) {
+        observation.contextKind =
+          priceContextKind(
+            role
+          );
+      }
+
 
       continue;
     }
@@ -792,7 +932,9 @@ function annotateObservationSemantics(
         "INVENTORY_LEVEL"
     ) {
       observation.ownership ??=
-        "PRIMARY_PRODUCT";
+        inferredOwnership(
+          observation
+        );
 
       observation.contextKind ??=
         "AVAILABILITY";
@@ -806,7 +948,9 @@ function annotateObservationSemantics(
         "SPECS"
     ) {
       observation.ownership ??=
-        "PRIMARY_PRODUCT";
+        inferredOwnership(
+          observation
+        );
 
       observation.contextKind ??=
         "SPECIFICATION";
@@ -824,7 +968,9 @@ function annotateObservationSemantics(
         "RATING_REVIEW_TEXT"
     ) {
       observation.ownership ??=
-        "PRIMARY_PRODUCT";
+        inferredOwnership(
+          observation
+        );
 
       observation.contextKind ??=
         "REVIEW";
@@ -838,7 +984,9 @@ function annotateObservationSemantics(
         "CONDITION"
     ) {
       observation.ownership ??=
-        "PRIMARY_PRODUCT";
+        inferredOwnership(
+          observation
+        );
     }
   }
 }
@@ -857,11 +1005,304 @@ function collectVisibleSemanticDetails(
     string
 ): void {
 
-  const scope =
-    $("main").first().length >
+  const primaryHeading =
+    $("h1").first();
+
+
+  let scope =
+    primaryHeading.parent();
+
+
+  let boundedScopeFound =
+    false;
+
+
+  if (
+    primaryHeading.length >
       0
-      ? $("main").first()
-      : $("body").first();
+  ) {
+
+    let cursor =
+      primaryHeading.parent();
+
+
+    for (
+      let depth =
+        0;
+      depth <
+        6 &&
+      cursor.length >
+        0;
+      depth++
+    ) {
+
+      if (
+        cursor.is(
+          "body,html"
+        )
+      ) {
+        break;
+      }
+
+
+      if (
+        cursor.find(
+          [
+            "button",
+            "a.btn",
+            "a.button",
+            'input[type="submit"]',
+            'input[type="button"]',
+            'a[class*="btn"]',
+            '[role="button"]'
+          ].join(
+            ","
+          )
+        ).length >
+          0
+      ) {
+        scope =
+          cursor;
+
+        boundedScopeFound =
+          true;
+
+        break;
+      }
+
+
+      cursor =
+        cursor.parent();
+    }
+  }
+
+
+  if (
+    !boundedScopeFound
+  ) {
+    scope =
+      $("main").first().length >
+        0
+        ? $("main").first()
+        : $("body").first();
+  }
+
+
+  const isForeignRelatedNode =
+    (
+      element:
+        Parameters<
+          Parameters<
+            typeof scope.find
+          >[0]
+        >[0]
+    ): boolean => {
+
+      const node =
+        $(element as never);
+
+
+      const foreignOwner =
+        node.closest(
+          [
+            "article",
+            ".product-item",
+            ".product-card",
+            '[class*="product-item"]',
+            '[class*="product-card"]',
+            '[class*="related"]',
+            '[class*="recommend"]',
+            '[class*="similar"]',
+            '[class*="upsell"]',
+            '[class*="cross-sell"]'
+          ].join(
+            ","
+          )
+        );
+
+
+      if (
+        foreignOwner.length ===
+          0
+      ) {
+        return false;
+      }
+
+
+      const primaryHeadingNode =
+        primaryHeading.get(
+          0
+        );
+
+
+      if (
+        !primaryHeadingNode
+      ) {
+        return true;
+      }
+
+
+      return !foreignOwner
+        .find(
+          "h1"
+        )
+        .toArray()
+        .some(
+          node =>
+            node ===
+              primaryHeadingNode
+        );
+    };
+
+
+  const priceSelector =
+    [
+      '[itemprop="price"]',
+      '[data-price]',
+      ".price",
+      ".product-price",
+      ".sale-price",
+      ".current-price",
+      '[class*="price"]'
+    ].join(
+      ","
+    );
+
+
+  scope.find(
+    priceSelector
+  )
+    .each(
+      (
+        index,
+        element
+      ) => {
+
+        if (
+          isForeignRelatedNode(
+            element
+          )
+        ) {
+          return;
+        }
+
+
+        const node =
+          $(element);
+
+
+        const raw =
+          clean(
+            node.text() ||
+            node.attr(
+              "content"
+            ) ||
+            node.attr(
+              "data-price"
+            )
+          );
+
+
+        if (
+          !raw ||
+          raw.length >
+            160 ||
+          !/\d/iu.test(
+            raw
+          )
+        ) {
+          return;
+        }
+
+
+        const context =
+          [
+            "class=" +
+              clean(
+                node.attr(
+                  "class"
+                )
+              ),
+            "id=" +
+              clean(
+                node.attr(
+                  "id"
+                )
+              ),
+            "parentClass=" +
+              clean(
+                node.parent().attr(
+                  "class"
+                )
+              )
+          ].join(
+            " | "
+          );
+
+
+        const candidate:
+          ProductObservation = {
+            productIdentity,
+            field:
+              "PRICE",
+            rawValue:
+              raw,
+            sourceKind:
+              "VISIBLE_TEXT",
+            sourceUrl,
+            locator:
+              "visible-price[" +
+              index +
+              "]",
+            context,
+            ownership:
+              "PRIMARY_PRODUCT"
+          };
+
+
+        let role =
+          priceSemanticRole(
+            candidate
+          );
+
+
+        if (
+          !role &&
+          (
+            node.is(
+              '[itemprop="price"],[data-price],.price,.product-price,.sale-price,.current-price'
+            )
+          )
+        ) {
+          role =
+            "CURRENT_PRODUCT_PRICE";
+        }
+
+
+        pushObservation(
+          output,
+          productIdentity,
+          "PRICE",
+          raw,
+          "VISIBLE_TEXT",
+          sourceUrl,
+          "visible-price[" +
+          index +
+          "]",
+          context,
+          {
+            semanticRole:
+              role,
+            ownership:
+              "PRIMARY_PRODUCT",
+            contextKind:
+              priceContextKind(
+                role
+              )
+          }
+        );
+      }
+    );
 
 
   const isConditionText =
@@ -891,6 +1332,15 @@ function collectVisibleSemanticDetails(
         selectIndex,
         element
       ) => {
+
+        if (
+          isForeignRelatedNode(
+            element
+          )
+        ) {
+          return;
+        }
+
 
         const select =
           $(element);
@@ -948,6 +1398,13 @@ function collectVisibleSemanticDetails(
               }
 
 
+              const selected =
+                $(optionElement).attr(
+                  "selected"
+                ) !==
+                  undefined;
+
+
               pushObservation(
                 output,
                 productIdentity,
@@ -960,8 +1417,55 @@ function collectVisibleSemanticDetails(
                 "].option[" +
                 optionIndex +
                 "]",
-                descriptor
+                [
+                  descriptor,
+                  "selected=" +
+                    String(
+                      selected
+                    )
+                ]
+                  .filter(
+                    Boolean
+                  )
+                  .join(
+                    " | "
+                  ),
+                {
+                  ownership:
+                    "PRIMARY_PRODUCT"
+                }
               );
+
+
+              if (
+                /[+\-]\s*\d[\d.,\s]*(?:đ|₫|vnd)/iu
+                  .test(
+                    value
+                  )
+              ) {
+                pushObservation(
+                  output,
+                  productIdentity,
+                  "PRICE",
+                  value,
+                  "VISIBLE_TEXT",
+                  sourceUrl,
+                  "variant-price[" +
+                  selectIndex +
+                  "].option[" +
+                  optionIndex +
+                  "]",
+                  descriptor,
+                  {
+                    semanticRole:
+                      "VARIANT_DELTA",
+                    ownership:
+                      "PRIMARY_PRODUCT",
+                    contextKind:
+                      "SALE"
+                  }
+                );
+              }
             }
           );
       }
@@ -976,6 +1480,15 @@ function collectVisibleSemanticDetails(
         index,
         element
       ) => {
+
+        if (
+          isForeignRelatedNode(
+            element
+          )
+        ) {
+          return;
+        }
+
 
         const input =
           $(element);
@@ -1030,6 +1543,13 @@ function collectVisibleSemanticDetails(
         }
 
 
+        const checked =
+          input.attr(
+            "checked"
+          ) !==
+            undefined;
+
+
         pushObservation(
           output,
           productIdentity,
@@ -1039,8 +1559,45 @@ function collectVisibleSemanticDetails(
           sourceUrl,
           "condition-radio[" +
           index +
-          "]"
+          "]",
+          "checked=" +
+            String(
+              checked
+            ),
+          {
+            ownership:
+              "PRIMARY_PRODUCT"
+          }
         );
+
+
+        if (
+          /[+\-]\s*\d[\d.,\s]*(?:đ|₫|vnd)/iu
+            .test(
+              labelText
+            )
+        ) {
+          pushObservation(
+            output,
+            productIdentity,
+            "PRICE",
+            labelText,
+            "VISIBLE_TEXT",
+            sourceUrl,
+            "variant-price[" +
+            index +
+            "]",
+            "radio variant option",
+            {
+              semanticRole:
+                "VARIANT_DELTA",
+              ownership:
+                "PRIMARY_PRODUCT",
+              contextKind:
+                "SALE"
+            }
+          );
+        }
       }
     );
 
@@ -1053,6 +1610,15 @@ function collectVisibleSemanticDetails(
         index,
         element
       ) => {
+
+        if (
+          isForeignRelatedNode(
+            element
+          )
+        ) {
+          return;
+        }
+
 
         const row =
           $(element);
@@ -1109,7 +1675,14 @@ function collectVisibleSemanticDetails(
           sourceUrl,
           "spec-table[" +
           index +
-          "]"
+          "]",
+          "Primary-product visible specification",
+          {
+            ownership:
+              "PRIMARY_PRODUCT",
+            contextKind:
+              "SPECIFICATION"
+          }
         );
       }
     );
@@ -1123,6 +1696,15 @@ function collectVisibleSemanticDetails(
         listIndex,
         element
       ) => {
+
+        if (
+          isForeignRelatedNode(
+            element
+          )
+        ) {
+          return;
+        }
+
 
         const list =
           $(element);
@@ -1178,12 +1760,94 @@ function collectVisibleSemanticDetails(
                 listIndex +
                 "].term[" +
                 termIndex +
-                "]"
+                "]",
+                "Primary-product visible specification",
+                {
+                  ownership:
+                    "PRIMARY_PRODUCT",
+                  contextKind:
+                    "SPECIFICATION"
+                }
               );
             }
           );
       }
     );
+
+
+  const availabilityNodes =
+    scope.find(
+      [
+        '[itemprop="availability"]',
+        '[class*="stock"]',
+        '[class*="availability"]',
+        '[class*="inventory"]'
+      ].join(
+        ","
+      )
+    );
+
+
+  availabilityNodes.each(
+    (
+      index,
+      element
+    ) => {
+
+      if (
+        isForeignRelatedNode(
+          element
+        )
+      ) {
+        return;
+      }
+
+
+      const node =
+        $(element);
+
+
+      const raw =
+        clean(
+          node.text() ||
+          node.attr(
+            "href"
+          ) ||
+          node.attr(
+            "content"
+          )
+        );
+
+
+      if (
+        !raw ||
+        raw.length >
+          160
+      ) {
+        return;
+      }
+
+
+      pushObservation(
+        output,
+        productIdentity,
+        "AVAILABILITY",
+        raw,
+        "VISIBLE_TEXT",
+        sourceUrl,
+        "visible-availability[" +
+        index +
+        "]",
+        "Primary-product scoped visible availability",
+        {
+          ownership:
+            "PRIMARY_PRODUCT",
+          contextKind:
+            "AVAILABILITY"
+        }
+      );
+    }
+  );
 
 
   const ratingNodes =
@@ -1197,6 +1861,15 @@ function collectVisibleSemanticDetails(
       index,
       element
     ) => {
+
+      if (
+        isForeignRelatedNode(
+          element
+        )
+      ) {
+        return;
+      }
+
 
       const node =
         $(element);
@@ -1268,7 +1941,14 @@ function collectVisibleSemanticDetails(
           sourceUrl,
           "visible-rating[" +
           index +
-          "]"
+          "]",
+          "Primary-product visible aggregate rating",
+          {
+            ownership:
+              "PRIMARY_PRODUCT",
+            contextKind:
+              "REVIEW"
+          }
         );
 
 
@@ -1289,6 +1969,15 @@ function collectVisibleSemanticDetails(
       index,
       element
     ) => {
+
+      if (
+        isForeignRelatedNode(
+          element
+        )
+      ) {
+        return;
+      }
+
 
       const node =
         $(element);
@@ -1357,7 +2046,14 @@ function collectVisibleSemanticDetails(
         sourceUrl,
         "visible-review-count[" +
         index +
-        "]"
+        "]",
+        "Primary-product visible aggregate review count",
+        {
+          ownership:
+            "PRIMARY_PRODUCT",
+          contextKind:
+            "REVIEW"
+        }
       );
     }
   );
@@ -1627,11 +2323,25 @@ function collectStructuredObservations(
         "]";
 
 
+      const businessFunctions =
+        primitiveValues(
+          offer.businessFunction
+        );
+
+
+      const rentalOffer =
+        businessFunctions.some(
+          value =>
+            /(?:lease|rent)/iu.test(
+              value
+            )
+        );
+
+
       for (
         const value
         of primitiveValues(
-          offer.price ??
-          offer.lowPrice
+          offer.price
         )
       ) {
         pushObservation(
@@ -1642,13 +2352,68 @@ function collectStructuredObservations(
           "JSON_LD",
           sourceUrl,
           prefix +
-          (
-            offer.price !==
-              undefined
-              ? ".price"
-              : ".lowPrice"
-          )
+          ".price",
+          "Structured primary Product offer price",
+          {
+            semanticRole:
+              "CURRENT_PRODUCT_PRICE",
+            ownership:
+              "PRIMARY_PRODUCT",
+            contextKind:
+              rentalOffer
+                ? "RENTAL"
+                : "SALE"
+          }
         );
+      }
+
+
+      for (
+        const [
+          key,
+          rawValue
+        ]
+        of [
+          [
+            "lowPrice",
+            offer.lowPrice
+          ],
+          [
+            "highPrice",
+            offer.highPrice
+          ]
+        ] as const
+      ) {
+
+        for (
+          const value
+          of primitiveValues(
+            rawValue
+          )
+        ) {
+          pushObservation(
+            output,
+            productIdentity,
+            "PRICE",
+            value,
+            "JSON_LD",
+            sourceUrl,
+            prefix +
+            "." +
+            key,
+            "Structured AggregateOffer full variant price",
+            {
+              semanticRole:
+                "VARIANT_PRICE",
+              ownership:
+                "PRIMARY_PRODUCT",
+              contextKind:
+                rentalOffer
+                  ? "RENTAL"
+                  : "SALE"
+            }
+          );
+        }
       }
 
 
@@ -1685,7 +2450,12 @@ function collectStructuredObservations(
           "JSON_LD",
           sourceUrl,
           prefix +
-          ".itemCondition"
+          ".itemCondition",
+          "Structured primary Product condition",
+          {
+            ownership:
+              "PRIMARY_PRODUCT"
+          }
         );
       }
 
@@ -1704,7 +2474,14 @@ function collectStructuredObservations(
           "JSON_LD",
           sourceUrl,
           prefix +
-          ".inventoryLevel"
+          ".inventoryLevel",
+          "Structured primary Product inventory",
+          {
+            ownership:
+              "PRIMARY_PRODUCT",
+            contextKind:
+              "AVAILABILITY"
+          }
         );
       }
 
@@ -1723,7 +2500,14 @@ function collectStructuredObservations(
           "JSON_LD",
           sourceUrl,
           prefix +
-          ".availability"
+          ".availability",
+          "Structured primary Product availability",
+          {
+            ownership:
+              "PRIMARY_PRODUCT",
+            contextKind:
+              "AVAILABILITY"
+          }
         );
       }
 

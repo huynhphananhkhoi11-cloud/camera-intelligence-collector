@@ -1,6 +1,7 @@
 export type ObservationSemanticRole =
   | "CURRENT_PRODUCT_PRICE"
   | "VARIANT_PRICE"
+  | "VARIANT_DELTA"
   | "OLD_PRICE"
   | "DISCOUNT_VALUE"
   | "SAVING_VALUE"

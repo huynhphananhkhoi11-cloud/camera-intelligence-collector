@@ -1145,5 +1145,327 @@ describe(
         );
       }
     );
+
+    /*
+     * =====================================================
+     * 9. BLUEPRINT SENTINELS
+     * =====================================================
+     */
+
+    test(
+      "visible NEW title outranks contradictory JSON-LD UsedCondition in presentation",
+      () => {
+
+        const row =
+          buildMainPresentationRow(
+            product([
+              observation(
+                "PRODUCT_NAME",
+                "Canon EOS R50 (NEW 100%)"
+              ),
+              observation(
+                "CONDITION",
+                "Canon EOS R50 (NEW 100%)",
+                {
+                  ownership:
+                    "PRIMARY_PRODUCT"
+                }
+              ),
+              {
+                ...observation(
+                  "CONDITION",
+                  "https://schema.org/UsedCondition",
+                  {
+                    ownership:
+                      "PRIMARY_PRODUCT"
+                  }
+                ),
+                sourceKind:
+                  "JSON_LD" as const,
+                locator:
+                  "Product.offers[0].itemCondition"
+              }
+            ]),
+            rootUrl
+          );
+
+
+        expect(
+          row.form
+        ).toBe(
+          "Hàng mới"
+        );
+      }
+    );
+
+
+    test(
+      "selected condition control outranks other available condition options",
+      () => {
+
+        const row =
+          buildMainPresentationRow(
+            product([
+              {
+                ...observation(
+                  "CONDITION",
+                  "Hàng Mới Chính Hãng",
+                  {
+                    ownership:
+                      "PRIMARY_PRODUCT"
+                  }
+                ),
+                locator:
+                  "condition-select[0].option[0]",
+                context:
+                  "selected=true"
+              },
+              {
+                ...observation(
+                  "CONDITION",
+                  "Hàng Cũ Likenew",
+                  {
+                    ownership:
+                      "PRIMARY_PRODUCT"
+                  }
+                ),
+                locator:
+                  "condition-select[0].option[1]",
+                context:
+                  "selected=false"
+              }
+            ]),
+            rootUrl
+          );
+
+
+        expect(
+          row.form
+        ).toBe(
+          "Hàng mới"
+        );
+      }
+    );
+
+
+    test(
+      "variant deltas never expand current sale price",
+      () => {
+
+        const row =
+          buildMainPresentationRow(
+            product([
+              observation(
+                "PRODUCT_NAME",
+                "Nikon Zf Body Only Black"
+              ),
+              observation(
+                "PRICE",
+                "40.990.000đ",
+                {
+                  semanticRole:
+                    "CURRENT_PRODUCT_PRICE",
+                  ownership:
+                    "PRIMARY_PRODUCT",
+                  contextKind:
+                    "SALE"
+                }
+              ),
+              observation(
+                "PRICE",
+                "+1.500.000đ",
+                {
+                  semanticRole:
+                    "VARIANT_DELTA",
+                  ownership:
+                    "PRIMARY_PRODUCT",
+                  contextKind:
+                    "SALE"
+                }
+              ),
+              observation(
+                "PRICE",
+                "+6.000.000đ",
+                {
+                  semanticRole:
+                    "VARIANT_DELTA",
+                  ownership:
+                    "PRIMARY_PRODUCT",
+                  contextKind:
+                    "SALE"
+                }
+              ),
+              observation(
+                "PRICE_CURRENCY",
+                "VND"
+              )
+            ]),
+            rootUrl
+          );
+
+
+        expect(
+          row.salePrice
+        ).toBe(
+          "40.990.000 VND"
+        );
+      }
+    );
+
+
+    test(
+      "AggregateOffer low and high prices are preserved as full variant prices",
+      () => {
+
+        const html = `
+          <html>
+            <head>
+              <script type="application/ld+json">
+              {
+                "@context": "https://schema.org",
+                "@type": "Product",
+                "url": "https://example.com/canon-r50",
+                "name": "Canon EOS R50",
+                "offers": {
+                  "@type": "AggregateOffer",
+                  "lowPrice": 16890000,
+                  "highPrice": 23390000,
+                  "priceCurrency": "VND"
+                }
+              }
+              </script>
+            </head>
+            <body>
+              <main>
+                <h1>Canon EOS R50</h1>
+                <button>Mua ngay</button>
+              </main>
+            </body>
+          </html>
+        `;
+
+
+        const result =
+          collectProductObservationsFromHtml(
+            html,
+            "https://example.com/canon-r50"
+          );
+
+
+        const variantPrices =
+          result.observations
+            .filter(
+              item =>
+                item.field ===
+                  "PRICE" &&
+                item.semanticRole ===
+                  "VARIANT_PRICE"
+            )
+            .map(
+              item =>
+                item.rawValue
+            );
+
+
+        expect(
+          variantPrices
+        ).toEqual(
+          expect.arrayContaining([
+            "16890000",
+            "23390000"
+          ])
+        );
+      }
+    );
+
+
+    test(
+      "related recommendation rating and stock do not become primary typed evidence",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <main class="product-detail">
+                <h1>Canon EOS R50</h1>
+                <div class="current-price">18.900.000đ</div>
+                <div class="rating">4.8/5</div>
+                <div class="stock">Còn lại 5 sản phẩm</div>
+                <button>Mua ngay</button>
+
+                <section class="related-products">
+                  <article class="product-card">
+                    <h2>Related Lens</h2>
+                    <div class="rating">2.0/5</div>
+                    <div class="stock">Còn lại 99 sản phẩm</div>
+                  </article>
+                </section>
+              </main>
+            </body>
+          </html>
+        `;
+
+
+        const result =
+          collectProductObservationsFromHtml(
+            html,
+            "https://example.com/canon-r50"
+          );
+
+
+        const primaryRatings =
+          result.observations
+            .filter(
+              item =>
+                item.field ===
+                  "RATING" &&
+                item.ownership ===
+                  "PRIMARY_PRODUCT"
+            )
+            .map(
+              item =>
+                item.rawValue
+            );
+
+
+        const primaryAvailability =
+          result.observations
+            .filter(
+              item =>
+                item.field ===
+                  "AVAILABILITY" &&
+                item.ownership ===
+                  "PRIMARY_PRODUCT"
+            )
+            .map(
+              item =>
+                item.rawValue
+            );
+
+
+        expect(
+          primaryRatings
+        ).toContain(
+          "4.8"
+        );
+
+
+        expect(
+          primaryRatings
+        ).not.toContain(
+          "2.0"
+        );
+
+
+        expect(
+          primaryAvailability.join(
+            " | "
+          )
+        ).not.toContain(
+          "99"
+        );
+      }
+    );
+
   }
 );
