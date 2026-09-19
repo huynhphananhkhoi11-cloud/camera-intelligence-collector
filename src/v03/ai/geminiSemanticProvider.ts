@@ -8,6 +8,10 @@ import {
   serializeEvidencePacketForPrompt
 } from "./evidencePacket.js";
 
+import {
+  compactEvidencePacketForPrompt
+} from "./evidenceCompactor.js";
+
 import type {
   EvidencePacket
 } from "./evidenceTypes.js";
@@ -613,9 +617,15 @@ export class GeminiSemanticProvider {
       this.timeoutMs;
 
 
+    const compactPacket =
+      compactEvidencePacketForPrompt(
+        packet
+      );
+
+
     const compactEvidence =
       serializeEvidencePacketForPrompt(
-        packet
+        compactPacket
       );
 
 

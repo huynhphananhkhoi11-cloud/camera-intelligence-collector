@@ -268,6 +268,48 @@ function validateMoney(
 }
 
 
+function isStrongPrimaryStockEvidence(
+  item:
+    EvidenceItem
+): boolean {
+
+  if (
+    item.ownershipHint !==
+      "PRIMARY_PRODUCT"
+  ) {
+    return false;
+  }
+
+
+  if (
+    item.fieldHint !==
+      "AVAILABILITY" &&
+    item.fieldHint !==
+      "INVENTORY_LEVEL"
+  ) {
+    return false;
+  }
+
+
+  const sourceKind =
+    String(
+      item.sourceKind
+    );
+
+
+  return [
+    "VISIBLE_TEXT",
+    "JSON_LD",
+    "MICRODATA",
+    "XHR",
+    "API",
+    "ATTRIBUTE"
+  ].includes(
+    sourceKind
+  );
+}
+
+
 export function validateSemanticDecision(
   packet:
     EvidencePacket,
@@ -559,6 +601,28 @@ export function validateSemanticDecision(
 
       message:
         "The page contains money evidence but AI did not resolve a current camera price."
+    });
+  }
+
+
+  if (
+    decision.entity.type ===
+      "CAMERA" &&
+    decision.stock ===
+      null &&
+    packet.stockCandidates.some(
+      isStrongPrimaryStockEvidence
+    )
+  ) {
+    issues.push({
+      code:
+        "STOCK_UNRESOLVED",
+
+      field:
+        "stock",
+
+      message:
+        "Strong primary-product stock evidence exists but AI did not resolve stock."
     });
   }
 
