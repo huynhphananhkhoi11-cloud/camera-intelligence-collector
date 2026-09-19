@@ -1,3 +1,8 @@
+import {
+  parseRentalPrice,
+  parseSalePrice
+} from "./priceParser.js";
+
 export type OfferKind =
   | "RENTAL"
   | "SALE";
@@ -644,52 +649,75 @@ export function classifyOffers(
    * sale-specific evidence such as Sell structured data, a purchase
    * CTA, or sale category/title evidence.
    */
-  const hasSpecificSaleEvidence =
-    evidence.some(
-      item => {
-        if (
-          item.kind !==
-            "SALE"
-        ) {
-          return false;
-        }
+  const rentalAmounts =
+    [
+      parseRentalPrice(
+        pageText
+      ),
+      ...visiblePriceTexts.map(
+        value =>
+          parseRentalPrice(
+            value
+          )
+      )
+    ]
+      .filter(
+        (
+          value
+        ): value is number =>
+          value !==
+            null
+      );
 
-        if (
+
+  const saleAmounts =
+    visiblePriceTexts
+      .map(
+        value =>
+          parseSalePrice(
+            value
+          )
+      )
+      .filter(
+        (
+          value
+        ): value is number =>
+          value !==
+            null
+      );
+
+
+  const hasIndependentSalePrice =
+    saleAmounts.some(
+      amount =>
+        !rentalAmounts.includes(
+          amount
+        )
+    );
+
+
+  const hasIndependentSaleEvidence =
+    evidence.some(
+      item =>
+        item.kind ===
+          "SALE" &&
+        (
           item.source ===
             "JSON_LD" ||
           item.source ===
             "NETWORK" ||
           item.source ===
             "CATEGORY"
-        ) {
-          return true;
-        }
-
-        if (
-          item.source ===
-            "CTA"
-        ) {
-          const text =
-            norm(
-              item.raw
-            );
-
-          return /mua ngay|dat mua|buy now/
-            .test(
-              text
-            );
-        }
-
-        return false;
-      }
-    );
+        )
+    ) ||
+    hasIndependentSalePrice;
 
 
   const sale =
     saleScore >= 60 &&
     !(
       rentalScore >= 90 &&
-      !hasSpecificSaleEvidence
+      !hasIndependentSaleEvidence
     );
 
   let confidence:
