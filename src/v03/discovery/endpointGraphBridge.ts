@@ -2,6 +2,10 @@ import type {
   EndpointDiscoveryRun
 } from "../acquisition/endpointReplayTypes.js";
 
+import {
+  ProductUrlGraph
+} from "./productUrlGraph.js";
+
 import type {
   ProductUrlEvidence
 } from "./productUrlGraphTypes.js";
@@ -68,4 +72,24 @@ export function endpointReplayEvidence(
 
 
   return output;
+}
+
+
+export function buildProductUrlGraphFromEndpointRun(
+  run:
+    EndpointDiscoveryRun
+): ProductUrlGraph {
+
+  const graph =
+    new ProductUrlGraph();
+
+
+  graph.addMany(
+    endpointReplayEvidence(
+      run
+    )
+  );
+
+
+  return graph;
 }
