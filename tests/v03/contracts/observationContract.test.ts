@@ -50,11 +50,13 @@ describe(
             }
           ]);
 
+
         expect(
           observations
         ).toHaveLength(
           2
         );
+
 
         expect(
           observations.map(
@@ -65,6 +67,7 @@ describe(
           "NEW 100%",
           "https://schema.org/UsedCondition"
         ]);
+
 
         expect(
           isMainExportEligible(
@@ -94,6 +97,7 @@ describe(
             ".price"
         };
 
+
         const observations =
           preserveUniqueObservations([
             observation,
@@ -108,6 +112,157 @@ describe(
                 "Product.offers.price"
             }
           ]);
+
+
+        expect(
+          observations
+        ).toHaveLength(
+          2
+        );
+      }
+    );
+
+
+    test(
+      "observations with different semantic roles are not silently collapsed",
+      () => {
+
+        const baseObservation = {
+          productIdentity:
+            "CANONICAL:https://example.com/canon-r50",
+          field:
+            "PRICE",
+          rawValue:
+            "18.000.000đ",
+          sourceKind:
+            "VISIBLE_TEXT" as const,
+          sourceUrl:
+            "https://example.com/canon-r50",
+          locator:
+            ".price"
+        };
+
+
+        const currentPrice = {
+          ...baseObservation,
+          semanticRole:
+            "CURRENT_PRODUCT_PRICE" as const
+        };
+
+
+        const oldPrice = {
+          ...baseObservation,
+          semanticRole:
+            "OLD_PRICE" as const
+        };
+
+
+        const observations =
+          preserveUniqueObservations([
+            currentPrice,
+            oldPrice
+          ]);
+
+
+        expect(
+          observations
+        ).toHaveLength(
+          2
+        );
+      }
+    );
+
+
+    test(
+      "observations with different ownership are not silently collapsed",
+      () => {
+
+        const baseObservation = {
+          productIdentity:
+            "CANONICAL:https://example.com/canon-r50",
+          field:
+            "AVAILABILITY",
+          rawValue:
+            "Còn hàng",
+          sourceKind:
+            "VISIBLE_TEXT" as const,
+          sourceUrl:
+            "https://example.com/canon-r50",
+          locator:
+            ".stock"
+        };
+
+
+        const primaryObservation = {
+          ...baseObservation,
+          ownership:
+            "PRIMARY_PRODUCT" as const
+        };
+
+
+        const relatedObservation = {
+          ...baseObservation,
+          ownership:
+            "RELATED" as const
+        };
+
+
+        const observations =
+          preserveUniqueObservations([
+            primaryObservation,
+            relatedObservation
+          ]);
+
+
+        expect(
+          observations
+        ).toHaveLength(
+          2
+        );
+      }
+    );
+
+
+    test(
+      "observations with different context kinds are not silently collapsed",
+      () => {
+
+        const baseObservation = {
+          productIdentity:
+            "CANONICAL:https://example.com/canon-r50",
+          field:
+            "PRICE",
+          rawValue:
+            "300.000đ",
+          sourceKind:
+            "VISIBLE_TEXT" as const,
+          sourceUrl:
+            "https://example.com/canon-r50",
+          locator:
+            ".price"
+        };
+
+
+        const saleObservation = {
+          ...baseObservation,
+          contextKind:
+            "SALE" as const
+        };
+
+
+        const rentalObservation = {
+          ...baseObservation,
+          contextKind:
+            "RENTAL" as const
+        };
+
+
+        const observations =
+          preserveUniqueObservations([
+            saleObservation,
+            rentalObservation
+          ]);
+
 
         expect(
           observations
@@ -127,6 +282,7 @@ describe(
             "UNCERTAIN"
           )
         ).toBe(false);
+
 
         expect(
           isMainExportEligible(

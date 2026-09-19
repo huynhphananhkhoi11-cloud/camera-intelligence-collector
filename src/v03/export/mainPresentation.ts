@@ -384,54 +384,262 @@ function oldNewFromText(
 }
 
 
+function conditionLabels(
+  observations:
+    readonly ProductObservation[]
+): string[] {
+
+  return [
+    ...new Set(
+      observations
+        .map(
+          observation =>
+            oldNewFromText(
+              observation.rawValue
+            )
+        )
+        .filter(
+          (
+            value
+          ): value is
+            "Hàng mới" |
+            "Hàng cũ" =>
+              value !==
+                null
+        )
+    )
+  ];
+}
+
+
 function oldNewDisplay(
   observations:
     readonly ProductObservation[]
 ): string {
 
-  const evidence =
+  const conditions =
+    observationsFor(
+      observations,
+      "CONDITION"
+    )
+      .filter(
+        observation =>
+          observation.ownership !==
+            "RELATED" &&
+          observation.ownership !==
+            "PAGE_CHROME"
+      );
+
+
+  const selectedControls =
+    conditions.filter(
+      observation =>
+        observation.sourceKind ===
+          "VISIBLE_TEXT" &&
+        (
+          observation.locator
+            ?.startsWith(
+              "condition-select["
+            ) ||
+          observation.locator
+            ?.startsWith(
+              "condition-radio["
+            )
+        ) &&
+        /(?:selected|checked)=true/iu.test(
+          observation.context ??
+          ""
+        )
+    );
+
+
+  const selectedLabels =
+    conditionLabels(
+      selectedControls
+    );
+
+
+  if (
+    selectedLabels.length >
+      0
+  ) {
+    return selectedLabels.join(
+      " | "
+    );
+  }
+
+
+  const controlConditions =
+    conditions.filter(
+      observation =>
+        observation.sourceKind ===
+          "VISIBLE_TEXT" &&
+        (
+          observation.locator
+            ?.startsWith(
+              "condition-select["
+            ) ||
+          observation.locator
+            ?.startsWith(
+              "condition-radio["
+            )
+        )
+    );
+
+
+  const controlLabels =
+    conditionLabels(
+      controlConditions
+    );
+
+
+  if (
+    controlLabels.length >
+      1
+  ) {
+    return controlLabels.join(
+      " | "
+    );
+  }
+
+
+  const titleConditions =
+    conditions.filter(
+      observation =>
+        observation.sourceKind ===
+          "VISIBLE_TEXT" &&
+        observation.locator
+          ?.startsWith(
+            "h1"
+          )
+    );
+
+
+  const titleLabels =
+    conditionLabels(
+      titleConditions
+    );
+
+
+  if (
+    titleLabels.length >
+      0
+  ) {
+    return titleLabels.join(
+      " | "
+    );
+  }
+
+
+  if (
+    controlLabels.length >
+      0
+  ) {
+    return controlLabels.join(
+      " | "
+    );
+  }
+
+
+  const visibleLabels =
+    conditionLabels(
+      conditions.filter(
+        observation =>
+          observation.sourceKind ===
+            "VISIBLE_TEXT"
+      )
+    );
+
+
+  if (
+    visibleLabels.length >
+      0
+  ) {
+    return visibleLabels.join(
+      " | "
+    );
+  }
+
+
+  const structuredLabels =
+    conditionLabels(
+      conditions.filter(
+        observation =>
+          observation.sourceKind ===
+            "JSON_LD"
+      )
+    );
+
+
+  if (
+    structuredLabels.length >
+      0
+  ) {
+    return structuredLabels.join(
+      " | "
+    );
+  }
+
+
+  const titleFallback =
     [
-      ...uniqueValues(
-        observations,
-        "CONDITION"
-      ),
-      ...uniqueValues(
-        observations,
-        "PRODUCT_NAME"
-      ),
-      ...uniqueValues(
-        observations,
-        "CATEGORY"
-      ),
-      ...uniqueValues(
-        observations,
-        "BREADCRUMB"
+      ...new Set(
+        [
+          ...uniqueValues(
+            observations,
+            "PRODUCT_NAME"
+          )
+        ]
+          .map(
+            oldNewFromText
+          )
+          .filter(
+            (
+              value
+            ): value is
+              "Hàng mới" |
+              "Hàng cũ" =>
+                value !==
+                  null
+          )
       )
     ];
 
 
-  const values =
-    evidence
-      .map(
-        value =>
-          oldNewFromText(
-            value
-          )
-      )
-      .filter(
-        (
-          value
-        ): value is
-          "Hàng mới" |
-          "Hàng cũ" =>
-            value !==
-            null
-      );
+  if (
+    titleFallback.length >
+      0
+  ) {
+    return titleFallback.join(
+      " | "
+    );
+  }
 
 
   return [
     ...new Set(
-      values
+      [
+        ...uniqueValues(
+          observations,
+          "CATEGORY"
+        ),
+        ...uniqueValues(
+          observations,
+          "BREADCRUMB"
+        )
+      ]
+        .map(
+          oldNewFromText
+        )
+        .filter(
+          (
+            value
+          ): value is
+            "Hàng mới" |
+            "Hàng cũ" =>
+              value !==
+                null
+        )
     )
   ].join(
     " | "
@@ -572,16 +780,85 @@ function formatMoney(
 }
 
 
+function semanticPriceObservations(
+  observations:
+    readonly ProductObservation[]
+): ProductObservation[] {
+
+  const prices =
+    observationsFor(
+      observations,
+      "PRICE"
+    );
+
+
+  const hasSemanticMetadata =
+    prices.some(
+      observation =>
+        observation.semanticRole !==
+          undefined &&
+        observation.semanticRole !==
+          null
+    );
+
+
+  if (
+    !hasSemanticMetadata
+  ) {
+    return prices;
+  }
+
+
+  return prices.filter(
+    observation =>
+      (
+        observation.semanticRole ===
+          "CURRENT_PRODUCT_PRICE" ||
+        observation.semanticRole ===
+          "VARIANT_PRICE"
+      ) &&
+      (
+        observation.ownership ===
+          "PRIMARY_PRODUCT" ||
+        observation.ownership ===
+          "UNKNOWN" ||
+        observation.ownership ===
+          undefined ||
+        observation.ownership ===
+          null
+      ) &&
+      (
+        observation.contextKind ===
+          "SALE" ||
+        observation.contextKind ===
+          undefined ||
+        observation.contextKind ===
+          null
+      )
+  );
+}
+
+
 function priceDisplay(
   observations:
     readonly ProductObservation[]
 ): string {
 
   const rawValues =
-    uniqueValues(
-      observations,
-      "PRICE"
-    );
+    [
+      ...new Set(
+        semanticPriceObservations(
+          observations
+        )
+          .map(
+            observation =>
+              observation.rawValue.trim()
+          )
+          .filter(
+            Boolean
+          )
+      )
+    ];
 
 
   const values =
@@ -649,6 +926,66 @@ function priceDisplay(
 }
 
 
+function primaryOwnedInventoryObservations(
+  observations:
+    readonly ProductObservation[]
+): ProductObservation[] {
+
+  const candidates =
+    observations.filter(
+      observation =>
+        observation.field ===
+          "AVAILABILITY" ||
+        observation.field ===
+          "INVENTORY_LEVEL"
+    );
+
+
+  const hasOwnership =
+    candidates.some(
+      observation =>
+        observation.ownership !==
+          undefined &&
+        observation.ownership !==
+          null
+    );
+
+
+  if (
+    !hasOwnership
+  ) {
+    return candidates;
+  }
+
+
+  const primary =
+    candidates.filter(
+      observation =>
+        observation.ownership ===
+          "PRIMARY_PRODUCT"
+    );
+
+
+  if (
+    primary.length >
+      0
+  ) {
+    return primary;
+  }
+
+
+  return candidates.filter(
+    observation =>
+      observation.ownership ===
+        "UNKNOWN" ||
+      observation.ownership ===
+        undefined ||
+      observation.ownership ===
+        null
+  );
+}
+
+
 function visibleInventoryQuantities(
   observations:
     readonly ProductObservation[]
@@ -660,15 +997,20 @@ function visibleInventoryQuantities(
 
 
   for (
-    const raw
-    of uniqueValues(
-      observations,
-      "AVAILABILITY"
-    )
+    const observation
+    of observations
   ) {
 
+    if (
+      observation.field !==
+        "AVAILABILITY"
+    ) {
+      continue;
+    }
+
+
     const match =
-      raw.match(
+      observation.rawValue.match(
         /(?:tồn\s*kho|còn(?:\s*lại)?|stock|remaining)[^0-9]{0,20}(\d+)/iu
       );
 
@@ -707,19 +1049,62 @@ function visibleInventoryQuantities(
 }
 
 
+function isCleanAvailabilityText(
+  value:
+    string
+): boolean {
+
+  const text =
+    value.trim();
+
+
+  if (
+    !text ||
+    text.length >
+      160
+  ) {
+    return false;
+  }
+
+
+  if (
+    /(?:mua\s+ngay|giá\s+gốc|gia\s+goc|giá\s+hiện\s+tại|gia\s+hien\s+tai|thêm\s+vào\s+giỏ|them\s+vao\s+gio|sản\s+phẩm\s+liên\s+quan|san\s+pham\s+lien\s+quan)/iu
+      .test(
+        text
+      )
+  ) {
+    return false;
+  }
+
+
+  return /(?:schema\.org\/(?:InStock|OutOfStock|PreOrder|BackOrder|Discontinued)|còn\s+hàng|hết\s+hàng|tạm\s+hết|chờ\s+nhập|đặt\s+hàng\s+trước|cho\s+phép\s+đặt\s+hàng\s+trước|pre[-\s]?order|in\s*stock|out\s*of\s*stock|còn\s+lại\s+\d+)/iu
+    .test(
+      text
+    );
+}
+
+
 function inventoryDisplay(
   observations:
     readonly ProductObservation[]
 ): string {
 
+  const owned =
+    primaryOwnedInventoryObservations(
+      observations
+    );
+
+
   const structured =
-    uniqueValues(
-      observations,
-      "INVENTORY_LEVEL"
-    )
+    owned
+      .filter(
+        observation =>
+          observation.field ===
+            "INVENTORY_LEVEL"
+      )
       .flatMap(
-        value =>
-          value.match(
+        observation =>
+          observation.rawValue.match(
             /\d+(?:[.,]\d+)?/g
           ) ??
           []
@@ -746,7 +1131,7 @@ function inventoryDisplay(
       ...new Set([
         ...structured,
         ...visibleInventoryQuantities(
-          observations
+          owned
         )
       ])
     ]
@@ -790,12 +1175,21 @@ function inventoryDisplay(
 
 
   const states =
-    uniqueValues(
-      observations,
-      "AVAILABILITY"
-    )
+    owned
+      .filter(
+        observation =>
+          observation.field ===
+            "AVAILABILITY" &&
+          isCleanAvailabilityText(
+            observation.rawValue
+          )
+      )
       .map(
-        value => {
+        observation => {
+
+          const value =
+            observation.rawValue;
+
 
           const tail =
             schemaTail(
@@ -838,11 +1232,47 @@ function numericDisplay(
     ObservationField
 ): string {
 
-  const values =
-    uniqueValues(
+  const candidates =
+    observationsFor(
       observations,
       field
     );
+
+
+  const primary =
+    candidates.filter(
+      observation =>
+        observation.ownership ===
+          "PRIMARY_PRODUCT"
+    );
+
+
+  const scoped =
+    primary.length >
+      0
+      ? primary
+      : candidates.filter(
+          observation =>
+            observation.ownership !==
+              "RELATED" &&
+            observation.ownership !==
+              "PAGE_CHROME"
+        );
+
+
+  const values =
+    [
+      ...new Set(
+        scoped
+          .map(
+            observation =>
+              observation.rawValue.trim()
+          )
+          .filter(
+            Boolean
+          )
+      )
+    ];
 
 
   const normalized =

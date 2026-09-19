@@ -122,6 +122,30 @@ function errorMessage(
 }
 
 
+function isObviousNonHtmlResource(
+  value:
+    string
+): boolean {
+
+  try {
+
+    const url =
+      new URL(
+        value
+      );
+
+
+    return /\.(?:avif|bmp|gif|ico|jpe?g|png|svg|tiff?|webp|css|m?js|map|eot|otf|ttf|woff2?|pdf|zip|rar|7z|gz|mp3|m4a|wav|ogg|mp4|m4v|mov|avi|webm)$/iu
+      .test(
+        url.pathname
+      );
+  }
+  catch {
+    return false;
+  }
+}
+
+
 export class BulkCollector {
   private readonly discovery:
     MultiSourceDiscoveryHub;
@@ -196,8 +220,35 @@ export class BulkCollector {
       );
 
 
+    const resourceSkippedPages:
+      SkippedCandidatePage[] =
+        candidateUrls
+          .filter(
+            url =>
+              isObviousNonHtmlResource(
+                url
+              )
+          )
+          .map(
+            url => ({
+              url,
+              reason:
+                "non_html_resource"
+            })
+          );
+
+
+    const detailCandidateUrls =
+      candidateUrls.filter(
+        url =>
+          !isObviousNonHtmlResource(
+            url
+          )
+      );
+
+
     const attemptedUrls =
-      candidateUrls.slice(
+      detailCandidateUrls.slice(
         0,
         this.maxProducts
       );
@@ -318,8 +369,9 @@ export class BulkCollector {
 
 
     const skippedPages:
-      SkippedCandidatePage[] =
-        [];
+      SkippedCandidatePage[] = [
+        ...resourceSkippedPages
+      ];
 
 
     const qualifiedDetails:

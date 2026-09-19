@@ -136,7 +136,7 @@ describe(
         expect(
           row.form
         ).toBe(
-          "Hàng mới | Hàng cũ"
+          "Hàng mới"
         );
       }
     );

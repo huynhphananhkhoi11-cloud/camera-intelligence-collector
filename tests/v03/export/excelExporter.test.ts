@@ -144,7 +144,13 @@ function fixture():
       sourceUrl:
         "https://example.com/canon-r50",
       locator:
-        "scoped-price[0]"
+        "scoped-price[0]",
+      semanticRole:
+        "CURRENT_PRODUCT_PRICE" as const,
+      ownership:
+        "PRIMARY_PRODUCT" as const,
+      contextKind:
+        "SALE" as const
     },
     {
       productIdentity:
@@ -520,7 +526,7 @@ describe(
             ).value
           )
         ).toBe(
-          "Hàng mới | Hàng cũ"
+          "Hàng mới"
         );
 
 
@@ -629,5 +635,95 @@ describe(
         ).toBe(true);
       }
     );
+
+    test(
+      "observations sheet exports semantic role ownership and context metadata",
+      async () => {
+
+        await exportBulkWorkbook(
+          outputPath,
+          fixture()
+        );
+
+
+        const workbook =
+          new ExcelJS.Workbook();
+
+
+        await workbook.xlsx.readFile(
+          outputPath
+        );
+
+
+        const sheet =
+          workbook.getWorksheet(
+            "Observations"
+          );
+
+
+        const headers =
+          sheet!.getRow(
+            1
+          ).values as
+            unknown[];
+
+
+        expect(
+          headers
+        ).toEqual(
+          expect.arrayContaining([
+            "Semantic role",
+            "Ownership",
+            "Context kind"
+          ])
+        );
+
+
+        const values:
+          string[] =
+            [];
+
+
+        sheet!.eachRow(
+          (
+            row,
+            rowNumber
+          ) => {
+
+            if (
+              rowNumber ===
+                1
+            ) {
+              return;
+            }
+
+
+            for (
+              const value
+              of row.values
+            ) {
+              values.push(
+                String(
+                  value ??
+                  ""
+                )
+              );
+            }
+          }
+        );
+
+
+        expect(
+          values
+        ).toEqual(
+          expect.arrayContaining([
+            "CURRENT_PRODUCT_PRICE",
+            "PRIMARY_PRODUCT",
+            "SALE"
+          ])
+        );
+      }
+    );
+
   }
 );

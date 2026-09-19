@@ -8,6 +8,7 @@ export type EntityType =
   | "GIMBAL"
   | "LIGHTING"
   | "ACCESSORY"
+  | "SURVEILLANCE_CAMERA"
   | "UNCERTAIN";
 
 export interface EntityInput {
@@ -269,6 +270,13 @@ const ENTITY_EVIDENCE_META:
       weight: 60,
       ruleId:
         "entity.accessory.category"
+    },
+
+    "surveillance camera category": {
+      source: "CATEGORY",
+      weight: 100,
+      ruleId:
+        "entity.surveillance.category"
     }
   };
 
@@ -407,6 +415,20 @@ export function classifyEntity(
    * accepted just because the website puts it under
    * "Thuê máy ảnh".
    */
+
+  if (
+    has(
+      category,
+      /\b(camera giam sat|camera an ninh|cctv|ip camera|camera wifi)\b/
+    )
+  ) {
+    return makeResult(
+      "SURVEILLANCE_CAMERA",
+      "HIGH",
+      ["surveillance camera category"]
+    );
+  }
+
 
   if (
     has(title, /\bphotobooth\b/) ||
@@ -606,6 +628,18 @@ export function classifyEntity(
     has(
       title,
       /\b(eos|powershot|coolpix|lumix|alpha|insta360|gopro|osmo)\b/
+    ) ||
+    has(
+      title,
+      /\b(?:fujifilm|fuji)\s+(?:x[-\s]?[a-z0-9]+|gfx[-\s]?[a-z0-9]+)\b/
+    ) ||
+    has(
+      title,
+      /\bnikon\s+(?:d\d{3,4}|z[-\s]?\d+[a-z0-9-]*)\b/
+    ) ||
+    has(
+      title,
+      /\bleica\s+(?:q\d+|m\d+|sl\d*|cl|tl\d*)\b/
     );
 
   const cameraCategory =

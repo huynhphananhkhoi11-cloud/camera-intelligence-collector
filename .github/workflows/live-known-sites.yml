@@ -1,0 +1,78 @@
+name: Known-site live gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    name: live-${{ matrix.slug }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - slug: mayanhtop1
+            url: https://mayanhtop1.com/
+          - slug: zshop
+            url: https://zshop.vn/
+          - slug: binhminh
+            url: https://binhminhdigital.com/
+          - slug: anhduc
+            url: https://anhducdigital.vn/
+
+    steps:
+      - name: Preserve repository line endings
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install chromium
+
+      - name: Build
+        run: npm run build
+
+      - name: Bounded collect and audit
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          $xlsx = Join-Path $PWD "artifacts\${{ matrix.slug }}.xlsx"
+          $log = Join-Path $PWD "artifacts\${{ matrix.slug }}.log"
+
+          & node dist/v03/cli/camintel.js collect "${{ matrix.url }}" --max-products 120 --concurrency 3 --no-open --output $xlsx 2>&1 |
+            Tee-Object -FilePath $log
+
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+          & node scripts/live-audit.mjs $xlsx "${{ matrix.slug }}" 2>&1 |
+            Tee-Object -FilePath $log -Append
+
+          exit $LASTEXITCODE
+
+      - name: Upload live evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-${{ matrix.slug }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7

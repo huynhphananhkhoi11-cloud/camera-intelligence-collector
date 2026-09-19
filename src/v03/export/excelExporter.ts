@@ -430,6 +430,30 @@ function addObservationsSheet(
     },
     {
       header:
+        "Semantic role",
+      key:
+        "semanticRole",
+      width:
+        26
+    },
+    {
+      header:
+        "Ownership",
+      key:
+        "ownership",
+      width:
+        20
+    },
+    {
+      header:
+        "Context kind",
+      key:
+        "contextKind",
+      width:
+        20
+    },
+    {
+      header:
         "Source kind",
       key:
         "sourceKind",
@@ -483,6 +507,15 @@ function addObservationsSheet(
           observation.field,
         rawValue:
           observation.rawValue,
+        semanticRole:
+          observation.semanticRole ??
+          "",
+        ownership:
+          observation.ownership ??
+          "",
+        contextKind:
+          observation.contextKind ??
+          "",
         sourceKind:
           observation.sourceKind,
         sourceUrl:
