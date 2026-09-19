@@ -344,6 +344,8 @@ function fixture():
       [],
     uncertain:
       [],
+    skippedPages:
+      [],
     errors:
       []
   };
@@ -391,6 +393,7 @@ describe(
           "Excluded",
           "Observations",
           "Identity",
+          "Skipped Pages",
           "Errors",
           "Coverage",
           "Audit"
