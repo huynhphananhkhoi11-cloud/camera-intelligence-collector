@@ -342,6 +342,32 @@ export function classifyOffers(
   }
 
   /*
+   * Explicit rental price inside a bounded product-description
+   * section is strong transaction evidence. Some rental stores are
+   * implemented on ecommerce platforms and therefore expose generic
+   * "add to cart" controls even though the product is rental-only.
+   */
+  const scopedRentalPrice =
+    pageText.match(
+      /gia thue\s*[:：-]?\s*\d[\d.,\s]*\s*(?:d|₫|vnd)(?:\s*\/\s*(?:\d+\s*)?(?:ngay|day|24h))?/i
+    );
+
+  if (
+    scopedRentalPrice
+  ) {
+    rentalScore += 90;
+
+    add(
+      evidence,
+      "RENTAL",
+      "SECTION",
+      scopedRentalPrice[0],
+      90
+    );
+  }
+
+
+  /*
    * ====================================================
    * 4. PAGE SECTIONS / VISIBLE TEXT
    * ====================================================
@@ -608,8 +634,63 @@ export function classifyOffers(
   const rental =
     rentalScore >= 60;
 
+
+  /*
+   * Generic ecommerce affordances are ambiguous on rental pages.
+   * When rental truth is explicit, "add to cart" + a plain currency
+   * amount must not manufacture a SALE offer by themselves.
+   *
+   * Real mixed rental/sale pages remain mixed when they also carry
+   * sale-specific evidence such as Sell structured data, a purchase
+   * CTA, or sale category/title evidence.
+   */
+  const hasSpecificSaleEvidence =
+    evidence.some(
+      item => {
+        if (
+          item.kind !==
+            "SALE"
+        ) {
+          return false;
+        }
+
+        if (
+          item.source ===
+            "JSON_LD" ||
+          item.source ===
+            "NETWORK" ||
+          item.source ===
+            "CATEGORY"
+        ) {
+          return true;
+        }
+
+        if (
+          item.source ===
+            "CTA"
+        ) {
+          const text =
+            norm(
+              item.raw
+            );
+
+          return /mua ngay|dat mua|buy now/
+            .test(
+              text
+            );
+        }
+
+        return false;
+      }
+    );
+
+
   const sale =
-    saleScore >= 60;
+    saleScore >= 60 &&
+    !(
+      rentalScore >= 90 &&
+      !hasSpecificSaleEvidence
+    );
 
   let confidence:
     OfferResult["confidence"] =
