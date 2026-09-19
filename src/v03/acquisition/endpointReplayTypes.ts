@@ -149,3 +149,15 @@ export interface EndpointDiscoveryRun {
   readonly warnings:
     readonly string[];
 }
+
+
+export interface AdaptiveEndpointDiscoveryResult {
+  readonly recon:
+    import("./networkReconTypes.js").NetworkReconSnapshot;
+
+  readonly qualification:
+    EndpointQualificationResult;
+
+  readonly replay:
+    EndpointDiscoveryRun;
+}
