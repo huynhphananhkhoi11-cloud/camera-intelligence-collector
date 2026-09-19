@@ -3,6 +3,14 @@ import {
 } from "./acquisitionRouter.js";
 
 import {
+  NetworkReconBackend
+} from "./networkReconBackend.js";
+
+import type {
+  NetworkReconBackendOptions
+} from "./networkReconTypes.js";
+
+import {
   StaticHttpBackend
 } from "./staticHttpBackend.js";
 
@@ -14,6 +22,9 @@ import type {
 export interface DefaultAcquisitionRouterOptions {
   readonly staticHttp?:
     StaticHttpBackendOptions;
+
+  readonly networkRecon?:
+    NetworkReconBackendOptions;
 }
 
 
@@ -25,6 +36,10 @@ export function createDefaultAcquisitionRouter(
   return new AcquisitionRouter([
     new StaticHttpBackend(
       options.staticHttp
+    ),
+
+    new NetworkReconBackend(
+      options.networkRecon
     )
   ]);
 }
