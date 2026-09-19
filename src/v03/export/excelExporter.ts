@@ -598,6 +598,55 @@ function addIdentitySheet(
 }
 
 
+function addSkippedPagesSheet(
+  workbook:
+    ExcelJS.Workbook,
+  result:
+    BulkCollectionResult
+): void {
+
+  const sheet =
+    workbook.addWorksheet(
+      "Skipped Pages"
+    );
+
+
+  sheet.columns = [
+    {
+      header:
+        "URL",
+      key:
+        "url",
+      width:
+        65
+    },
+    {
+      header:
+        "Reason",
+      key:
+        "reason",
+      width:
+        70
+    }
+  ];
+
+
+  for (
+    const item
+    of result.skippedPages
+  ) {
+    sheet.addRow(
+      item
+    );
+  }
+
+
+  styleSheet(
+    sheet
+  );
+}
+
+
 function addErrorsSheet(
   workbook:
     ExcelJS.Workbook,
@@ -685,10 +734,18 @@ function addCoverageSheet(
     result.errors.length;
 
 
-  const collapsedRepresentations =
+  const qualifiedDetailPages =
     Math.max(
       0,
       successfulDetails -
+      result.skippedPages.length
+    );
+
+
+  const collapsedRepresentations =
+    Math.max(
+      0,
+      qualifiedDetailPages -
       result.identityResolution.clusters.length
     );
 
@@ -734,8 +791,42 @@ function addCoverageSheet(
         result.uncertain.length
       ],
       [
+        "Skipped non-product pages",
+        result.skippedPages.length
+      ],
+      [
         "ERROR",
         result.errors.length
+      ],
+      [
+        "Discovery - Static HTML URLs",
+        result.discovery.channelCounts.STATIC_HTML
+      ],
+      [
+        "Discovery - Sitemap URLs",
+        result.discovery.channelCounts.SITEMAP
+      ],
+      [
+        "Discovery - Endpoint replay URLs",
+        result.discovery.channelCounts.ENDPOINT_REPLAY
+      ],
+      [
+        "Discovery - Rendered DOM URLs",
+        result.discovery.channelCounts.RENDERED_DOM
+      ],
+      [
+        "Static traversal pages visited",
+        result.discovery.staticTraversal.visitedPages.length
+      ],
+      [
+        "Sitemap documents read",
+        result.discovery.sitemap.sitemapDocuments.length
+      ],
+      [
+        "Rendered DOM fallback used",
+        result.discovery.renderedDom.used
+          ? 1
+          : 0
       ],
       [
         "Qualified endpoint requests",
@@ -858,6 +949,73 @@ function addAuditSheet(
 
 
   for (
+    const evidence
+    of result.discovery.evidence
+  ) {
+    sheet.addRow({
+      stage:
+        "DISCOVERY_" +
+        evidence.channel,
+      item:
+        evidence.url,
+      detail:
+        [
+          "score=" +
+          evidence.score,
+          evidence.parentUrl
+            ? "parent=" +
+              evidence.parentUrl
+            : "",
+          evidence.anchorText
+            ? "anchor=" +
+              evidence.anchorText
+            : ""
+        ]
+          .filter(
+            Boolean
+          )
+          .join(
+            " | "
+          )
+    });
+  }
+
+
+  for (
+    const item
+    of result.skippedPages
+  ) {
+    sheet.addRow({
+      stage:
+        "SKIPPED_NON_PRODUCT",
+      item:
+        item.url,
+      detail:
+        item.reason
+    });
+  }
+
+
+  for (
+    const warning
+    of [
+      ...result.discovery.staticTraversal.warnings,
+      ...result.discovery.sitemap.warnings,
+      ...result.discovery.renderedDom.warnings
+    ]
+  ) {
+    sheet.addRow({
+      stage:
+        "DISCOVERY_WARNING",
+      item:
+        result.rootUrl,
+      detail:
+        warning
+    });
+  }
+
+
+  for (
     const warning
     of result.discovery.replay.warnings
   ) {
@@ -942,6 +1100,12 @@ export async function exportBulkWorkbook(
 
 
   addIdentitySheet(
+    workbook,
+    result
+  );
+
+
+  addSkippedPagesSheet(
     workbook,
     result
   );

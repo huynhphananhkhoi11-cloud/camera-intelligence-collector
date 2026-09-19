@@ -192,6 +192,15 @@ export async function runProductionCollect(
       "Discovery complete.",
       "Candidates: " +
         collection.candidateUrls.length,
+      "Sources(static/sitemap/endpoint/rendered): " +
+        [
+          collection.discovery.channelCounts.STATIC_HTML,
+          collection.discovery.channelCounts.SITEMAP,
+          collection.discovery.channelCounts.ENDPOINT_REPLAY,
+          collection.discovery.channelCounts.RENDERED_DOM
+        ].join(
+          "/"
+        ),
       "Identities: " +
         collection.identityResolution.clusters.length,
       "Cameras: " +
@@ -200,6 +209,8 @@ export async function runProductionCollect(
         collection.nonCameras.length,
       "Review: " +
         collection.uncertain.length,
+      "Skipped non-product: " +
+        collection.skippedPages.length,
       "Errors: " +
         collection.errors.length
     ].join(

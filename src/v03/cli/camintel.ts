@@ -117,6 +117,8 @@ program
             result.collection.uncertain.length,
           "Excluded rows: " +
             result.collection.nonCameras.length,
+          "Skipped pages: " +
+            result.collection.skippedPages.length,
           "Errors: " +
             result.collection.errors.length,
           "Excel: " +

@@ -1,6 +1,6 @@
 import type {
-  AdaptiveEndpointDiscoveryResult
-} from "../acquisition/endpointReplayTypes.js";
+  MultiSourceDiscoveryResult
+} from "../discovery/multiSourceDiscoveryTypes.js";
 
 import type {
   EntityRoutingResult
@@ -14,6 +14,15 @@ import type {
 import type {
   ProductObservation
 } from "../observations/observationTypes.js";
+
+
+export interface SkippedCandidatePage {
+  readonly url:
+    string;
+
+  readonly reason:
+    string;
+}
 
 
 export interface DetailCollectionFailure {
@@ -42,7 +51,7 @@ export interface BulkCollectionResult {
     string;
 
   readonly discovery:
-    AdaptiveEndpointDiscoveryResult;
+    MultiSourceDiscoveryResult;
 
   readonly candidateUrls:
     readonly string[];
@@ -64,6 +73,9 @@ export interface BulkCollectionResult {
 
   readonly uncertain:
     readonly BulkProductRecord[];
+
+  readonly skippedPages:
+    readonly SkippedCandidatePage[];
 
   readonly errors:
     readonly DetailCollectionFailure[];
