@@ -29,8 +29,8 @@ import {
 } from "../ai/geminiSemanticProvider.js";
 
 import {
-  validateSemanticDecision
-} from "../ai/groundingValidator.js";
+  analyzeWithAdaptiveGemini
+} from "../ai/adaptiveGeminiReasoning.js";
 
 import {
   VisualEvidenceCapture
@@ -237,23 +237,37 @@ program
         });
 
 
-      const analyzed =
-        await provider.analyze(
+      const adaptive =
+        await analyzeWithAdaptiveGemini({
           packet,
-          options.model
-        );
+
+          provider,
+
+          model:
+            options.model,
+
+          timeoutMs:
+            options.timeoutSeconds *
+            1000
+        });
 
 
-      console.log(
-        "[4/5] Grounding validation..."
-      );
+      const analyzed =
+        adaptive.providerResult;
 
 
       const validation =
-        validateSemanticDecision(
-          packet,
-          analyzed.decision
-        );
+        adaptive.validation;
+
+
+      console.log(
+        "[4/5] Grounding validation... reasoning=" +
+        adaptive.reasoningProfile +
+        " attempts=" +
+        String(
+          adaptive.attempts.length
+        )
+      );
 
 
       const screenshotPath =
@@ -315,11 +329,57 @@ program
               totalDurationMs:
                 analyzed.totalDurationMs,
 
+              adaptiveTotalDurationMs:
+                adaptive.attempts.reduce(
+                  (
+                    total,
+                    item
+                  ) =>
+                    total +
+                    (
+                      item.result.totalDurationMs ??
+                      0
+                    ),
+                  0
+                ),
+
               promptTokens:
                 analyzed.promptEvalCount,
 
               outputTokens:
-                analyzed.evalCount
+                analyzed.evalCount,
+
+              reasoningProfile:
+                adaptive.reasoningProfile,
+
+              attemptCount:
+                adaptive.attempts.length,
+
+              attempts:
+                adaptive.attempts.map(
+                  item => ({
+                    reasoningProfile:
+                      item.reasoningProfile,
+
+                    model:
+                      item.result.model,
+
+                    totalDurationMs:
+                      item.result.totalDurationMs,
+
+                    promptTokens:
+                      item.result.promptEvalCount,
+
+                    outputTokens:
+                      item.result.evalCount,
+
+                    validationStatus:
+                      item.validation.status,
+
+                    validationIssues:
+                      item.validation.issues
+                  })
+                )
             }
           },
           null,
@@ -557,6 +617,37 @@ program
       console.log(
         "Validation: " +
         validation.status
+      );
+
+      console.log(
+        "Reasoning: " +
+        adaptive.reasoningProfile
+      );
+
+      console.log(
+        "Attempts: " +
+        String(
+          adaptive.attempts.length
+        )
+      );
+
+      console.log(
+        "Adaptive total latency: " +
+        String(
+          adaptive.attempts.reduce(
+            (
+              total,
+              item
+            ) =>
+              total +
+              (
+                item.result.totalDurationMs ??
+                0
+              ),
+            0
+          )
+        ) +
+        " ms"
       );
       console.log(
         "Latency: " +

@@ -45,6 +45,10 @@ import {
 } from "./groundingValidator.js";
 
 import {
+  analyzeWithAdaptiveGemini
+} from "./adaptiveGeminiReasoning.js";
+
+import {
   GeminiInferenceTimeoutError,
   GeminiSemanticProvider
 } from "./geminiSemanticProvider.js";
@@ -657,9 +661,6 @@ export class CameraScaleEngine {
             timeoutMs:
               this.options.aiTimeoutMs,
 
-            thinkingLevel:
-              "medium",
-
             maxOutputTokens:
               4_096
           })
@@ -973,12 +974,32 @@ export class CameraScaleEngine {
               Date.now();
 
 
+            const adaptive =
+              this.options.semanticProvider ===
+                "gemini"
+                ? await analyzeWithAdaptiveGemini({
+                    packet,
+
+                    provider:
+                      provider as
+                        GeminiSemanticProvider,
+
+                    model,
+
+                    timeoutMs:
+                      this.options.aiTimeoutMs
+                  })
+                : null;
+
+
             const analyzed =
-              await provider.analyze(
-                packet,
-                model,
-                this.options.aiTimeoutMs
-              );
+              adaptive
+                ? adaptive.providerResult
+                : await provider.analyze(
+                    packet,
+                    model,
+                    this.options.aiTimeoutMs
+                  );
 
 
             const aiElapsedMs =
@@ -1019,6 +1040,8 @@ export class CameraScaleEngine {
 
 
             const validation =
+              adaptive
+                ?.validation ??
               validateSemanticDecision(
                 packet,
                 analyzed.decision
