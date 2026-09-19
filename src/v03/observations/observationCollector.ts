@@ -547,6 +547,28 @@ function brandValues(
 }
 
 
+function inventoryLevelValues(
+  value:
+    unknown
+): string[] {
+
+  if (
+    isObject(
+      value
+    )
+  ) {
+    return primitiveValues(
+      value.value
+    );
+  }
+
+
+  return primitiveValues(
+    value
+  );
+}
+
+
 function offerObjects(
   product:
     JsonObject
@@ -904,6 +926,25 @@ function collectStructuredObservations(
           sourceUrl,
           prefix +
           ".itemCondition"
+        );
+      }
+
+
+      for (
+        const value
+        of inventoryLevelValues(
+          offer.inventoryLevel
+        )
+      ) {
+        pushObservation(
+          output,
+          productIdentity,
+          "INVENTORY_LEVEL",
+          value,
+          "JSON_LD",
+          sourceUrl,
+          prefix +
+          ".inventoryLevel"
         );
       }
 

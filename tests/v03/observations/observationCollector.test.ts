@@ -47,7 +47,11 @@ describe(
                   "price": 18000000,
                   "priceCurrency": "VND",
                   "itemCondition": "https://schema.org/UsedCondition",
-                  "availability": "https://schema.org/InStock"
+                  "availability": "https://schema.org/InStock",
+                  "inventoryLevel": {
+                    "@type": "QuantitativeValue",
+                    "value": 5
+                  }
                 }
               }
               </script>
@@ -144,6 +148,19 @@ describe(
             observation =>
               observation.rawValue ===
                 "384"
+          )
+        ).toBe(true);
+
+
+        expect(
+          result.observations.filter(
+            observation =>
+              observation.field ===
+                "INVENTORY_LEVEL"
+          ).some(
+            observation =>
+              observation.rawValue ===
+                "5"
           )
         ).toBe(true);
       }
