@@ -320,5 +320,54 @@ describe(
       }
     );
 
+
+    test(
+      "recognizes a sparse direct rental product with rental-specific CTA and product-like path",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <main>
+                <h1>
+                  Cho thuê Máy ảnh Sony Alpha A6400 (Máy 2)
+                </h1>
+
+                <div class="price">
+                  245.000đ/buổi 350.000đ/ngày
+                </div>
+
+                <button>
+                  Thuê sản phẩm này
+                </button>
+              </main>
+            </body>
+          </html>
+        `;
+
+        const url =
+          "https://example.com/thue-camera-may-anh/cho-thue-may-anh-sony-alpha-a6400-may-2";
+
+        const result =
+          discoverProductUrlsFromHtml(
+            html,
+            url
+          );
+
+        const current =
+          result.candidates.find(
+            item =>
+              item.url ===
+                url
+          );
+
+        expect(
+          current?.reasons
+        ).toContain(
+          "current-page product detail"
+        );
+      }
+    );
+
   }
 );
