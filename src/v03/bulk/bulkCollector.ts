@@ -35,10 +35,15 @@ import {
   routeEntityFromObservations
 } from "../entities/entityRouting.js";
 
+import {
+  qualifyProductDetailPage
+} from "../entities/productPageQualification.js";
+
 import type {
   BulkCollectionResult,
   BulkProductRecord,
-  DetailCollectionFailure
+  DetailCollectionFailure,
+  SkippedCandidatePage
 } from "./bulkTypes.js";
 
 
@@ -312,9 +317,51 @@ export class BulkCollector {
       );
 
 
+    const skippedPages:
+      SkippedCandidatePage[] =
+        [];
+
+
+    const qualifiedDetails:
+      ObservationCollectionResult[] =
+        [];
+
+
+    for (
+      const result
+      of qualifiedDetails
+    ) {
+
+      const qualification =
+        qualifyProductDetailPage(
+          result
+        );
+
+
+      if (
+        qualification.isProductDetail
+      ) {
+        qualifiedDetails.push(
+          result
+        );
+      }
+      else {
+        skippedPages.push({
+          url:
+            result.identity.requestedUrl,
+
+          reason:
+            qualification.reasons.join(
+              ", "
+            )
+        });
+      }
+    }
+
+
     const identityRecords:
       ProductIdentityRecord[] =
-        successful.map(
+        qualifiedDetails.map(
           result =>
             result.identity
         );
@@ -446,6 +493,7 @@ export class BulkCollector {
       cameras,
       nonCameras,
       uncertain,
+      skippedPages,
       errors
     };
   }
