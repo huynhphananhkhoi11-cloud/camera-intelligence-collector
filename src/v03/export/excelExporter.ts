@@ -598,6 +598,55 @@ function addIdentitySheet(
 }
 
 
+function addSkippedPagesSheet(
+  workbook:
+    ExcelJS.Workbook,
+  result:
+    BulkCollectionResult
+): void {
+
+  const sheet =
+    workbook.addWorksheet(
+      "Skipped Pages"
+    );
+
+
+  sheet.columns = [
+    {
+      header:
+        "URL",
+      key:
+        "url",
+      width:
+        65
+    },
+    {
+      header:
+        "Reason",
+      key:
+        "reason",
+      width:
+        70
+    }
+  ];
+
+
+  for (
+    const item
+    of result.skippedPages
+  ) {
+    sheet.addRow(
+      item
+    );
+  }
+
+
+  styleSheet(
+    sheet
+  );
+}
+
+
 function addErrorsSheet(
   workbook:
     ExcelJS.Workbook,
@@ -732,6 +781,10 @@ function addCoverageSheet(
       [
         "UNCERTAIN",
         result.uncertain.length
+      ],
+      [
+        "Skipped non-product pages",
+        result.skippedPages.length
       ],
       [
         "ERROR",
@@ -921,6 +974,21 @@ function addAuditSheet(
 
 
   for (
+    const item
+    of result.skippedPages
+  ) {
+    sheet.addRow({
+      stage:
+        "SKIPPED_NON_PRODUCT",
+      item:
+        item.url,
+      detail:
+        item.reason
+    });
+  }
+
+
+  for (
     const warning
     of [
       ...result.discovery.staticTraversal.warnings,
@@ -1024,6 +1092,12 @@ export async function exportBulkWorkbook(
 
 
   addIdentitySheet(
+    workbook,
+    result
+  );
+
+
+  addSkippedPagesSheet(
     workbook,
     result
   );
