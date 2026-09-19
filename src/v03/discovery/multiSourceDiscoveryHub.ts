@@ -138,16 +138,22 @@ function endpointEvidence(
 }
 
 
-function uniqueUrlCount(
+function promisingUrlCount(
   evidence:
     readonly UrlDiscoveryEvidence[]
 ): number {
 
   return new Set(
-    evidence.map(
-      item =>
-        item.url
-    )
+    evidence
+      .filter(
+        item =>
+          item.score >=
+            40
+      )
+      .map(
+        item =>
+          item.url
+      )
   ).size;
 }
 
@@ -473,7 +479,7 @@ export class MultiSourceDiscoveryHub {
 
     const shouldUseRendered =
       this.supplementalEnabled &&
-      uniqueUrlCount(
+      promisingUrlCount(
         baseEvidence
       ) <
       this.renderedFallbackThreshold;
