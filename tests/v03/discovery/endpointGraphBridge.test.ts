@@ -107,7 +107,8 @@ describe(
               "category=6"
           }
         });
-
+      }
+    );
 
 
     test(
@@ -226,8 +227,6 @@ describe(
         ).toHaveLength(
           2
         );
-      }
-    );
       }
     );
   }
