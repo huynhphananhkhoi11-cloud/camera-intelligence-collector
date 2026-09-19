@@ -87,6 +87,8 @@ export function formatBulkCollectionReport(
         result.nonCameras.length,
       "UNCERTAIN: " +
         result.uncertain.length,
+      "SKIPPED_NON_PRODUCT: " +
+        result.skippedPages.length,
       "ERROR: " +
         result.errors.length,
       "",
