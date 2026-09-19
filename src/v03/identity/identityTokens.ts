@@ -139,31 +139,73 @@ export function buildIdentityTokens(
       raw
     ) {
 
-      let value =
-        raw;
-
-
       if (
         /^https?:\/\//i.test(
           raw
         )
       ) {
-        value =
+
+        const value =
           normalizeUrl(
             raw
           );
+
+
+        tokens.push({
+          kind:
+            "STRUCTURED_ID",
+          value,
+          token:
+            "STRUCTURED_ID:" +
+            value
+        });
       }
+      else {
+
+        const origin =
+          new URL(
+            signals.requestedUrl
+          ).origin
+            .toLowerCase();
 
 
-      tokens.push({
-        kind:
-          "STRUCTURED_ID",
-        value,
-        token:
-          "STRUCTURED_ID:" +
-          value
-      });
+        tokens.push({
+          kind:
+            "STRUCTURED_ID",
+          value:
+            raw,
+          token:
+            [
+              "STRUCTURED_ID",
+              origin,
+              raw
+            ].join(
+              ":"
+            )
+        });
+      }
     }
+  }
+
+
+  if (
+    signals.structuredProductUrl
+  ) {
+
+    const value =
+      normalizeUrl(
+        signals.structuredProductUrl
+      );
+
+
+    tokens.push({
+      kind:
+        "STRUCTURED_URL",
+      value,
+      token:
+        "STRUCTURED_URL:" +
+        value
+    });
   }
 
 
