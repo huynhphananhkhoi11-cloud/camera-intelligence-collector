@@ -271,6 +271,13 @@ const ENTITY_EVIDENCE_META:
         "entity.gimbal.title"
     },
 
+    "camera support accessory title": {
+      source: "TITLE",
+      weight: 100,
+      ruleId:
+        "entity.accessory.support_title"
+    },
+
     "lighting specification bundle": {
       source:
         "SCOPED_DETAIL",
@@ -738,6 +745,30 @@ export function classifyEntity(
       ]
     );
   }
+
+  /*
+   * Camera-support products are proven non-camera identities when
+   * the product title itself names the support object. This keeps
+   * rental catalogs from routing tripods/monopods to REVIEW merely
+   * because category evidence is sparse.
+   */
+  if (
+    has(
+      title,
+      /^(?:(?:cho thue|thue)\s+)?(?:chan may(?: quay| anh)?|tripod|monopod)\b/
+    ) &&
+    cameraEvidence.length <
+      3
+  ) {
+    return makeResult(
+      "ACCESSORY",
+      "HIGH",
+      [
+        "camera support accessory title"
+      ]
+    );
+  }
+
 
   /*
    * Gimbal is negative only if we do not also have
