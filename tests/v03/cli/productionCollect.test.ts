@@ -116,6 +116,9 @@ function fixture():
     uncertain:
       [],
 
+    skippedPages:
+      [],
+
     errors:
       []
   };
