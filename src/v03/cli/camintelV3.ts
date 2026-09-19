@@ -7,6 +7,10 @@ import {
 } from "../acquisition/adaptiveEndpointDiscovery.js";
 
 import {
+  BulkCollector
+} from "../bulk/bulkCollector.js";
+
+import {
   createDefaultAcquisitionRouter
 } from "../acquisition/defaultAcquisitionRouter.js";
 
@@ -34,6 +38,10 @@ import {
   formatAcquisitionDoctorReport,
   runAcquisitionDoctor
 } from "../diagnostics/acquisitionDoctor.js";
+
+import {
+  formatBulkCollectionReport
+} from "../diagnostics/bulkCollectionReport.js";
 
 import {
   formatEndpointDiscoveryReport
@@ -347,6 +355,77 @@ program
 
       process.stdout.write(
         formatObservationReport(
+          result
+        ) +
+        "\n"
+      );
+    }
+  );
+
+
+program
+  .command(
+    "bulk"
+  )
+  .description(
+    "Discover, detail-collect, identity-dedupe and entity-route a site"
+  )
+  .argument(
+    "<url>",
+    "Website root URL"
+  )
+  .option(
+    "--max-products <n>",
+    "Maximum detail URLs for this run",
+    value =>
+      Number.parseInt(
+        value,
+        10
+      ),
+    5000
+  )
+  .option(
+    "--concurrency <n>",
+    "Parallel detail requests",
+    value =>
+      Number.parseInt(
+        value,
+        10
+      ),
+    3
+  )
+  .action(
+    async (
+      url:
+        string,
+      options:
+        {
+          maxProducts:
+            number;
+
+          concurrency:
+            number;
+        }
+    ) => {
+
+      const collector =
+        new BulkCollector({
+          maxProducts:
+            options.maxProducts,
+
+          concurrency:
+            options.concurrency
+        });
+
+
+      const result =
+        await collector.collect(
+          url
+        );
+
+
+      process.stdout.write(
+        formatBulkCollectionReport(
           result
         ) +
         "\n"
