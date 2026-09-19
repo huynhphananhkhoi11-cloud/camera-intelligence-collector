@@ -141,8 +141,21 @@ export function selectProductCandidates(
         url:
           candidate.url,
 
+        /*
+         * Ranking may legitimately use a score above 100 when
+         * several strong discovery signals accumulate. SQLite
+         * persistence, however, constrains discovery_score to
+         * [0, 100]. Preserve ranking order above, then normalize
+         * only the emitted/persisted candidate score here.
+         */
         score:
-          candidate.score,
+          Math.max(
+            0,
+            Math.min(
+              100,
+              candidate.score
+            )
+          ),
 
         reasons:
           [
