@@ -337,10 +337,20 @@ export function extractRawProductFactsFromHtml(
         )
         .toLowerCase();
 
-    return /(?:^|[\s_-])(?:logo|site[-_ ]?title|site[-_ ]?brand|brand)(?:$|[\s_-])/
-      .test(
-        signature
-      );
+    return (
+      /logo/
+        .test(
+          signature
+        ) ||
+      /site[-_ ]?(?:title|brand)/
+        .test(
+          signature
+        ) ||
+      /(?:^|[\s_-])brand(?:$|[\s_-])/
+        .test(
+          signature
+        )
+    );
   };
 
 
@@ -372,12 +382,20 @@ export function extractRawProductFactsFromHtml(
 
   const preferredHeadingNode =
     h1Candidates.find(
-      element =>
-        $(element)
-          .closest(
+      element => {
+        const node =
+          $(element);
+
+        return (
+          node.is(
+            productHeadingOwners
+          ) ||
+          node.closest(
             productHeadingOwners
           ).length >
-          0
+            0
+        );
+      }
     ) ??
     h1Candidates.find(
       element =>
