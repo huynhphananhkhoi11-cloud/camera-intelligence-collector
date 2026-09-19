@@ -259,7 +259,7 @@ export function classifyOffers(
   ) {
 
     if (
-      /thue ngay|dat thue|thue may|rent now|book rental/
+      /thue ngay|dat thue|thue may|thue san pham|lien he thue|dat lich thue|rent now|book rental/
         .test(button)
     ) {
 
@@ -485,6 +485,28 @@ export function classifyOffers(
   }
 
   /*
+   * An explicit rental product title is strong transaction evidence.
+   * It describes the offer itself, unlike siteMode/category priors.
+   */
+  if (
+    /\b(?:cho thue|thue)\b/
+      .test(
+        title
+      )
+  ) {
+    rentalScore += 80;
+
+    add(
+      evidence,
+      "RENTAL",
+      "CATEGORY",
+      title,
+      80
+    );
+  }
+
+
+  /*
    * ====================================================
    * 5. CATEGORY — SUPPORTING ONLY
    * ====================================================
@@ -694,6 +716,8 @@ export function classifyOffers(
 
 
   const hasIndependentSalePrice =
+    rentalAmounts.length >
+      0 &&
     saleAmounts.some(
       amount =>
         !rentalAmounts.includes(
