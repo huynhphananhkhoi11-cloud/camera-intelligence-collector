@@ -268,6 +268,36 @@ describe(
         ).toBe("PHOTOBOOTH");
       }
     );
+
+    test(
+      "rental tripod title => ACCESSORY",
+      () => {
+
+        const result =
+          classifyEntity({
+            title:
+              "Cho thuê chân máy quay Benro KH-25"
+          });
+
+        expect(
+          result.type
+        ).toBe(
+          "ACCESSORY"
+        );
+
+        expect(
+          result.confidence
+        ).toBe(
+          "HIGH"
+        );
+
+        expect(
+          result.isCamera
+        ).toBe(false);
+      }
+    );
+
+
   }
 );
 
