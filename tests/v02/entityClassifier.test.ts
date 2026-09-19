@@ -73,6 +73,35 @@ describe(
         ).toBe(true);
       }
     );
+
+    test(
+      "camera rental category plus an explicit branded body unit proves a sparse camera kit",
+      () => {
+
+        const result =
+          classifyEntity({
+            title:
+              "Sony A6400 + Lens Sony 18-105mm",
+
+            category:
+              "Tất Cả Camera Cho Thuê",
+
+            description:
+              "Set thiết bị cho thuê bao gồm: 1 Body Sony A6400; 1 Lens Sony 18-105mm f4; 2 Pin; 1 Sạc Pin."
+          });
+
+        expect(
+          result.type
+        ).toBe(
+          "CAMERA"
+        );
+
+        expect(
+          result.isCamera
+        ).toBe(true);
+      }
+    );
+
   }
 );
 
