@@ -179,6 +179,42 @@ describe(
 
 
     test(
+      "new stock wording with Vietnamese diacritics is removed from the display name and normalized to Hàng mới",
+      () => {
+
+        const row =
+          buildMainPresentationRow(
+            product([
+              observation(
+                "PRODUCT_NAME",
+                "Sony ZV-E10 hàng mới chính hãng"
+              ),
+              observation(
+                "CONDITION",
+                "Sony ZV-E10 hàng mới chính hãng"
+              )
+            ]),
+            "https://example.com/"
+          );
+
+
+        expect(
+          row.productName
+        ).toBe(
+          "Sony ZV-E10"
+        );
+
+
+        expect(
+          row.form
+        ).toBe(
+          "Hàng mới"
+        );
+      }
+    );
+
+
+    test(
       "equivalent observed prices collapse to one clean VND amount",
       () => {
 
