@@ -273,6 +273,46 @@ function fixture():
         ],
         warnings:
           []
+      },
+      staticTraversal: {
+        visitedPages:
+          [],
+        evidence:
+          [],
+        warnings:
+          []
+      },
+      sitemap: {
+        sitemapDocuments:
+          [],
+        evidence:
+          [],
+        warnings:
+          []
+      },
+      renderedDom: {
+        used:
+          false,
+        evidence:
+          [],
+        warnings:
+          []
+      },
+      evidence:
+        [],
+      allDiscoveredUrls: [
+        "https://example.com/canon-r50",
+        "https://example.com/canon-r50?p=2"
+      ],
+      channelCounts: {
+        STATIC_HTML:
+          0,
+        SITEMAP:
+          0,
+        ENDPOINT_REPLAY:
+          2,
+        RENDERED_DOM:
+          0
       }
     },
     candidateUrls: [
