@@ -3,12 +3,12 @@ import {
 } from "../contracts/observationContract.js";
 
 import {
-  AdaptiveEndpointDiscovery
-} from "../acquisition/adaptiveEndpointDiscovery.js";
+  MultiSourceDiscoveryHub
+} from "../discovery/multiSourceDiscoveryHub.js";
 
 import type {
-  AdaptiveEndpointDiscoveryOptions
-} from "../acquisition/adaptiveEndpointDiscovery.js";
+  MultiSourceDiscoveryHubOptions
+} from "../discovery/multiSourceDiscoveryHub.js";
 
 import {
   resolveProductIdentities
@@ -44,7 +44,7 @@ import type {
 
 export interface BulkCollectorOptions {
   readonly discovery?:
-    AdaptiveEndpointDiscoveryOptions;
+    MultiSourceDiscoveryHubOptions;
 
   readonly observation?:
     ObservationAcquirerOptions;
@@ -119,7 +119,7 @@ function errorMessage(
 
 export class BulkCollector {
   private readonly discovery:
-    AdaptiveEndpointDiscovery;
+    MultiSourceDiscoveryHub;
 
 
   private readonly observation:
@@ -140,7 +140,7 @@ export class BulkCollector {
   ) {
 
     this.discovery =
-      new AdaptiveEndpointDiscovery(
+      new MultiSourceDiscoveryHub(
         options.discovery
       );
 
@@ -187,7 +187,7 @@ export class BulkCollector {
 
     const candidateUrls =
       uniqueInOrder(
-        discovery.replay.discoveredUrls
+        discovery.allDiscoveredUrls
       );
 
 
