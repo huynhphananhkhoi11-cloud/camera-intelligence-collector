@@ -151,6 +151,87 @@ describe(
 
 
     test(
+      "preserves breadcrumb path separately from nearest ancestor category and keeps action-like text raw",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <nav class="breadcrumb">
+                <a>Trang chủ</a>
+                <a>Sản phẩm</a>
+                <a>MÁY ẢNH CANON</a>
+                <a>Canon EOS R50</a>
+              </nav>
+
+              <main>
+                <h1>Canon EOS R50</h1>
+                <button>Black</button>
+                <button>Mua ngay</button>
+              </main>
+            </body>
+          </html>
+        `;
+
+
+        const result =
+          collectProductObservationsFromHtml(
+            html,
+            "https://example.com/canon-r50"
+          );
+
+
+        expect(
+          result.observations.filter(
+            observation =>
+              observation.field ===
+                "BREADCRUMB"
+          ).map(
+            observation =>
+              observation.rawValue
+          )
+        ).toEqual([
+          "Trang chủ",
+          "Sản phẩm",
+          "MÁY ẢNH CANON",
+          "Canon EOS R50"
+        ]);
+
+
+        expect(
+          result.observations.filter(
+            observation =>
+              observation.field ===
+                "CATEGORY"
+          ).map(
+            observation =>
+              observation.rawValue
+          )
+        ).toEqual([
+          "MÁY ẢNH CANON"
+        ]);
+
+
+        expect(
+          result.observations.filter(
+            observation =>
+              observation.field ===
+                "ACTION_TEXT"
+          ).map(
+            observation =>
+              observation.rawValue
+          )
+        ).toEqual(
+          expect.arrayContaining([
+            "Black",
+            "Mua ngay"
+          ])
+        );
+      }
+    );
+
+
+    test(
       "does not absorb a related-product visible price into the primary product",
       () => {
 
