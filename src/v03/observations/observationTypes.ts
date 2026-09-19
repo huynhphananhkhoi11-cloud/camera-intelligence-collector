@@ -16,6 +16,7 @@ export type ObservationField =
   | "AVAILABILITY"
   | "RATING"
   | "REVIEW_COUNT"
+  | "RATING_REVIEW_TEXT"
   | "SPECS"
   | "ACCESSORIES"
   | "COMBO"
