@@ -14,6 +14,10 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      - name: Preserve repository line endings
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
       - name: Checkout
         uses: actions/checkout@v4
 
