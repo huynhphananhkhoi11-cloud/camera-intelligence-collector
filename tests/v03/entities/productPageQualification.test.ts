@@ -189,6 +189,52 @@ describe(
 
 
     test(
+      "rejects article-style pages that mention one Product but expose no commerce evidence",
+      () => {
+
+        const base =
+          result();
+
+
+        const input =
+          result({
+            identity: {
+              ...base.identity,
+              signals: {
+                ...base.identity.signals,
+                primaryProductSelection:
+                  "SINGLE_PRODUCT"
+              }
+            },
+            observations: [
+              {
+                productIdentity:
+                  "URL:https://example.com/review-r50",
+                field:
+                  "PRODUCT_NAME",
+                rawValue:
+                  "Canon EOS R50",
+                sourceKind:
+                  "JSON_LD",
+                sourceUrl:
+                  "https://example.com/review-r50",
+                locator:
+                  "Product.name"
+              }
+            ]
+          });
+
+
+        expect(
+          qualifyProductDetailPage(
+            input
+          ).isProductDetail
+        ).toBe(false);
+      }
+    );
+
+
+    test(
       "rejects a category page even when its title contains camera words",
       () => {
 
