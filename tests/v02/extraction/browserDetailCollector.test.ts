@@ -112,19 +112,39 @@ class FakePage
     Promise<{
       hasProductIdentity: boolean;
       hasTransactionAction: boolean;
+      hasChromeOnlyHeading: boolean;
     }> {
+    const h1Matches =
+      Array.from(
+        this.html.matchAll(
+          /<h1([^>]*)>\s*([^<\s][\s\S]*?)<\/h1>/gi
+        )
+      );
+
+    const nonChromeHeading =
+      h1Matches.some(
+        match =>
+          !/(?:logo|site-header|site-title|brand)/i
+            .test(
+              match[1] ??
+              ""
+            )
+      );
+
     return {
       hasProductIdentity:
-        /<h1[^>]*>\s*[^<\s][\s\S]*?<\/h1>/i
-          .test(
-            this.html
-          ),
+        nonChromeHeading,
 
       hasTransactionAction:
         /(?:thuê sản phẩm|mua ngay|thêm vào giỏ|rent now|book now|add to cart)/iu
           .test(
             this.html
-          )
+          ),
+
+      hasChromeOnlyHeading:
+        h1Matches.length >
+          0 &&
+        !nonChromeHeading
     };
   }
 
@@ -425,6 +445,50 @@ describe(
           await collectBrowserDetail(
             page as unknown as Page,
             "https://example.com/product/a",
+            {
+              settleTimeoutMs:
+                10
+            }
+          );
+
+        expect(
+          page.hydrationWaits
+        ).toBe(
+          1
+        );
+
+        expect(
+          result.html
+        ).toContain(
+          "<h1>Sony A6400</h1>"
+        );
+      }
+    );
+
+
+    test(
+      "waits when the only early H1 is site chrome and product identity hydrates later",
+      async () => {
+
+        const page =
+          new FakePage();
+
+        page.html =
+          [
+            "<html><body>",
+            '<header class="site-header">',
+            '<h1 class="site-header__logo">RentLens</h1>',
+            "</header>",
+            "</body></html>"
+          ].join("");
+
+        page.hydrateProduct =
+          true;
+
+        const result =
+          await collectBrowserDetail(
+            page as unknown as Page,
+            "https://example.com/lens/cho-thue-chan-may",
             {
               settleTimeoutMs:
                 10
