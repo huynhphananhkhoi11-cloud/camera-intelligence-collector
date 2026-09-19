@@ -1122,7 +1122,7 @@ export function collectProductObservationsFromHtml(
       pushObservation(
         output,
         identityId,
-        "CATEGORY",
+        "BREADCRUMB",
         value,
         "VISIBLE_TEXT",
         finalUrl,
@@ -1132,6 +1132,22 @@ export function collectProductObservationsFromHtml(
       );
     }
   );
+
+
+  if (
+    rawFacts.listingCategory
+  ) {
+    pushObservation(
+      output,
+      identityId,
+      "CATEGORY",
+      rawFacts.listingCategory,
+      "VISIBLE_TEXT",
+      finalUrl,
+      "breadcrumb-derived-listing-category",
+      "Nearest ancestor category in the observed breadcrumb trail"
+    );
+  }
 
 
   rawFacts.visiblePriceTexts.forEach(
@@ -1165,7 +1181,7 @@ export function collectProductObservationsFromHtml(
       pushObservation(
         output,
         identityId,
-        "CTA",
+        "ACTION_TEXT",
         value,
         "VISIBLE_TEXT",
         finalUrl,
