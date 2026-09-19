@@ -23,7 +23,19 @@ describe(
 
         const runtime:
           RenderedDomRuntime = {
-            async collectLinks() {
+            async collectLinks(
+              url:
+                string
+            ) {
+
+              if (
+                url !==
+                  "https://example.com/"
+              ) {
+                return [];
+              }
+
+
               return [
                 {
                   url:
