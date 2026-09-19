@@ -887,6 +887,11 @@ export async function runCollectV2(
         ProductUrlCandidate[] = [];
 
 
+      let requestedSeedUrl:
+        string |
+        undefined;
+
+
       const catalogPage =
         await context.newPage();
 
@@ -955,6 +960,40 @@ export async function runCollectV2(
             productCandidates.push(
               ...discovery.candidates
             );
+
+
+            if (
+              current ===
+                startUrl &&
+              requestedSeedUrl ===
+                undefined
+            ) {
+              const currentPageUrl =
+                catalogPage.url();
+
+              const directCandidate =
+                discovery.candidates.find(
+                  candidate =>
+                    candidate.url ===
+                      currentPageUrl &&
+                    candidate.reasons.some(
+                      reason =>
+                        reason ===
+                          "current-page product detail" ||
+                        reason ===
+                          "JSON-LD Product current page" ||
+                        reason ===
+                          "JSON-LD Product"
+                    )
+                );
+
+              if (
+                directCandidate
+              ) {
+                requestedSeedUrl =
+                  directCandidate.url;
+              }
+            }
 
 
             for (
@@ -1044,7 +1083,11 @@ export async function runCollectV2(
       const discoveredCandidates =
         selectProductCandidates(
           productCandidates,
-          options.maxProducts
+          options.maxProducts,
+          {
+            pinnedUrl:
+              requestedSeedUrl
+          }
         );
 
 
@@ -1101,7 +1144,10 @@ export async function runCollectV2(
                 sourcesJson:
                   JSON.stringify({
                     kind:
-                      "CATALOG_DISCOVERY",
+                      candidate.url ===
+                        requestedSeedUrl
+                        ? "DIRECT_START_PRODUCT"
+                        : "CATALOG_DISCOVERY",
 
                     root:
                       startUrl,
