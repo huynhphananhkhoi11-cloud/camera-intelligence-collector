@@ -39,24 +39,68 @@ const DEFAULT_MAX_URLS =
   10_000;
 
 
-function sameOrigin(
+function siteKey(
   value:
-    string,
-  rootOrigin:
     string
-): boolean {
+): string |
+  null {
 
   try {
-    return (
+
+    const url =
       new URL(
         value
-      ).origin ===
-      rootOrigin
+      );
+
+
+    return (
+      url.protocol +
+      "//" +
+      url.hostname
+        .replace(
+          /^www\./i,
+          ""
+        )
+        .toLowerCase() +
+      (
+        url.port
+          ? ":" +
+            url.port
+          : ""
+      )
     );
   }
   catch {
-    return false;
+    return null;
   }
+}
+
+
+function sameSite(
+  left:
+    string,
+  right:
+    string
+): boolean {
+
+  const leftKey =
+    siteKey(
+      left
+    );
+
+
+  const rightKey =
+    siteKey(
+      right
+    );
+
+
+  return (
+    leftKey !==
+      null &&
+    leftKey ===
+      rightKey
+  );
 }
 
 
@@ -473,7 +517,7 @@ export class SitemapDiscovery {
       )
         .filter(
           url =>
-            sameOrigin(
+            sameSite(
               url,
               origin
             )
@@ -573,7 +617,7 @@ export class SitemapDiscovery {
 
 
           if (
-            !sameOrigin(
+            !sameSite(
               resolved,
               origin
             ) ||
@@ -634,7 +678,7 @@ export class SitemapDiscovery {
 
 
           if (
-            !sameOrigin(
+            !sameSite(
               pageUrl,
               origin
             )
