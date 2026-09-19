@@ -562,5 +562,113 @@ describe(
       }
     );
 
+
+    test(
+      "site-logo h1 does not steal title or scope from a rental product without ecommerce CTA",
+      () => {
+
+        const html = `
+          <html>
+            <head>
+              <meta
+                property="og:title"
+                content="Cho thuê chân máy tại Hà Nội- Tripod Benro KH25N - RentLens"
+              >
+            </head>
+
+            <body>
+              <header class="site-header">
+                <h1 class="site-header__logo">
+                  RentLens
+                </h1>
+              </header>
+
+              <main>
+                <section class="product-details">
+                  <h1 class="product-details__title">
+                    Cho thuê chân máy tại Hà Nội- Tripod Benro KH25N
+                  </h1>
+
+                  <h2 class="product-details__category">
+                    Phụ kiện máy ảnh Phụ kiện máy quay
+                  </h2>
+
+                  <p>
+                    Giá thuê: 100.000 đ/ngày
+                  </p>
+
+                  <p>
+                    Chân máy quay chuyên nghiệp Benro KH25N.
+                  </p>
+                </section>
+
+                <section class="related-products">
+                  <h2>
+                    Sản phẩm liên quan
+                  </h2>
+
+                  <article>
+                    <h3>
+                      Cho thuê Godox AD600BM
+                    </h3>
+
+                    <p>
+                      GIÁ THUÊ: 350.000 Đ/NGÀY
+                    </p>
+                  </article>
+                </section>
+              </main>
+            </body>
+          </html>
+        `;
+
+        const url =
+          "https://shop.test/lens/cho-thue-chan-may-quay-benro-kh-25";
+
+        const facts =
+          extractRawProductFactsFromHtml(
+            html,
+            url
+          );
+
+        expect(
+          facts.title
+        ).toBe(
+          "Cho thuê chân máy tại Hà Nội- Tripod Benro KH25N"
+        );
+
+        expect(
+          facts.visiblePriceTexts
+        ).toContain(
+          "Giá thuê: 100.000 đ/ngày"
+        );
+
+        expect(
+          facts.visiblePriceTexts
+        ).not.toContain(
+          "GIÁ THUÊ: 350.000 Đ/NGÀY"
+        );
+
+        const result =
+          processProductHtml(
+            html,
+            url,
+            "RENTAL"
+          );
+
+        expect(
+          result.analysis.entity.type
+        ).toBe(
+          "ACCESSORY"
+        );
+
+        expect(
+          result.validation.decision
+        ).toBe(
+          "EXCLUDE"
+        );
+      }
+    );
+
   }
 );
