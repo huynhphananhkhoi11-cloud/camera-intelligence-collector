@@ -19,3 +19,10 @@ data/*.sqlite-*
 Thumbs.db
 
 .vitest/
+
+artifacts/
+data/ai-training/
+data/ai-evidence/
+data/runs/
+CameraIntelligence_AI.xlsx
+*.partial.xlsx
