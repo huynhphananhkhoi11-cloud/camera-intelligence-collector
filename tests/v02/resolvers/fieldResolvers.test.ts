@@ -841,5 +841,83 @@ describe(
         ).toBe(0);
       }
     );
+
+    test(
+      "primary sale price outranks gift values discounts and configuration deltas from the same product scope",
+      () => {
+
+        const facts = {
+          url:
+            "https://example.com/products/sony-a6400-sigma-18-50",
+
+          title:
+            "Máy ảnh Sony Alpha A6400 (Black) + Lens Sigma 18-50mm f/2.8 | Chính hãng",
+
+          breadcrumbs:
+            [],
+
+          listingCategory:
+            "",
+
+          jsonLd:
+            [],
+
+          visiblePriceTexts: [
+            "Quà tặng kèm trị giá: 590.000đ",
+            "390.000 ₫",
+            "27.480.000đ30.990.000đGiảm: 3.510.000đ",
+            "30.990.000đGiảm: 3.510.000đ",
+            "Giảm: 3.510.000đ",
+            "Body Only-9.817.091đ",
+            "+ Lens E 18-135mm F3.5-5.6-1.962.546đ",
+            "+ Lens Tamron 17-70mm f/2.8+1.000.000đ",
+            "12.753.818 ₫Giảm 2.753.818 ₫",
+            "350.000 ₫"
+          ],
+
+          buttons: [
+            "MUA NGAY",
+            "Đặt mua"
+          ],
+
+          sections:
+            [],
+
+          ratingTexts:
+            [],
+
+          stockTexts:
+            [],
+
+          listingPriceText:
+            "",
+
+          networkFacts:
+            [],
+
+          pageText:
+            "Máy ảnh Sony Alpha A6400. MUA NGAY."
+        };
+
+        const analysis =
+          analyzeRawProduct(
+            facts,
+            "SALE_NEW"
+          );
+
+        const fields =
+          resolveProductFields(
+            facts,
+            analysis
+          );
+
+        expect(
+          fields.salePrice.amount
+        ).toBe(
+          27_480_000
+        );
+      }
+    );
+
   }
 );
