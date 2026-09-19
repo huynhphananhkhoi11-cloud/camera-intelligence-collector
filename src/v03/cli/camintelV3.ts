@@ -27,6 +27,10 @@ import {
 } from "../identity/identityClusterer.js";
 
 import {
+  ObservationAcquirer
+} from "../observations/observationAcquirer.js";
+
+import {
   formatAcquisitionDoctorReport,
   runAcquisitionDoctor
 } from "../diagnostics/acquisitionDoctor.js";
@@ -46,6 +50,10 @@ import {
 import {
   formatProductIdentityReport
 } from "../diagnostics/productIdentityReport.js";
+
+import {
+  formatObservationReport
+} from "../diagnostics/observationReport.js";
 
 
 const program =
@@ -303,6 +311,43 @@ program
       process.stdout.write(
         formatProductIdentityReport(
           resolution
+        ) +
+        "\n"
+      );
+    }
+  );
+
+
+program
+  .command(
+    "observe"
+  )
+  .description(
+    "Collect all unique observable product field values with provenance"
+  )
+  .argument(
+    "<url>",
+    "Product detail URL"
+  )
+  .action(
+    async (
+      url:
+        string
+    ) => {
+
+      const acquirer =
+        new ObservationAcquirer();
+
+
+      const result =
+        await acquirer.acquire(
+          url
+        );
+
+
+      process.stdout.write(
+        formatObservationReport(
+          result
         ) +
         "\n"
       );
