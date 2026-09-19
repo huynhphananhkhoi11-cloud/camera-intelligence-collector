@@ -45,6 +45,9 @@ export interface MultiSourceDiscoveryHubOptions {
   readonly endpoint?:
     AdaptiveEndpointDiscoveryOptions;
 
+  readonly supplementalEnabled?:
+    boolean;
+
   readonly staticTraversal?:
     StaticTraversalOptions;
 
@@ -348,6 +351,10 @@ export class MultiSourceDiscoveryHub {
     RenderedDomDiscovery;
 
 
+  private readonly supplementalEnabled:
+    boolean;
+
+
   private readonly renderedFallbackThreshold:
     number;
 
@@ -385,6 +392,11 @@ export class MultiSourceDiscoveryHub {
       );
 
 
+    this.supplementalEnabled =
+      options.supplementalEnabled ??
+      true;
+
+
     this.renderedFallbackThreshold =
       options.renderedFallbackThreshold ??
       DEFAULT_RENDERED_FALLBACK_THRESHOLD;
@@ -406,27 +418,47 @@ export class MultiSourceDiscoveryHub {
       MultiSourceDiscoveryResult
     > {
 
+    const endpoint =
+      await this.endpoint.discover(
+        rootUrl,
+        signal
+      );
+
+
     const [
-      endpoint,
       staticTraversal,
       sitemap
     ] =
-      await Promise.all([
-        this.endpoint.discover(
-          rootUrl,
-          signal
-        ),
+      this.supplementalEnabled
+        ? await Promise.all([
+            this.staticTraversal.discover(
+              rootUrl,
+              signal
+            ),
 
-        this.staticTraversal.discover(
-          rootUrl,
-          signal
-        ),
-
-        this.sitemap.discover(
-          rootUrl,
-          signal
-        )
-      ]);
+            this.sitemap.discover(
+              rootUrl,
+              signal
+            )
+          ])
+        : [
+            {
+              visitedPages:
+                [],
+              evidence:
+                [],
+              warnings:
+                []
+            },
+            {
+              sitemapDocuments:
+                [],
+              evidence:
+                [],
+              warnings:
+                []
+            }
+          ];
 
 
     const baseEvidence = [
@@ -440,6 +472,7 @@ export class MultiSourceDiscoveryHub {
 
 
     const shouldUseRendered =
+      this.supplementalEnabled &&
       uniqueUrlCount(
         baseEvidence
       ) <
