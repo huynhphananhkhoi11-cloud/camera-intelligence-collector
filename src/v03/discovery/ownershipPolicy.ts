@@ -11,6 +11,8 @@ export function decideDiscoveryTraversal(
 
   if (
     evidence.relation ===
+      "CANDIDATE_LINK" ||
+    evidence.relation ===
       "PRODUCT_LINK" ||
     evidence.relation ===
       "RELATED_PRODUCT"
