@@ -98,5 +98,24 @@ describe(
       }
     );
 
+
+    test(
+      "settles dynamic product hydration before start-page discovery",
+      () => {
+
+        expect(
+          source
+        ).toContain(
+          "waitForProductHydration"
+        );
+
+        expect(
+          source
+        ).toMatch(
+          /await\s+waitForProductHydration\(\s*page/
+        );
+      }
+    );
+
   }
 );
