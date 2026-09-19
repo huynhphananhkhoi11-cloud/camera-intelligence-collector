@@ -159,6 +159,48 @@ function fixture():
         "https://example.com/canon-r50",
       locator:
         "Product.offers[0].price"
+    },
+    {
+      productIdentity:
+        identity.identityId,
+      field:
+        "PRICE_CURRENCY" as const,
+      rawValue:
+        "VND",
+      sourceKind:
+        "JSON_LD" as const,
+      sourceUrl:
+        "https://example.com/canon-r50",
+      locator:
+        "Product.offers[0].priceCurrency"
+    },
+    {
+      productIdentity:
+        identity.identityId,
+      field:
+        "AVAILABILITY" as const,
+      rawValue:
+        "https://schema.org/InStock",
+      sourceKind:
+        "JSON_LD" as const,
+      sourceUrl:
+        "https://example.com/canon-r50",
+      locator:
+        "Product.offers[0].availability"
+    },
+    {
+      productIdentity:
+        identity.identityId,
+      field:
+        "INVENTORY_LEVEL" as const,
+      rawValue:
+        "5",
+      sourceKind:
+        "JSON_LD" as const,
+      sourceUrl:
+        "https://example.com/canon-r50",
+      locator:
+        "Product.offers[0].inventoryLevel"
     }
   ];
 
@@ -318,7 +360,7 @@ describe(
 
 
     test(
-      "main camera row preserves conflicting observed values instead of selecting one",
+      "main camera sheet stays compact and presents readable values while raw evidence remains elsewhere",
       async () => {
 
         await exportBulkWorkbook(
@@ -354,15 +396,75 @@ describe(
             unknown[];
 
 
+        expect(
+          sheet!.columnCount
+        ).toBe(
+          13
+        );
+
+
+        expect(
+          headers
+        ).toEqual(
+          expect.arrayContaining([
+            "Website",
+            "Tên sản phẩm",
+            "Hình thức",
+            "Thông số mô tả",
+            "Giá thuê/ngày",
+            "Điều kiện thuê riêng",
+            "Phụ kiện đi kèm",
+            "Combo/gói đi kèm",
+            "Điểm đánh giá",
+            "Số lượt đánh giá/review",
+            "Tồn kho",
+            "Giá bán",
+            "URL"
+          ])
+        );
+
+
+        expect(
+          headers.some(
+            value =>
+              String(
+                value ??
+                ""
+              ).includes(
+                "(observed)"
+              )
+          )
+        ).toBe(false);
+
+
+        expect(
+          headers
+        ).not.toEqual(
+          expect.arrayContaining([
+            "SKU",
+            "Breadcrumb",
+            "Action text",
+            "URL count",
+            "Identity ID"
+          ])
+        );
+
+
         const conditionColumn =
           headers.indexOf(
-            "Tình trạng (observed)"
+            "Hình thức"
           );
 
 
         const priceColumn =
           headers.indexOf(
-            "Giá (observed)"
+            "Giá bán"
+          );
+
+
+        const stockColumn =
+          headers.indexOf(
+            "Tồn kho"
           );
 
 
@@ -375,7 +477,7 @@ describe(
             ).value
           )
         ).toBe(
-          "CANON EOS R50 (NEW 100%) || https://schema.org/UsedCondition"
+          "NEW 100% | Đã qua sử dụng"
         );
 
 
@@ -388,7 +490,20 @@ describe(
             ).value
           )
         ).toBe(
-          "18.000.000đ || 18000000"
+          "18.000.000 VND"
+        );
+
+
+        expect(
+          String(
+            sheet!.getRow(
+              2
+            ).getCell(
+              stockColumn
+            ).value
+          )
+        ).toBe(
+          "5"
         );
       }
     );
