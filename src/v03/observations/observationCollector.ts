@@ -1186,7 +1186,7 @@ export function collectProductObservationsFromHtml(
       pushObservation(
         output,
         identityId,
-        "RATING",
+        "RATING_REVIEW_TEXT",
         value,
         "VISIBLE_TEXT",
         finalUrl,
