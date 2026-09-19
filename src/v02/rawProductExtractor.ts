@@ -291,9 +291,126 @@ export function extractRawProductFactsFromHtml(
    * -------------------------------------------
    */
 
+  const isSiteChromeHeading = (
+    element:
+      unknown
+  ): boolean => {
+
+    const node =
+      $(
+        element as never
+      );
+
+    if (
+      node.closest(
+        [
+          "header",
+          "nav",
+          "footer",
+          '[role="navigation"]'
+        ].join(",")
+      ).length >
+        0
+    ) {
+      return true;
+    }
+
+    const signature =
+      clean(
+        [
+          node.attr(
+            "class"
+          ),
+          node.attr(
+            "id"
+          )
+        ].join(
+          " "
+        )
+      )
+        .normalize(
+          "NFD"
+        )
+        .replace(
+          /[\u0300-\u036f]/g,
+          ""
+        )
+        .toLowerCase();
+
+    return /(?:^|[\s_-])(?:logo|site[-_ ]?title|site[-_ ]?brand|brand)(?:$|[\s_-])/
+      .test(
+        signature
+      );
+  };
+
+
+  const productHeadingOwners = [
+    '[itemtype*="Product"]',
+    "[data-product-id]",
+    ".product-detail",
+    ".product-details",
+    '[class*="product-detail"]',
+    '[class*="product_details"]',
+    "article.product",
+    ".product"
+  ].join(",");
+
+
+  const h1Candidates =
+    $("h1")
+      .toArray()
+      .filter(
+        element =>
+          clean(
+            $(element).text()
+          ) &&
+          !isSiteChromeHeading(
+            element
+          )
+      );
+
+
+  const preferredHeadingNode =
+    h1Candidates.find(
+      element =>
+        $(element)
+          .closest(
+            productHeadingOwners
+          ).length >
+          0
+    ) ??
+    h1Candidates.find(
+      element =>
+        $(element)
+          .closest(
+            [
+              "main",
+              '[role="main"]',
+              "#main",
+              "#MainContent",
+              ".main-content"
+            ].join(",")
+          ).length >
+          0
+    ) ??
+    h1Candidates[0] ??
+    $("h1")
+      .first()
+      .get(0);
+
+
+  const primaryHeading =
+    preferredHeadingNode
+      ? $(
+          preferredHeadingNode
+        )
+      : $("h1")
+          .first();
+
+
   const h1Title =
     clean(
-      $("h1").first().text()
+      primaryHeading.text()
     );
 
   const ogTitle =
@@ -452,6 +569,10 @@ export function extractRawProductFactsFromHtml(
         /Đ/g,
         "D"
       )
+      .replace(
+        /₫/g,
+        " vnd "
+      )
       .toLowerCase();
 
 
@@ -484,8 +605,33 @@ export function extractRawProductFactsFromHtml(
       );
 
 
-  const primaryHeading =
-    $("h1").first();
+  const hasBoundedPriceEvidence = (
+    scope:
+      ReturnType<
+        typeof $
+      >
+  ): boolean => {
+
+    const text =
+      normalizeActionText(
+        scope.text()
+      ).slice(
+        0,
+        12_000
+      );
+
+    return (
+      /\b(?:gia thue|gia ban|rental price|sale price|price)\b[^0-9]{0,80}\d[\d.,\s]*(?:d|vnd)\b/i
+        .test(
+          text
+        ) ||
+      /\d[\d.,\s]*(?:d|vnd)\s*\/\s*(?:ngay|day|24h)\b/i
+        .test(
+          text
+        )
+    );
+  };
+
 
   let primaryProductScope =
     primaryHeading.parent();
@@ -515,6 +661,9 @@ export function extractRawProductFactsFromHtml(
 
       if (
         hasTransactionAction(
+          cursor
+        ) ||
+        hasBoundedPriceEvidence(
           cursor
         )
       ) {
