@@ -300,6 +300,13 @@ export function analyzeRawProduct(
       "SPECS"
     );
 
+  const description =
+    getSectionContent(
+      facts.sections,
+      "OTHER"
+    );
+
+
   const entity =
     classifyEntity({
       title:
@@ -308,7 +315,9 @@ export function analyzeRawProduct(
       category:
         facts.listingCategory,
 
-      specs
+      specs,
+
+      description
     });
 
 
@@ -362,7 +371,12 @@ export function analyzeRawProduct(
        * used here.
        */
       pageText:
-        offerSectionText,
+        [
+          offerSectionText,
+          description
+        ]
+          .filter(Boolean)
+          .join(" "),
 
       jsonLdBusinessFunctions:
         businessFunctions,
