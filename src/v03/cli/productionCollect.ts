@@ -209,6 +209,8 @@ export async function runProductionCollect(
         collection.nonCameras.length,
       "Review: " +
         collection.uncertain.length,
+      "Skipped non-product: " +
+        collection.skippedPages.length,
       "Errors: " +
         collection.errors.length
     ].join(
