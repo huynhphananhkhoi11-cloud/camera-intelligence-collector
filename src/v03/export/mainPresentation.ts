@@ -193,24 +193,25 @@ function schemaTail(
 }
 
 
-const CONDITION_LABELS:
+const CONDITION_CLASS:
   Readonly<
     Record<
       string,
-      string
+      "Hàng mới" |
+      "Hàng cũ"
     >
   > = {
     NewCondition:
-      "Mới",
+      "Hàng mới",
 
     UsedCondition:
-      "Đã qua sử dụng",
+      "Hàng cũ",
 
     RefurbishedCondition:
-      "Tân trang",
+      "Hàng cũ",
 
     DamagedCondition:
-      "Hư hỏng"
+      "Hàng cũ"
   };
 
 
@@ -259,110 +260,172 @@ const AVAILABILITY_LABELS:
   };
 
 
-function compactVisibleCondition(
-  value:
-    string
+function productNameDisplay(
+  observations:
+    readonly ProductObservation[]
 ): string {
 
-  const parenthetical =
-    value.match(
-      /\(([^)]*(?:new|used|mới|cũ|99%|100%|qua sử dụng)[^)]*)\)/iu
+  const raw =
+    firstPreferredValue(
+      observations,
+      "PRODUCT_NAME"
     );
 
 
+  return raw
+    .replace(
+      /\s*\((?=[^)]*(?:new|used|mới|cũ|qua\s+sử\s+dụng|qua\s+su\s+dung|9\d%|100%))[^)]*\)\s*/giu,
+      " "
+    )
+    .replace(
+      /\s*[-–—]?\s*(?:hàng\s*)?(?:đã\s*)?qua\s+sử\s+dụng\b.*$/iu,
+      ""
+    )
+    .replace(
+      /\s*[-–—]?\s*(?:hàng\s*)?cũ\b.*$/iu,
+      ""
+    )
+    .replace(
+      /\s*[-–—]?\s*(?:hàng\s*)?mới\b.*$/iu,
+      ""
+    )
+    .replace(
+      /\s*[-–—]?\s*(?:used|second[\s-]?hand)\b.*$/iu,
+      ""
+    )
+    .replace(
+      /\s*[-–—]?\s*new(?:\s*100%)?\s*$/iu,
+      ""
+    )
+    .replace(
+      /\s{2,}/g,
+      " "
+    )
+    .replace(
+      /\s*[-–—]\s*$/u,
+      ""
+    )
+    .trim();
+}
+
+
+function oldNewFromText(
+  value:
+    string
+): "Hàng mới" |
+  "Hàng cũ" |
+  null {
+
+  const tail =
+    schemaTail(
+      value
+    );
+
+
+  const structured =
+    CONDITION_CLASS[
+      tail
+    ];
+
+
   if (
-    parenthetical?.[1]
+    structured
   ) {
-    return parenthetical[1]
-      .trim();
+    return structured;
   }
 
 
-  const lower =
+  const normalized =
     value.toLocaleLowerCase(
       "vi"
     );
 
 
   if (
-    /\bnew\s*100%\b/i.test(
+    /\bnew\b/iu.test(
+      value
+    ) ||
+    /\bhàng\s*mới\b/iu.test(
+      value
+    ) ||
+    /\bmới\s*100%\b/iu.test(
       value
     )
   ) {
-    return "NEW 100%";
+    return "Hàng mới";
   }
 
 
   if (
-    lower.includes(
-      "đã qua sử dụng"
+    /\bused\b/iu.test(
+      value
     ) ||
-    lower.includes(
-      "qua sử dụng"
-    )
-  ) {
-    return "Đã qua sử dụng";
-  }
-
-
-  if (
+    /\bsecond[\s-]?hand\b/iu.test(
+      value
+    ) ||
     /\bhàng\s*cũ\b/iu.test(
       value
     ) ||
     /\bcũ\b/iu.test(
       value
+    ) ||
+    normalized.includes(
+      "đã qua sử dụng"
+    ) ||
+    normalized.includes(
+      "qua sử dụng"
     )
   ) {
-    return "Cũ";
+    return "Hàng cũ";
   }
 
 
-  return value.trim();
+  return null;
 }
 
 
-function conditionDisplay(
+function oldNewDisplay(
   observations:
     readonly ProductObservation[]
 ): string {
 
+  const evidence =
+    [
+      ...uniqueValues(
+        observations,
+        "CONDITION"
+      ),
+      ...uniqueValues(
+        observations,
+        "PRODUCT_NAME"
+      ),
+      ...uniqueValues(
+        observations,
+        "CATEGORY"
+      ),
+      ...uniqueValues(
+        observations,
+        "BREADCRUMB"
+      )
+    ];
+
+
   const values =
-    observationsFor(
-      observations,
-      "CONDITION"
-    )
+    evidence
       .map(
-        observation => {
-
-          if (
-            observation.sourceKind ===
-              "JSON_LD" ||
-            /^https?:\/\//i.test(
-              observation.rawValue
-            )
-          ) {
-            const tail =
-              schemaTail(
-                observation.rawValue
-              );
-
-
-            return (
-              CONDITION_LABELS[
-                tail
-              ] ??
-              tail
-            );
-          }
-
-
-          return compactVisibleCondition(
-            observation.rawValue
-          );
-        }
+        value =>
+          oldNewFromText(
+            value
+          )
       )
       .filter(
-        Boolean
+        (
+          value
+        ): value is
+          "Hàng mới" |
+          "Hàng cũ" =>
+            value !==
+            null
       );
 
 
@@ -947,13 +1010,12 @@ export function buildMainPresentationRow(
       ).host,
 
     productName:
-      firstPreferredValue(
-        product.observations,
-        "PRODUCT_NAME"
+      productNameDisplay(
+        product.observations
       ),
 
     form:
-      conditionDisplay(
+      oldNewDisplay(
         product.observations
       ),
 
