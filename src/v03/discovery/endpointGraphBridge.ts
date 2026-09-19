@@ -39,8 +39,12 @@ export function endpointReplayEvidence(
         ownerKind:
           "ENDPOINT_RESPONSE",
 
+        /*
+         * Replay proves only that the endpoint exposed a link.
+         * Product/entity truth is decided after detail acquisition.
+         */
         relation:
-          "PRODUCT_LINK",
+          "CANDIDATE_LINK",
 
         sourceRef:
           discovery.candidate.candidateId,
