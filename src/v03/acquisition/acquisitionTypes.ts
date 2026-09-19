@@ -85,6 +85,25 @@ export interface AcquisitionArtifact {
 }
 
 
+export interface AcquisitionHints {
+  readonly canonicalUrl:
+    string |
+    null;
+
+  readonly baseUrl:
+    string;
+
+  readonly pageLinks:
+    readonly string[];
+
+  readonly scriptUrls:
+    readonly string[];
+
+  readonly jsonLdCount:
+    number;
+}
+
+
 export interface AcquisitionResult {
   readonly backendId:
     AcquisitionBackendId;
@@ -100,6 +119,9 @@ export interface AcquisitionResult {
 
   readonly complete:
     boolean;
+
+  readonly hints?:
+    AcquisitionHints;
 }
 
 
