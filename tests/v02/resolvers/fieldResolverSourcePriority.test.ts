@@ -531,5 +531,72 @@ describe(
         ).toBe(1);
       }
     );
+
+    test(
+      "gift values and configuration money do not outrank the primary sale price",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <main>
+                <section class="product-detail">
+                  <h1>
+                    Máy ảnh Sony Alpha A6400 (Black) + Lens Sigma 18-50mm f/2.8
+                  </h1>
+
+                  <div class="gift-price">
+                    Quà tặng kèm trị giá: 590.000đ
+                  </div>
+
+                  <div class="gift-price">
+                    390.000 ₫
+                  </div>
+
+                  <div class="sale-price">
+                    27.480.000đ 30.990.000đ Giảm: 3.510.000đ
+                  </div>
+
+                  <div class="discount-price">
+                    Giảm: 3.510.000đ
+                  </div>
+
+                  <div class="variant-price">
+                    + Lens Tamron 17-70mm f/2.8 +1.000.000đ
+                  </div>
+
+                  <button>
+                    MUA NGAY
+                  </button>
+                </section>
+              </main>
+            </body>
+          </html>
+        `;
+
+        const result =
+          processProductHtml(
+            html,
+            "https://example.com/products/sony-a6400-sigma-18-50",
+            "SALE_NEW"
+          );
+
+        expect(
+          result.row.salePrice
+        ).toBe(
+          27_480_000
+        );
+
+        expect(
+          result.fields.salePrice.evidence.some(
+            evidence =>
+              evidence.raw.includes(
+                "27.480.000đ"
+              )
+          )
+        ).toBe(true);
+      }
+    );
+
   }
 );
