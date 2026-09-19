@@ -191,6 +191,70 @@ describe(
         ).toBe(true);
       }
     );
+
+    test(
+      "explicit bounded rental price is not turned into SALE by generic ecommerce controls",
+      () => {
+
+        const result =
+          classifyOffers({
+            category:
+              "Tất Cả Camera Cho Thuê",
+
+            visiblePriceTexts: [
+              "250,000₫"
+            ],
+
+            buttons: [
+              "Liên hệ thuê",
+              "Mua ngay"
+            ],
+
+            pageText:
+              "GIÁ THUÊ: 250.000đ / 1 Ngày. Giá niêm yết này là giá cho thuê theo ngày.",
+
+            siteMode:
+              "RENTAL"
+          });
+
+        expect(
+          result.rental
+        ).toBe(true);
+
+        expect(
+          result.sale
+        ).toBe(false);
+      }
+    );
+
+
+    test(
+      "explicit rental plus an independent sale price remains mixed",
+      () => {
+
+        const result =
+          classifyOffers({
+            visiblePriceTexts: [
+              "300.000đ/ngày",
+              "15.000.000đ"
+            ],
+
+            buttons: [
+              "THUÊ NGAY",
+              "MUA NGAY"
+            ]
+          });
+
+        expect(
+          result.rental
+        ).toBe(true);
+
+        expect(
+          result.sale
+        ).toBe(true);
+      }
+    );
+
   }
 );
 
