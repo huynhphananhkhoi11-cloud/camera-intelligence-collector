@@ -6,6 +6,10 @@ import type {
   AdaptiveEndpointDiscoveryOptions
 } from "../acquisition/adaptiveEndpointDiscovery.js";
 
+import type {
+  AdaptiveEndpointDiscoveryResult
+} from "../acquisition/endpointReplayTypes.js";
+
 import {
   RenderedDomDiscovery
 } from "./renderedDomDiscovery.js";
@@ -71,6 +75,58 @@ const DEFAULT_RENDERED_FALLBACK_THRESHOLD =
 
 const DEFAULT_MAX_CANDIDATES =
   10_000;
+
+
+function emptyEndpointResult(
+  rootUrl:
+    string,
+  error:
+    unknown
+): AdaptiveEndpointDiscoveryResult {
+
+  const message =
+    error instanceof
+      Error
+      ? error.message
+      : String(
+          error
+        );
+
+
+  return {
+    recon: {
+      rootUrl,
+      finalPageUrl:
+        rootUrl,
+      exchanges:
+        [],
+      observationWindowMs:
+        0
+    },
+
+    qualification: {
+      candidates:
+        [],
+      qualified:
+        []
+    },
+
+    replay: {
+      qualifiedCandidateCount:
+        0,
+      replayedCandidateCount:
+        0,
+      discoveries:
+        [],
+      discoveredUrls:
+        [],
+      warnings: [
+        "Endpoint/network discovery unavailable: " +
+        message
+      ]
+    }
+  };
+}
 
 
 function normalizeUrl(
@@ -424,11 +480,28 @@ export class MultiSourceDiscoveryHub {
       MultiSourceDiscoveryResult
     > {
 
-    const endpoint =
-      await this.endpoint.discover(
-        rootUrl,
-        signal
-      );
+    let endpoint:
+      AdaptiveEndpointDiscoveryResult;
+
+
+    try {
+
+      endpoint =
+        await this.endpoint.discover(
+          rootUrl,
+          signal
+        );
+    }
+    catch (
+      error
+    ) {
+
+      endpoint =
+        emptyEndpointResult(
+          rootUrl,
+          error
+        );
+    }
 
 
     const effectiveRootUrl =
