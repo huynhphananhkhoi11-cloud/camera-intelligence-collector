@@ -41,21 +41,27 @@ const packageJson =
 
 
 describe(
-  "Phase 11A production camintel entry",
+  "Production camintel entry with V2 fallback",
   () => {
 
     test(
-      "package exposes built camintel binary without replacing collect:v02",
+      "package promotes the production camintel binary to V3 while preserving explicit V2 commands",
       () => {
 
         expect(
           packageJson.bin?.camintel
         ).toBe(
-          "./dist/v02/cli/camintel.js"
+          "./dist/v03/cli/camintel.js"
         );
 
         expect(
           packageJson.scripts?.camintel
+        ).toBe(
+          "tsx src/v03/cli/camintel.ts"
+        );
+
+        expect(
+          packageJson.scripts?.["camintel:v2"]
         ).toBe(
           "tsx src/v02/cli/camintel.ts"
         );
@@ -70,7 +76,7 @@ describe(
 
 
     test(
-      "production command source exists and owns collect subcommand",
+      "legacy V2 command source still exists and owns its collect subcommand",
       () => {
 
         const path =
@@ -109,14 +115,8 @@ describe(
           '.command("collect")'
         );
 
-        /*
-         * URL cardinality moved to Phase 11B.
-         *
-         * Phase 11A owns command existence and delegation only.
-         * Phase 11B separately verifies the optional URL contract.
-         */
 
-expect(
+        expect(
           source
         ).toContain(
           "runCollectV2"
@@ -126,7 +126,7 @@ expect(
 
 
     test(
-      "persistent collector is import-safe and exposes callable runner",
+      "persistent V2 collector remains import-safe and exposes callable runner",
       () => {
 
         const source =
