@@ -172,5 +172,48 @@ describe(
         );
       }
     );
+
+    test(
+      "keeps a generic product description bounded before related products",
+      () => {
+
+        const sections =
+          sectionizeHtml(`
+            <main>
+              <h1>Body Sony A6400</h1>
+              <h2>Mô tả</h2>
+              <p>GIÁ THUÊ: 290.000đ / 1 Ngày</p>
+              <p>Cảm biến APS-C. EVF. ISO 100-102400. AF 425 điểm.</p>
+              <h2>Sản phẩm liên quan</h2>
+              <div>Canon EOS 6D 300.000đ</div>
+            </main>
+          `);
+
+        const description =
+          getSectionContent(
+            sections,
+            "OTHER"
+          );
+
+        expect(
+          description
+        ).toContain(
+          "GIÁ THUÊ: 290.000đ / 1 Ngày"
+        );
+
+        expect(
+          description
+        ).toContain(
+          "Cảm biến APS-C"
+        );
+
+        expect(
+          description
+        ).not.toContain(
+          "Canon EOS 6D"
+        );
+      }
+    );
+
   }
 );
