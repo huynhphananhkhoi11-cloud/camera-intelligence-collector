@@ -39,6 +39,12 @@ class FakePage
   listenersPresentDuringGoto =
     false;
 
+  hydrationWaits =
+    0;
+
+  hydrateProduct =
+    false;
+
   override on(
     event: string,
     listener:
@@ -99,6 +105,44 @@ class FakePage
     Promise<void> {
     if (this.settleError) {
       throw this.settleError;
+    }
+  }
+
+  async evaluate():
+    Promise<{
+      hasProductIdentity: boolean;
+      hasTransactionAction: boolean;
+    }> {
+    return {
+      hasProductIdentity:
+        /<h1[^>]*>\s*[^<\s][\s\S]*?<\/h1>/i
+          .test(
+            this.html
+          ),
+
+      hasTransactionAction:
+        /(?:thuê sản phẩm|mua ngay|thêm vào giỏ|rent now|book now|add to cart)/iu
+          .test(
+            this.html
+          )
+    };
+  }
+
+  async waitForFunction():
+    Promise<void> {
+    this.hydrationWaits++;
+
+    if (
+      this.hydrateProduct
+    ) {
+      this.html =
+        [
+          "<html><body>",
+          "<h1>Sony A6400</h1>",
+          "<div>350.000đ/ngày</div>",
+          "<button>Thuê sản phẩm này</button>",
+          "</body></html>"
+        ].join("");
     }
   }
 
@@ -358,5 +402,48 @@ describe(
         }
       }
     );
+
+    test(
+      "waits boundedly for product identity when a transaction CTA appears before hydration",
+      async () => {
+
+        const page =
+          new FakePage();
+
+        page.html =
+          [
+            "<html><body>",
+            "<div>0đ/ngày</div>",
+            "<button>Thuê sản phẩm này</button>",
+            "</body></html>"
+          ].join("");
+
+        page.hydrateProduct =
+          true;
+
+        const result =
+          await collectBrowserDetail(
+            page as unknown as Page,
+            "https://example.com/product/a",
+            {
+              settleTimeoutMs:
+                10
+            }
+          );
+
+        expect(
+          page.hydrationWaits
+        ).toBe(
+          1
+        );
+
+        expect(
+          result.html
+        ).toContain(
+          "<h1>Sony A6400</h1>"
+        );
+      }
+    );
+
   }
 );
