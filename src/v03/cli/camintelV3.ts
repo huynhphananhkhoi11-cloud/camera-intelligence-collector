@@ -19,6 +19,14 @@ import {
 } from "../discovery/endpointGraphBridge.js";
 
 import {
+  DetailIdentityAcquirer
+} from "../identity/detailIdentityAcquirer.js";
+
+import {
+  resolveProductIdentities
+} from "../identity/identityClusterer.js";
+
+import {
   formatAcquisitionDoctorReport,
   runAcquisitionDoctor
 } from "../diagnostics/acquisitionDoctor.js";
@@ -34,6 +42,10 @@ import {
 import {
   formatProductUrlGraphReport
 } from "../diagnostics/productUrlGraphReport.js";
+
+import {
+  formatProductIdentityReport
+} from "../diagnostics/productIdentityReport.js";
 
 
 const program =
@@ -248,6 +260,49 @@ program
       process.stdout.write(
         formatProductUrlGraphReport(
           graph.snapshot()
+        ) +
+        "\n"
+      );
+    }
+  );
+
+
+program
+  .command(
+    "identity"
+  )
+  .description(
+    "Acquire detail identity signals and deterministically cluster duplicate product representations"
+  )
+  .argument(
+    "<urls...>",
+    "One or more product detail URLs"
+  )
+  .action(
+    async (
+      urls:
+        string[]
+    ) => {
+
+      const acquirer =
+        new DetailIdentityAcquirer();
+
+
+      const records =
+        await acquirer.acquireMany(
+          urls
+        );
+
+
+      const resolution =
+        resolveProductIdentities(
+          records
+        );
+
+
+      process.stdout.write(
+        formatProductIdentityReport(
+          resolution
         ) +
         "\n"
       );
