@@ -260,6 +260,110 @@ describe(
 
 
     test(
+      "uses the final redirected site origin for supplemental discovery",
+      async () => {
+
+        const networkRuntime:
+          NetworkReconRuntime = {
+            async probe() {
+              return {
+                available:
+                  true,
+                reason:
+                  "ready"
+              };
+            },
+
+            async observe(
+              rootUrl:
+                string
+            ) {
+              return {
+                rootUrl,
+                finalPageUrl:
+                  "https://www.example.com/",
+                observationWindowMs:
+                  1,
+                exchanges:
+                  []
+              };
+            }
+          };
+
+
+        const fetchFn:
+          typeof fetch =
+            async (
+              input
+            ) => {
+
+              const url =
+                String(
+                  input
+                );
+
+
+              if (
+                url ===
+                  "https://www.example.com/"
+              ) {
+                return response(
+                  url,
+                  200,
+                  '<a href="/may-anh/canon-r50">Canon R50</a>',
+                  "text/html"
+                );
+              }
+
+
+              return response(
+                url,
+                404,
+                "",
+                "text/plain"
+              );
+            };
+
+
+        const hub =
+          new MultiSourceDiscoveryHub({
+            endpoint: {
+              networkRuntime
+            },
+
+            staticTraversal: {
+              staticHttp: {
+                fetchFn:
+                  fetchFn as
+                    import("../../../src/v03/acquisition/staticHttpBackend.js").StaticFetch
+              }
+            },
+
+            sitemap: {
+              fetchFn
+            },
+
+            renderedFallbackThreshold:
+              1
+          });
+
+
+        const result =
+          await hub.discover(
+            "https://example.com/"
+          );
+
+
+        expect(
+          result.allDiscoveredUrls
+        ).toContain(
+          "https://www.example.com/may-anh/canon-r50"
+        );
+      }
+    );
+
+
+    test(
       "uses rendered DOM as fallback when other channels yield too few URLs",
       async () => {
 
