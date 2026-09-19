@@ -226,6 +226,13 @@ const ENTITY_EVIDENCE_META:
         "specs+description"
     },
 
+    "explicit camera product title": {
+      source: "TITLE",
+      weight: 90,
+      ruleId:
+        "entity.camera.explicit_title"
+    },
+
     "camera model family": {
       source: "TITLE",
       weight: 45,
@@ -526,7 +533,50 @@ export function classifyEntity(
 
   /*
    * =====================================================
-   * 2. CAMERA SPECIFICATION EVIDENCE
+   * 2. CAMERA TITLE EVIDENCE
+   * =====================================================
+   *
+   * Sparse product pages may expose no specs/category at all.
+   * A product title that itself names the object as a camera,
+   * or begins with a manufacturer + established camera model
+   * token, is direct product-identity evidence.
+   *
+   * Strong non-camera identities above always win first.
+   * Compatibility/accessory wording such as
+   * "Túi đựng máy ảnh Sony A6400" does not match these
+   * start-anchored rules.
+   */
+  const explicitCameraProductTitle =
+    /^(?:(?:cho thue|thue)\s+)?(?:may anh|camera)\b/
+      .test(
+        title
+      ) ||
+    /^body\s+(?:sony|canon|nikon|fujifilm|fuji|panasonic|lumix|olympus|leica|pentax)\b/
+      .test(
+        title
+      ) ||
+    /^sony\s+(?:alpha\s+)?a\d{3,4}[a-z]*\b/
+      .test(
+        title
+      );
+
+
+  if (
+    explicitCameraProductTitle
+  ) {
+    return makeResult(
+      "CAMERA",
+      "HIGH",
+      [
+        "explicit camera product title"
+      ]
+    );
+  }
+
+
+  /*
+   * =====================================================
+   * 3. CAMERA SPECIFICATION EVIDENCE
    * =====================================================
    */
 
