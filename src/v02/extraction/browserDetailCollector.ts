@@ -28,6 +28,9 @@ const DEFAULT_NAVIGATION_TIMEOUT_MS =
 const DEFAULT_SETTLE_TIMEOUT_MS =
   2_000;
 
+const DEFAULT_PRODUCT_HYDRATION_TIMEOUT_MS =
+  1_500;
+
 export interface BrowserDetailCollectorOptions {
   navigationTimeoutMs?: number;
 
@@ -224,6 +227,198 @@ async function optionalLoadSettle(
   }
 }
 
+export async function waitForProductHydration(
+  page: Page,
+  timeoutMs:
+    number =
+      DEFAULT_PRODUCT_HYDRATION_TIMEOUT_MS
+): Promise<void> {
+  if (
+    timeoutMs <=
+      0
+  ) {
+    return;
+  }
+
+  let state:
+    {
+      hasProductIdentity:
+        boolean;
+      hasTransactionAction:
+        boolean;
+    };
+
+  try {
+    state =
+      await page.evaluate(
+        () => {
+          const clean =
+            (
+              value:
+                unknown
+            ): string =>
+              String(
+                value ??
+                ""
+              )
+                .normalize(
+                  "NFD"
+                )
+                .replace(
+                  /[\u0300-\u036f]/g,
+                  ""
+                )
+                .replace(
+                  /đ/g,
+                  "d"
+                )
+                .replace(
+                  /Đ/g,
+                  "D"
+                )
+                .toLowerCase()
+                .replace(
+                  /\s+/g,
+                  " "
+                )
+                .trim();
+
+          const h1 =
+            clean(
+              document
+                .querySelector(
+                  "h1"
+                )
+                ?.textContent
+            );
+
+          const productJsonLd =
+            Array.from(
+              document.querySelectorAll(
+                'script[type="application/ld+json"]'
+              )
+            )
+              .some(
+                script =>
+                  /"@type"\s*:\s*(?:\[[^\]]*)?"?product"?/i
+                    .test(
+                      String(
+                        script.textContent ??
+                        ""
+                      )
+                    )
+              );
+
+          const actionText =
+            Array.from(
+              document.querySelectorAll(
+                [
+                  "button",
+                  "a.btn",
+                  "a.button",
+                  '[role="button"]',
+                  'input[type="submit"]',
+                  'input[type="button"]'
+                ].join(
+                  ","
+                )
+              )
+            )
+              .map(
+                element =>
+                  clean(
+                    element.textContent ||
+                    (
+                      element instanceof
+                        HTMLInputElement
+                        ? element.value
+                        : ""
+                    )
+                  )
+              )
+              .join(
+                " "
+              );
+
+          return {
+            hasProductIdentity:
+              Boolean(
+                h1 ||
+                productJsonLd
+              ),
+
+            hasTransactionAction:
+              /\b(?:mua ngay|mua hang|mua nhanh|dat mua|them vao gio(?: hang)?|thue ngay|dat thue|thue san pham(?: nay)?|lien he thue|dat lich thue|buy now|add to cart|rent now|book rental|book now)\b/i
+                .test(
+                  actionText
+                )
+          };
+        }
+      );
+  }
+  catch {
+    return;
+  }
+
+  if (
+    state.hasProductIdentity ||
+    !state.hasTransactionAction
+  ) {
+    return;
+  }
+
+  try {
+    await page.waitForFunction(
+      () => {
+        const heading =
+          document
+            .querySelector(
+              "h1"
+            )
+            ?.textContent
+            ?.trim();
+
+        if (heading) {
+          return true;
+        }
+
+        return Array.from(
+          document.querySelectorAll(
+            'script[type="application/ld+json"]'
+          )
+        )
+          .some(
+            script =>
+              /"@type"\s*:\s*(?:\[[^\]]*)?"?product"?/i
+                .test(
+                  String(
+                    script.textContent ??
+                    ""
+                  )
+                )
+          );
+      },
+      undefined,
+      {
+        timeout:
+          timeoutMs,
+        polling:
+          100
+      }
+    );
+  }
+  catch (error) {
+    if (
+      !isTimeoutError(
+        error
+      )
+    ) {
+      throw error;
+    }
+  }
+}
+
+
 export async function collectBrowserDetail(
   page: Page,
   requestedUrl: string,
@@ -413,6 +608,37 @@ export async function collectBrowserDetail(
           clock() -
             settleStartedAt
         );
+    }
+
+    /*
+     * Some storefronts render transaction controls before the
+     * product identity/content hydrates. Give that state a small,
+     * bounded chance to settle before freezing the DOM snapshot.
+     */
+    try {
+      await waitForProductHydration(
+        page,
+        settleTimeoutMs
+      );
+    }
+    catch (error) {
+      errors.push({
+        stage:
+          "SETTLE",
+        code:
+          "PRODUCT_HYDRATION_WAIT_FAILED",
+        message:
+          errorMessage(
+            error
+          ),
+        retriable:
+          true,
+        status:
+          null,
+        timestamp:
+          now()
+            .toISOString()
+      });
     }
 
     /*
