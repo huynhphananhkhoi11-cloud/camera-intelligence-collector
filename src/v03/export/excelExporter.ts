@@ -734,10 +734,18 @@ function addCoverageSheet(
     result.errors.length;
 
 
-  const collapsedRepresentations =
+  const qualifiedDetailPages =
     Math.max(
       0,
       successfulDetails -
+      result.skippedPages.length
+    );
+
+
+  const collapsedRepresentations =
+    Math.max(
+      0,
+      qualifiedDetailPages -
       result.identityResolution.clusters.length
     );
 
