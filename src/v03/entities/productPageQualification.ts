@@ -174,6 +174,24 @@ export function qualifyProductDetailPage(
       hasField(
         observations,
         "PRODUCT_NAME"
+      ) &&
+      (
+        hasField(
+          observations,
+          "AVAILABILITY"
+        ) ||
+        hasField(
+          observations,
+          "PRICE"
+        ) ||
+        hasField(
+          observations,
+          "SKU"
+        ) ||
+        hasField(
+          observations,
+          "PRODUCT_ID"
+        )
       )
     )
   ) {
