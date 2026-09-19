@@ -102,6 +102,83 @@ describe(
   () => {
 
     test(
+      "removes explicit condition text from the display name and places it in old-new",
+      () => {
+
+        const row =
+          buildMainPresentationRow(
+            product([
+              observation(
+                "PRODUCT_NAME",
+                "CANON EOS R50 (NEW 100%)"
+              ),
+              observation(
+                "CONDITION",
+                "CANON EOS R50 (NEW 100%)"
+              ),
+              observation(
+                "CONDITION",
+                "https://schema.org/UsedCondition",
+                "JSON_LD"
+              )
+            ]),
+            "https://example.com/"
+          );
+
+
+        expect(
+          row.productName
+        ).toBe(
+          "CANON EOS R50"
+        );
+
+
+        expect(
+          row.form
+        ).toBe(
+          "Hàng mới | Hàng cũ"
+        );
+      }
+    );
+
+
+    test(
+      "old stock wording is removed from the display name and normalized to Hàng cũ",
+      () => {
+
+        const row =
+          buildMainPresentationRow(
+            product([
+              observation(
+                "PRODUCT_NAME",
+                "Canon EOS 5D Mark III hàng cũ đẹp"
+              ),
+              observation(
+                "CONDITION",
+                "Canon EOS 5D Mark III hàng cũ đẹp"
+              )
+            ]),
+            "https://example.com/"
+          );
+
+
+        expect(
+          row.productName
+        ).toBe(
+          "Canon EOS 5D Mark III"
+        );
+
+
+        expect(
+          row.form
+        ).toBe(
+          "Hàng cũ"
+        );
+      }
+    );
+
+
+    test(
       "equivalent observed prices collapse to one clean VND amount",
       () => {
 
