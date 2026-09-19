@@ -40,7 +40,8 @@ import {
 } from "../discovery/productCandidateSelection.js";
 
 import {
-  collectBrowserDetail
+  collectBrowserDetail,
+  waitForProductHydration
 } from "../extraction/browserDetailCollector.js";
 
 import {
@@ -393,6 +394,10 @@ async function gentleLoad(
 
       await page.waitForTimeout(
         300
+      );
+
+      await waitForProductHydration(
+        page
       );
 
       return;
