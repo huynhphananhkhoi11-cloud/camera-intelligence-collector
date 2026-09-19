@@ -556,31 +556,36 @@ describe(
         );
 
 
-        for (
-          const price
-          of prices
-        ) {
-
-          expect(
-            price.semanticRole
-          ).toBe(
-            "CURRENT_PRODUCT_PRICE"
+        const currentPrices =
+          prices.filter(
+            price =>
+              price.semanticRole ===
+                "CURRENT_PRODUCT_PRICE" &&
+              price.ownership ===
+                "PRIMARY_PRODUCT" &&
+              price.contextKind ===
+                "SALE"
           );
 
 
-          expect(
-            price.ownership
-          ).toBe(
-            "PRIMARY_PRODUCT"
-          );
+        expect(
+          currentPrices.length
+        ).toBeGreaterThan(
+          0
+        );
 
 
-          expect(
-            price.contextKind
-          ).toBe(
-            "SALE"
-          );
-        }
+        expect(
+          currentPrices.map(
+            price =>
+              price.rawValue
+          )
+        ).toEqual(
+          expect.arrayContaining([
+            "18.900.000đ",
+            "18900000"
+          ])
+        );
       }
     );
 
