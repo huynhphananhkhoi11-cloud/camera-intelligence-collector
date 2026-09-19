@@ -43,6 +43,9 @@ interface QueueItem {
 
   readonly depth:
     number;
+
+  readonly optional:
+    boolean;
 }
 
 
@@ -210,21 +213,47 @@ export class StaticTraversalDiscovery {
       StaticTraversalResult
     > {
 
+    const optionalHtmlSitemaps = [
+      new URL(
+        "/sitemap-view.html",
+        rootUrl
+      ).toString(),
+      new URL(
+        "/sitemap.html",
+        rootUrl
+      ).toString()
+    ];
+
+
     const queue:
       QueueItem[] = [
         {
           url:
             rootUrl,
           depth:
-            0
-        }
+            0,
+          optional:
+            false
+        },
+        ...optionalHtmlSitemaps.map(
+          url => ({
+            url,
+            depth:
+              0,
+            optional:
+              true
+          })
+        )
       ];
 
 
     const queued =
-      new Set([
-        rootUrl
-      ]);
+      new Set(
+        queue.map(
+          item =>
+            item.url
+        )
+      );
 
 
     const visited:
@@ -282,12 +311,16 @@ export class StaticTraversalDiscovery {
             "AVAILABLE"
         ) {
 
-          warnings.push(
-            "Static page unavailable: " +
-            item.url +
-            " | " +
-            probe.reason
-          );
+          if (
+            !item.optional
+          ) {
+            warnings.push(
+              "Static page unavailable: " +
+              item.url +
+              " | " +
+              probe.reason
+            );
+          }
 
 
           continue;
@@ -431,7 +464,10 @@ export class StaticTraversalDiscovery {
 
                 depth:
                   item.depth +
-                  1
+                  1,
+
+                optional:
+                  false
               });
             }
           );
