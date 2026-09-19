@@ -7,9 +7,17 @@ import {
 } from "../acquisition/defaultAcquisitionRouter.js";
 
 import {
+  PlaywrightNetworkReconRuntime
+} from "../acquisition/playwrightNetworkReconRuntime.js";
+
+import {
   formatAcquisitionDoctorReport,
   runAcquisitionDoctor
 } from "../diagnostics/acquisitionDoctor.js";
+
+import {
+  formatNetworkReconSnapshot
+} from "../diagnostics/networkReconReport.js";
 
 
 const program =
@@ -56,6 +64,56 @@ program
       process.stdout.write(
         formatAcquisitionDoctorReport(
           report
+        ) +
+        "\n"
+      );
+    }
+  );
+
+
+program
+  .command(
+    "recon"
+  )
+  .description(
+    "Observe same-origin XHR/fetch traffic during page bootstrap"
+  )
+  .argument(
+    "<url>",
+    "Website root URL"
+  )
+  .option(
+    "--headed",
+    "Show Chromium during reconnaissance",
+    false
+  )
+  .action(
+    async (
+      url:
+        string,
+      options:
+        {
+          headed:
+            boolean;
+        }
+    ) => {
+
+      const runtime =
+        new PlaywrightNetworkReconRuntime({
+          headless:
+            !options.headed
+        });
+
+
+      const snapshot =
+        await runtime.observe(
+          url
+        );
+
+
+      process.stdout.write(
+        formatNetworkReconSnapshot(
+          snapshot
         ) +
         "\n"
       );
