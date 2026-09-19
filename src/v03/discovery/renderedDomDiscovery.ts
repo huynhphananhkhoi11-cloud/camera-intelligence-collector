@@ -9,7 +9,8 @@ import type {
 } from "./multiSourceDiscoveryTypes.js";
 
 import {
-  scoreDiscoveredUrl
+  scoreDiscoveredUrl,
+  shouldTraverseAsCatalog
 } from "./urlDiscoveryScoring.js";
 
 
@@ -274,124 +275,192 @@ export class RenderedDomDiscovery {
         [];
 
 
-    try {
-
-      const links =
-        await this.runtime.collectLinks(
-          rootUrl,
-          signal
-        );
+    const origin =
+      new URL(
+        rootUrl
+      ).origin;
 
 
-      const origin =
-        new URL(
-          rootUrl
-        ).origin;
+    const evidence:
+      UrlDiscoveryEvidence[] =
+        [];
 
 
-      const evidence:
-        UrlDiscoveryEvidence[] =
-          [];
+    const queue:
+      Array<{
+        readonly url:
+          string;
 
-
-      for (
-        const link
-        of links
-      ) {
-
-        let parsed:
-          URL;
-
-
-        try {
-          parsed =
-            new URL(
-              link.url
-            );
-        }
-        catch {
-          continue;
-        }
-
-
-        if (
-          parsed.origin !==
-            origin ||
-          (
-            parsed.protocol !==
-              "http:" &&
-            parsed.protocol !==
-              "https:"
-          )
-        ) {
-          continue;
-        }
-
-
-        parsed.hash = "";
-
-
-        const url =
-          parsed.toString();
-
-
-        evidence.push({
-          url,
-
-          channel:
-            "RENDERED_DOM",
-
-          parentUrl:
+        readonly depth:
+          number;
+      }> = [
+        {
+          url:
             rootUrl,
 
-          anchorText:
-            link.text,
-
-          score:
-            scoreDiscoveredUrl(
-              url,
-              "RENDERED_DOM",
-              link.text
-            )
-        });
-      }
+          depth:
+            0
+        }
+      ];
 
 
-      return {
-        used:
-          true,
+    const queued =
+      new Set([
+        rootUrl
+      ]);
 
-        evidence,
 
-        warnings
-      };
-    }
-    catch (
-      error
+    const maxPages =
+      5;
+
+
+    let visited =
+      0;
+
+
+    while (
+      queue.length >
+        0 &&
+      visited <
+        maxPages
     ) {
 
-      warnings.push(
-        "Rendered DOM discovery failed: " +
-        (
-          error instanceof
-            Error
-            ? error.message
-            : String(
-                error
+      const item =
+        queue.shift()!;
+
+
+      try {
+
+        const links =
+          await this.runtime.collectLinks(
+            item.url,
+            signal
+          );
+
+
+        visited +=
+          1;
+
+
+        for (
+          const link
+          of links
+        ) {
+
+          let parsed:
+            URL;
+
+
+          try {
+            parsed =
+              new URL(
+                link.url
+              );
+          }
+          catch {
+            continue;
+          }
+
+
+          if (
+            parsed.origin !==
+              origin ||
+            (
+              parsed.protocol !==
+                "http:" &&
+              parsed.protocol !==
+                "https:"
+            )
+          ) {
+            continue;
+          }
+
+
+          parsed.hash = "";
+
+
+          const url =
+            parsed.toString();
+
+
+          evidence.push({
+            url,
+
+            channel:
+              "RENDERED_DOM",
+
+            parentUrl:
+              item.url,
+
+            anchorText:
+              link.text,
+
+            score:
+              scoreDiscoveredUrl(
+                url,
+                "RENDERED_DOM",
+                link.text
               )
-        )
-      );
+          });
 
 
-      return {
-        used:
-          true,
+          if (
+            item.depth >=
+              1 ||
+            queued.has(
+              url
+            ) ||
+            !shouldTraverseAsCatalog(
+              url,
+              link.text
+            )
+          ) {
+            continue;
+          }
 
-        evidence:
-          [],
 
-        warnings
-      };
+          queued.add(
+            url
+          );
+
+
+          queue.push({
+            url,
+
+            depth:
+              item.depth +
+              1
+          });
+        }
+      }
+      catch (
+        error
+      ) {
+
+        warnings.push(
+          "Rendered DOM discovery failed: " +
+          item.url +
+          " | " +
+          (
+            error instanceof
+              Error
+              ? error.message
+              : String(
+                  error
+                )
+          )
+        );
+      }
     }
+
+
+    return {
+      used:
+        true,
+
+      evidence,
+
+      warnings
+    };
   }
 }
