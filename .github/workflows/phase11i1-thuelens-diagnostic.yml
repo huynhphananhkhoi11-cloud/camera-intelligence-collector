@@ -63,6 +63,70 @@ jobs:
                 "RENTAL"
               );
 
+            const headingTopology =
+              await page.evaluate(
+                () =>
+                  Array.from(
+                    document.querySelectorAll(
+                      "h1,h2,h3,h4"
+                    )
+                  ).map(
+                    (element, index) => ({
+                      index,
+                      tag:
+                        element.tagName,
+                      text:
+                        String(
+                          element.textContent ??
+                          ""
+                        )
+                          .replace(
+                            /\s+/g,
+                            " "
+                          )
+                          .trim(),
+                      className:
+                        String(
+                          element.getAttribute(
+                            "class"
+                          ) ??
+                          ""
+                        ),
+                      id:
+                        String(
+                          element.id ??
+                          ""
+                        )
+                    })
+                  )
+              );
+
+            const metaTopology =
+              await page.evaluate(
+                () => ({
+                  ogTitle:
+                    document
+                      .querySelector(
+                        'meta[property="og:title"]'
+                      )
+                      ?.getAttribute(
+                        "content"
+                      ) ??
+                    "",
+                  documentTitle:
+                    document.title,
+                  canonical:
+                    document
+                      .querySelector(
+                        'link[rel="canonical"]'
+                      )
+                      ?.getAttribute(
+                        "href"
+                      ) ??
+                    ""
+                })
+              );
+
             const bodyText =
               await page.locator("body")
                 .innerText()
@@ -84,6 +148,8 @@ jobs:
                     acquisition.errors,
                   title:
                     result.facts.title,
+                  headingTopology,
+                  metaTopology,
                   listingCategory:
                     result.facts.listingCategory,
                   breadcrumbs:
