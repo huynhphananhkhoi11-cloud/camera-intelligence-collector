@@ -852,9 +852,25 @@ export function extractRawProductFactsFromHtml(
               node.parent().text()
             );
 
+          const parentCurrencyMatches =
+            parentText.match(
+              /[0-9][0-9.,\s]*\s*(?:\u0111|\u20ab|vnd)(?=\s|\/|$)/gi
+            ) ??
+            [];
+
+
+          /*
+           * A short parent is useful when it only combines one
+           * price with its unit/label. If the parent contains
+           * multiple currency amounts, keep the leaf price instead
+           * so sibling list/original prices do not collapse into one
+           * ambiguous evidence string.
+           */
           const candidate =
             parentText &&
-            parentText.length <= 160
+            parentText.length <= 160 &&
+            parentCurrencyMatches.length ===
+              1
               ? parentText
               : text;
 
