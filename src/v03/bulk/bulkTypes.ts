@@ -16,6 +16,15 @@ import type {
 } from "../observations/observationTypes.js";
 
 
+export interface SkippedCandidatePage {
+  readonly url:
+    string;
+
+  readonly reason:
+    string;
+}
+
+
 export interface DetailCollectionFailure {
   readonly url:
     string;
@@ -64,6 +73,9 @@ export interface BulkCollectionResult {
 
   readonly uncertain:
     readonly BulkProductRecord[];
+
+  readonly skippedPages:
+    readonly SkippedCandidatePage[];
 
   readonly errors:
     readonly DetailCollectionFailure[];
