@@ -514,12 +514,21 @@ export function discoverProductUrlsFromHtml(
     ).length;
 
 
+  const hasStrongProductPath =
+    looksLikeProductPath(
+      base.pathname
+    );
+
+
   if (
     detailHeading &&
     hasDetailPrice &&
     hasTransactionCta &&
-    detailSignals >=
-      2
+    (
+      hasStrongProductPath ||
+      detailSignals >=
+        2
+    )
   ) {
 
     /*
