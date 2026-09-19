@@ -580,13 +580,12 @@ export class GeminiSemanticProvider {
 
 
     /*
-     * Accuracy-first profile.
-     * Gemini 3.6 Flash defaults to medium thinking;
-     * set it explicitly so production behavior is stable.
+     * Production policy: start cheap/fast.
+     * Quality validation may explicitly escalate one attempt to MEDIUM.
      */
     this.thinkingLevel =
       options.thinkingLevel ??
-      "medium";
+      "low";
 
 
     this.maxOutputTokens =
@@ -606,7 +605,12 @@ export class GeminiSemanticProvider {
     model:
       string,
     timeoutMsOverride?:
-      number
+      number,
+    thinkingLevelOverride?:
+      "minimal" |
+      "low" |
+      "medium" |
+      "high"
   ):
     Promise<
       GeminiAnalyzeResult
@@ -615,6 +619,11 @@ export class GeminiSemanticProvider {
     const effectiveTimeoutMs =
       timeoutMsOverride ??
       this.timeoutMs;
+
+
+    const effectiveThinkingLevel =
+      thinkingLevelOverride ??
+      this.thinkingLevel;
 
 
     const compactPacket =
@@ -715,7 +724,7 @@ export class GeminiSemanticProvider {
 
       generation_config: {
         thinking_level:
-          this.thinkingLevel,
+          effectiveThinkingLevel,
 
         max_output_tokens:
           this.maxOutputTokens

@@ -351,7 +351,7 @@ describe(
           body.generation_config
             .thinking_level
         ).toBe(
-          "medium"
+          "low"
         );
 
 
