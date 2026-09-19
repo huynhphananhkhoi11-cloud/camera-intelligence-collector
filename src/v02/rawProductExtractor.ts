@@ -291,6 +291,18 @@ export function extractRawProductFactsFromHtml(
    * -------------------------------------------
    */
 
+  const productHeadingOwners = [
+    '[itemtype*="Product"]',
+    "[data-product-id]",
+    ".product-detail",
+    ".product-details",
+    '[class*="product-detail"]',
+    '[class*="product_details"]',
+    "article.product",
+    ".product"
+  ].join(",");
+
+
   const isSiteChromeHeading = (
     element:
       unknown
@@ -304,12 +316,34 @@ export function extractRawProductFactsFromHtml(
     if (
       node.closest(
         [
-          "header",
           "nav",
           "footer",
           '[role="navigation"]'
         ].join(",")
       ).length >
+        0
+    ) {
+      return true;
+    }
+
+
+    /*
+     * Semantic <header> elements are also used inside product
+     * components. Treat a header as site chrome only when it is
+     * not owned by a product-detail container.
+     */
+    const header =
+      node.closest(
+        "header"
+      );
+
+
+    if (
+      header.length >
+        0 &&
+      header.closest(
+        productHeadingOwners
+      ).length ===
         0
     ) {
       return true;
@@ -352,18 +386,6 @@ export function extractRawProductFactsFromHtml(
         )
     );
   };
-
-
-  const productHeadingOwners = [
-    '[itemtype*="Product"]',
-    "[data-product-id]",
-    ".product-detail",
-    ".product-details",
-    '[class*="product-detail"]',
-    '[class*="product_details"]',
-    "article.product",
-    ".product"
-  ].join(",");
 
 
   const h1Candidates =
