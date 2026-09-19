@@ -23,3 +23,109 @@ jobs:
       - run: npm test
       - run: npm run check
       - run: npm run build
+
+      - name: Install Chromium for live direct-product smoke
+        run: npx playwright install --with-deps chromium
+
+      - name: Live direct-product smoke
+        env:
+          CAMINTEL_STATE_DB: /tmp/camintel-phase11i1.sqlite
+        run: |
+          set -euo pipefail
+
+          node dist/v02/cli/collectV2.js "https://thuemayanhsaigon.com/equipment/21" --headless --fresh --site-mode RENTAL --max-pages 1 --max-products 1 --concurrency 1 --output /tmp/sony-a6400.xlsx
+          node dist/v02/cli/collectV2.js "https://camerahouse.vn/products/body-sony-a6400" --headless --fresh --site-mode RENTAL --max-pages 1 --max-products 1 --concurrency 1 --output /tmp/camerahouse-a6400.xlsx
+          node dist/v02/cli/collectV2.js "https://camerahouse.vn/products/sony-a6400-lens-sony-18-105mm" --headless --fresh --site-mode RENTAL --max-pages 1 --max-products 1 --concurrency 1 --output /tmp/camerahouse-a6400-18105.xlsx
+
+          node --input-type=module <<'NODE'
+          import ExcelJS from "exceljs";
+
+          const cases = [
+            {
+              path: "/tmp/sony-a6400.xlsx",
+              url: "https://thuemayanhsaigon.com/equipment/21",
+              words: ["sony", "a6400"]
+            },
+            {
+              path: "/tmp/camerahouse-a6400.xlsx",
+              url: "https://camerahouse.vn/products/body-sony-a6400",
+              words: ["sony", "a6400"]
+            },
+            {
+              path: "/tmp/camerahouse-a6400-18105.xlsx",
+              url: "https://camerahouse.vn/products/sony-a6400-lens-sony-18-105mm",
+              words: ["sony", "a6400", "18-105"]
+            }
+          ];
+
+          const sheets = [
+            "Dữ liệu đối thủ",
+            "Cần kiểm tra",
+            "Không liên quan"
+          ];
+
+          for (const item of cases) {
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.readFile(item.path);
+
+            const rows = [];
+
+            for (const sheetName of sheets) {
+              const sheet = workbook.getWorksheet(sheetName);
+
+              if (!sheet) {
+                continue;
+              }
+
+              const headers = [];
+              sheet.getRow(1).eachCell((cell, column) => {
+                headers[column] = String(cell.value ?? "").trim();
+              });
+
+              sheet.eachRow((row, rowNumber) => {
+                if (rowNumber === 1) {
+                  return;
+                }
+
+                const record = {};
+
+                row.eachCell((cell, column) => {
+                  record[headers[column] ?? String(column)] =
+                    cell.value ?? "";
+                });
+
+                rows.push(record);
+              });
+            }
+
+            const matched = rows.find(row =>
+              String(row.URL ?? "").trim() === item.url
+            );
+
+            if (!matched) {
+              throw new Error(
+                "Requested direct product was not preserved: " +
+                item.url +
+                "; observed=" +
+                rows.map(row => String(row.URL ?? "")).join(",")
+              );
+            }
+
+            const name = String(
+              matched["Tên sản phẩm"] ?? ""
+            ).toLowerCase();
+
+            for (const word of item.words) {
+              if (!name.includes(word)) {
+                throw new Error(
+                  "Unexpected direct-product identity for " +
+                  item.url +
+                  ": " +
+                  name
+                );
+              }
+            }
+          }
+
+          console.log("LIVE_DIRECT_PRODUCT_SMOKE=PASS");
+          NODE
