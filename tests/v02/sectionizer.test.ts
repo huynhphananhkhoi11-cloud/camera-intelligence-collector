@@ -229,7 +229,7 @@ describe(
                 </div>
 
                 <div class="description-content">
-                  <p><strong>GIÁ THUÊ: 250.000đ / 1 Ngày</strong></p>
+                  <h2>GIÁ THUÊ: 250.000đ / 1 Ngày</h2>
                   <p>Cảm biến CMOS APS-C 24.2MP.</p>
                   <p>EVF 2.36m-Dot.</p>
                   <p>AF 425 điểm.</p>
