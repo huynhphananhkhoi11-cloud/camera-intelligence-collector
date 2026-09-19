@@ -203,5 +203,49 @@ describe(
         );
       }
     );
+
+    test(
+      "proven tripod product is EXCLUDE rather than REVIEW",
+      () => {
+
+        const result =
+          processProductHtml(
+            `
+              <html>
+                <body>
+                  <main>
+                    <h1>
+                      Cho thuê chân máy quay Benro KH-25
+                    </h1>
+
+                    <div>
+                      Giá thuê: 120.000đ / ngày
+                    </div>
+
+                    <button>
+                      Thuê ngay
+                    </button>
+                  </main>
+                </body>
+              </html>
+            `,
+            "https://example.com/lens/cho-thue-chan-may-quay-benro-kh-25",
+            "RENTAL"
+          );
+
+        expect(
+          result.analysis.entity.type
+        ).toBe(
+          "ACCESSORY"
+        );
+
+        expect(
+          result.validation.decision
+        ).toBe(
+          "EXCLUDE"
+        );
+      }
+    );
+
   }
 );
