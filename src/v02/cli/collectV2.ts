@@ -451,10 +451,16 @@ async function createContext(
 
     close:
       async () => {
-        try {
-          await context.close();
-        }
-        finally {
+
+        /*
+         * Browser.close() is the authoritative shutdown boundary.
+         * It closes every context/page and terminates the Chromium
+         * process. Closing the context first is redundant and can
+         * leave a visible browser window waiting on context cleanup.
+         */
+        if (
+          browser.isConnected()
+        ) {
           await browser.close();
         }
       }

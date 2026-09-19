@@ -137,6 +137,16 @@ export function discoverProductUrlsFromHtml(
   const pagination =
     new Set<string>();
 
+  /*
+   * Product JSON-LD can prove that the current document is a
+   * product detail even when visible copy is localized or site-
+   * specific. Keep this evidence separate from classification:
+   * it is used only to prevent detail-page pagination from being
+   * mistaken for catalog traversal.
+   */
+  const structuredCurrentProductNames:
+    string[] = [];
+
   const addCandidate = (
     rawUrl: string,
     score: number,
@@ -261,6 +271,53 @@ export function discoverProductUrlsFromHtml(
         object.url,
         object["@id"]
       ];
+
+      const explicitProductUrls =
+        urls
+          .filter(
+            (raw):
+              raw is string =>
+                typeof raw ===
+                  "string"
+          )
+          .map(
+            raw =>
+              canonicalizeUrl(
+                raw,
+                baseUrl
+              )
+          )
+          .filter(
+            (url):
+              url is string =>
+                Boolean(url)
+          );
+
+      const structuredProductName =
+        clean(
+          object.name
+        );
+
+      const targetsCurrentDocument =
+        explicitProductUrls.length ===
+          0 ||
+        explicitProductUrls.includes(
+          canonicalizeUrl(
+            baseUrl,
+            baseUrl
+          ) ??
+            baseUrl
+        );
+
+      if (
+        structuredProductName &&
+        object.offers &&
+        targetsCurrentDocument
+      ) {
+        structuredCurrentProductNames.push(
+          structuredProductName
+        );
+      }
 
       let addedProductUrl =
         false;
@@ -477,12 +534,46 @@ export function discoverProductUrlsFromHtml(
     ).length;
 
 
+  const normalizedDetailHeading =
+    detailHeading.toLowerCase();
+
+  const structuredCurrentPageProduct =
+    Boolean(
+      detailHeading &&
+      structuredCurrentProductNames.some(
+        name => {
+
+          const normalizedName =
+            name.toLowerCase();
+
+          return (
+            normalizedDetailHeading.includes(
+              normalizedName
+            ) ||
+            normalizedName.includes(
+              normalizedDetailHeading
+            )
+          );
+        }
+      )
+    );
+
+
+  const currentPageIsStrongProductDetail =
+    Boolean(
+      structuredCurrentPageProduct ||
+      (
+        detailHeading &&
+        hasDetailPrice &&
+        hasTransactionCta &&
+        detailSignals >=
+          2
+      )
+    );
+
+
   if (
-    detailHeading &&
-    hasDetailPrice &&
-    hasTransactionCta &&
-    detailSignals >=
-      2
+    currentPageIsStrongProductDetail
   ) {
 
     addCandidate(
@@ -564,9 +655,23 @@ export function discoverProductUrlsFromHtml(
         )
       ) {
 
-        pagination.add(
-          canonical
-        );
+        /*
+         * Pagination discovered on a strong product-detail page
+         * belongs to detail-page subcontent (for example related
+         * products), not to the catalog traversal frontier.
+         *
+         * Following it can re-crawl the same primary product under
+         * query variants such as ?p=2 and duplicate the exported row.
+         * Catalog pages still expose pagination normally because they
+         * do not satisfy the strong current-page detail contract.
+         */
+        if (
+          !currentPageIsStrongProductDetail
+        ) {
+          pagination.add(
+            canonical
+          );
+        }
 
         return;
       }
