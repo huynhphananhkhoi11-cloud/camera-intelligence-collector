@@ -577,11 +577,11 @@ describe(
             </head>
 
             <body>
-              <header class="site-header">
+              <div class="site-shell">
                 <h1 class="site-header__logo">
                   RentLens
                 </h1>
-              </header>
+              </div>
 
               <main>
                 <section class="product-details">
