@@ -27,6 +27,7 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import { chromium } from "playwright";
+          import * as cheerio from "cheerio";
           import { collectBrowserDetail } from "./dist/v02/extraction/browserDetailCollector.js";
           import { processProductHtml } from "./dist/v02/pipeline/productPipeline.js";
 
@@ -62,6 +63,54 @@ jobs:
                 acquisition.canonicalUrl || url,
                 "RENTAL"
               );
+
+            const captured$ =
+              cheerio.load(
+                acquisition.html
+              );
+
+            const capturedHeadingTopology =
+              captured$(
+                "h1,h2,h3,h4"
+              )
+                .toArray()
+                .map(
+                  (element, index) => ({
+                    index,
+                    tag:
+                      element.tagName,
+                    text:
+                      String(
+                        captured$(
+                          element
+                        ).text() ??
+                        ""
+                      )
+                        .replace(
+                          /\s+/g,
+                          " "
+                        )
+                        .trim(),
+                    className:
+                      String(
+                        captured$(
+                          element
+                        ).attr(
+                          "class"
+                        ) ??
+                        ""
+                      ),
+                    id:
+                      String(
+                        captured$(
+                          element
+                        ).attr(
+                          "id"
+                        ) ??
+                        ""
+                      )
+                  })
+                );
 
             const headingTopology =
               await page.evaluate(
@@ -148,6 +197,7 @@ jobs:
                     acquisition.errors,
                   title:
                     result.facts.title,
+                  capturedHeadingTopology,
                   headingTopology,
                   metaTopology,
                   listingCategory:
