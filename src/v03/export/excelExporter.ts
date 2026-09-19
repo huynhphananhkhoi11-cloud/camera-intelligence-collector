@@ -13,72 +13,9 @@ import type {
   BulkProductRecord
 } from "../bulk/bulkTypes.js";
 
-import type {
-  ObservationField,
-  ProductObservation
-} from "../observations/observationTypes.js";
-
-
-const MAIN_FIELDS:
-  readonly ObservationField[] = [
-    "PRODUCT_NAME",
-    "CATEGORY",
-    "BRAND",
-    "CONDITION",
-    "PRICE",
-    "PRICE_CURRENCY",
-    "AVAILABILITY",
-    "RATING",
-    "REVIEW_COUNT",
-    "SKU",
-    "PRODUCT_ID",
-    "SPECS",
-    "DESCRIPTION",
-    "BREADCRUMB",
-    "ACTION_TEXT"
-  ];
-
-
-const FIELD_LABEL:
-  Readonly<
-    Partial<
-      Record<
-        ObservationField,
-        string
-      >
-    >
-  > = {
-    PRODUCT_NAME:
-      "Tên sản phẩm (observed)",
-    CATEGORY:
-      "Danh mục (observed)",
-    BRAND:
-      "Thương hiệu (observed)",
-    CONDITION:
-      "Tình trạng (observed)",
-    PRICE:
-      "Giá (observed)",
-    PRICE_CURRENCY:
-      "Tiền tệ",
-    AVAILABILITY:
-      "Tồn kho (observed)",
-    RATING:
-      "Rating (observed)",
-    REVIEW_COUNT:
-      "Review count (observed)",
-    SKU:
-      "SKU",
-    PRODUCT_ID:
-      "Product ID",
-    SPECS:
-      "Thông số (observed)",
-    DESCRIPTION:
-      "Mô tả (observed)",
-    BREADCRUMB:
-      "Breadcrumb",
-    ACTION_TEXT:
-      "Action text"
-  };
+import {
+  buildMainPresentationRow
+} from "./mainPresentation.js";
 
 
 function styleSheet(
@@ -184,49 +121,6 @@ function styleSheet(
 }
 
 
-function observedValues(
-  observations:
-    readonly ProductObservation[],
-  field:
-    ObservationField
-): string[] {
-
-  return [
-    ...new Set(
-      observations
-        .filter(
-          observation =>
-            observation.field ===
-              field
-        )
-        .map(
-          observation =>
-            observation.rawValue.trim()
-        )
-        .filter(
-          Boolean
-        )
-    )
-  ];
-}
-
-
-function joinObservedValues(
-  observations:
-    readonly ProductObservation[],
-  field:
-    ObservationField
-): string {
-
-  return observedValues(
-    observations,
-    field
-  ).join(
-    " || "
-  );
-}
-
-
 function mainColumns(
   includeDecision:
     boolean
@@ -240,14 +134,6 @@ function mainColumns(
     >[] = [
       {
         header:
-          "Identity ID",
-        key:
-          "identityId",
-        width:
-          52
-      },
-      {
-        header:
           "Website",
         key:
           "website",
@@ -256,46 +142,101 @@ function mainColumns(
       },
       {
         header:
-          "Member URLs",
+          "Tên sản phẩm",
         key:
-          "memberUrls",
+          "productName",
         width:
-          65
+          42
       },
       {
         header:
-          "URL count",
+          "Hình thức",
         key:
-          "memberCount",
+          "form",
         width:
-          12
+          24
+      },
+      {
+        header:
+          "Thông số mô tả",
+        key:
+          "specs",
+        width:
+          55
+      },
+      {
+        header:
+          "Giá thuê/ngày",
+        key:
+          "rentalPrice",
+        width:
+          22
+      },
+      {
+        header:
+          "Điều kiện thuê riêng",
+        key:
+          "rentalConditions",
+        width:
+          45
+      },
+      {
+        header:
+          "Phụ kiện đi kèm",
+        key:
+          "accessories",
+        width:
+          42
+      },
+      {
+        header:
+          "Combo/gói đi kèm",
+        key:
+          "combo",
+        width:
+          42
+      },
+      {
+        header:
+          "Điểm đánh giá",
+        key:
+          "rating",
+        width:
+          16
+      },
+      {
+        header:
+          "Số lượt đánh giá/review",
+        key:
+          "reviewCount",
+        width:
+          24
+      },
+      {
+        header:
+          "Tồn kho",
+        key:
+          "stock",
+        width:
+          18
+      },
+      {
+        header:
+          "Giá bán",
+        key:
+          "salePrice",
+        width:
+          24
+      },
+      {
+        header:
+          "URL",
+        key:
+          "url",
+        width:
+          60
       }
     ];
-
-
-  for (
-    const field
-    of MAIN_FIELDS
-  ) {
-    columns.push({
-      header:
-        FIELD_LABEL[
-          field
-        ] ??
-        field,
-      key:
-        field,
-      width:
-        field ===
-          "DESCRIPTION" ||
-        field ===
-          "SPECS" ||
-        field ===
-          "BREADCRUMB"
-          ? 55
-          : 30
-    });
-  }
 
 
   if (
@@ -304,7 +245,7 @@ function mainColumns(
     columns.push(
       {
         header:
-          "Entity subtype",
+          "Phân loại",
         key:
           "entitySubtype",
         width:
@@ -312,7 +253,7 @@ function mainColumns(
       },
       {
         header:
-          "Confidence",
+          "Độ tin cậy",
         key:
           "confidence",
         width:
@@ -320,7 +261,7 @@ function mainColumns(
       },
       {
         header:
-          "Entity evidence",
+          "Bằng chứng phân loại",
         key:
           "entityEvidence",
         width:
@@ -346,41 +287,16 @@ function mainRow(
   unknown
 > {
 
-  const website =
-    new URL(
-      rootUrl
-    ).host;
-
-
   const row:
     Record<
       string,
       unknown
     > = {
-    identityId:
-      product.identity.identityId,
-    website,
-    memberUrls:
-      product.identity.memberUrls.join(
-        " || "
-      ),
-    memberCount:
-      product.identity.memberUrls.length
+    ...buildMainPresentationRow(
+      product,
+      rootUrl
+    )
   };
-
-
-  for (
-    const field
-    of MAIN_FIELDS
-  ) {
-    row[
-      field
-    ] =
-      joinObservedValues(
-        product.observations,
-        field
-      );
-  }
 
 
   if (
@@ -404,7 +320,7 @@ function mainRow(
             )
         )
         .join(
-          " || "
+          " | "
         );
   }
 
