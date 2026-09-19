@@ -101,6 +101,53 @@ describe(
 
 
     test(
+      "canonical target bridges to the actual requested URL record even if that target page has no canonical tag",
+      () => {
+
+        const resolution =
+          resolveProductIdentities([
+            createProductIdentityRecord(
+              signals({
+                requestedUrl:
+                  "https://example.com/canon-r50",
+                finalUrl:
+                  "https://example.com/canon-r50"
+              })
+            ),
+            createProductIdentityRecord(
+              signals({
+                requestedUrl:
+                  "https://example.com/canon-r50?p=2",
+                finalUrl:
+                  "https://example.com/canon-r50?p=2",
+                canonicalUrl:
+                  "https://example.com/canon-r50"
+              })
+            )
+          ]);
+
+
+        expect(
+          resolution.clusters
+        ).toHaveLength(
+          1
+        );
+
+        expect(
+          resolution.clusters[0]
+            ?.tokens.find(
+              token =>
+                token.token ===
+                  "URL:https://example.com/canon-r50"
+            )?.kind
+        ).toBe(
+          "CANONICAL"
+        );
+      }
+    );
+
+
+    test(
       "query variants remain separate when no strong identity signal overlaps",
       () => {
 
