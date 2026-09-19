@@ -463,5 +463,104 @@ describe(
         );
       }
     );
+
+    test(
+      "share and print controls near the title do not prematurely bound primary sale-price scope",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <main>
+                <section class="product-detail">
+                  <div class="title-zone">
+                    <h1>
+                      Máy ảnh Sony Alpha A6400 + Lens Sigma 18-50mm f/2.8
+                    </h1>
+
+                    <button>
+                      Chia sẻ
+                    </button>
+
+                    <button>
+                      Tạo bản in
+                    </button>
+                  </div>
+
+                  <div class="commerce-zone">
+                    <h2>
+                      27.480.000đ
+                    </h2>
+
+                    <div>
+                      30.990.000đ
+                    </div>
+
+                    <button>
+                      MUA NGAY
+                    </button>
+                  </div>
+                </section>
+
+                <h2>
+                  Sản phẩm liên quan
+                </h2>
+
+                <section class="related-products">
+                  <span class="price">
+                    590.000đ
+                  </span>
+
+                  <span class="price">
+                    28.500.000đ
+                  </span>
+                </section>
+              </main>
+            </body>
+          </html>
+        `;
+
+        const url =
+          "https://shop.test/products/sony-a6400-sigma-18-50";
+
+        const facts =
+          extractRawProductFactsFromHtml(
+            html,
+            url
+          );
+
+        expect(
+          facts.visiblePriceTexts
+        ).toContain(
+          "27.480.000đ"
+        );
+
+        expect(
+          facts.visiblePriceTexts
+        ).not.toContain(
+          "590.000đ"
+        );
+
+        expect(
+          facts.visiblePriceTexts
+        ).not.toContain(
+          "28.500.000đ"
+        );
+
+        const result =
+          processProductHtml(
+            html,
+            url,
+            "SALE_NEW"
+          );
+
+        expect(
+          result.row.salePrice
+        ).toBe(
+          27_480_000
+        );
+      }
+    );
+
   }
 );
