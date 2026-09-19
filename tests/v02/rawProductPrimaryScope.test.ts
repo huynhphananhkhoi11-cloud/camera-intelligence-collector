@@ -585,9 +585,11 @@ describe(
 
               <main>
                 <section class="product-details">
-                  <h1 class="product-details__title">
-                    Cho thuê chân máy tại Hà Nội- Tripod Benro KH25N
-                  </h1>
+                  <header class="product-details__header">
+                    <h1 class="product-details__title">
+                      Cho thuê chân máy tại Hà Nội- Tripod Benro KH25N
+                    </h1>
+                  </header>
 
                   <h2 class="product-details__category">
                     Phụ kiện máy ảnh Phụ kiện máy quay
