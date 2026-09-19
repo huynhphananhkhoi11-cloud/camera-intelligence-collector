@@ -431,6 +431,11 @@ export class MultiSourceDiscoveryHub {
       );
 
 
+    const effectiveRootUrl =
+      endpoint.recon.finalPageUrl ||
+      rootUrl;
+
+
     const [
       staticTraversal,
       sitemap
@@ -438,12 +443,12 @@ export class MultiSourceDiscoveryHub {
       this.supplementalEnabled
         ? await Promise.all([
             this.staticTraversal.discover(
-              rootUrl,
+              effectiveRootUrl,
               signal
             ),
 
             this.sitemap.discover(
-              rootUrl,
+              effectiveRootUrl,
               signal
             )
           ])
@@ -471,7 +476,7 @@ export class MultiSourceDiscoveryHub {
       ...staticTraversal.evidence,
       ...sitemap.evidence,
       ...endpointEvidence(
-        rootUrl,
+        effectiveRootUrl,
         endpoint.replay.discoveredUrls
       )
     ];
@@ -488,7 +493,7 @@ export class MultiSourceDiscoveryHub {
     const renderedDom =
       shouldUseRendered
         ? await this.renderedDom.discover(
-            rootUrl,
+            effectiveRootUrl,
             signal
           )
         : {
