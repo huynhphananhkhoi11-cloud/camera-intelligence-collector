@@ -50,6 +50,44 @@ function fixture():
           [],
         warnings:
           []
+      },
+      staticTraversal: {
+        visitedPages:
+          [],
+        evidence:
+          [],
+        warnings:
+          []
+      },
+      sitemap: {
+        sitemapDocuments:
+          [],
+        evidence:
+          [],
+        warnings:
+          []
+      },
+      renderedDom: {
+        used:
+          false,
+        evidence:
+          [],
+        warnings:
+          []
+      },
+      evidence:
+        [],
+      allDiscoveredUrls:
+        [],
+      channelCounts: {
+        STATIC_HTML:
+          0,
+        SITEMAP:
+          0,
+        ENDPOINT_REPLAY:
+          0,
+        RENDERED_DOM:
+          0
       }
     },
 
