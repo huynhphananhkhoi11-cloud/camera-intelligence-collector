@@ -406,7 +406,7 @@ function saleVisiblePriority(
   if (
     currencyAmounts.length >=
       2 &&
-    /\b(?:giam|tiet kiem|save|discount)\b/
+    /(?:giam|tiet kiem|save|discount)/
       .test(
         text
       )
