@@ -15,6 +15,10 @@ import {
 } from "../acquisition/playwrightNetworkReconRuntime.js";
 
 import {
+  buildProductUrlGraphFromEndpointRun
+} from "../discovery/endpointGraphBridge.js";
+
+import {
   formatAcquisitionDoctorReport,
   runAcquisitionDoctor
 } from "../diagnostics/acquisitionDoctor.js";
@@ -26,6 +30,10 @@ import {
 import {
   formatNetworkReconSnapshot
 } from "../diagnostics/networkReconReport.js";
+
+import {
+  formatProductUrlGraphReport
+} from "../diagnostics/productUrlGraphReport.js";
 
 
 const program =
@@ -178,6 +186,68 @@ program
       process.stdout.write(
         formatEndpointDiscoveryReport(
           result
+        ) +
+        "\n"
+      );
+    }
+  );
+
+
+program
+  .command(
+    "graph"
+  )
+  .description(
+    "Build a provenance-preserving URL graph from discovered endpoints"
+  )
+  .argument(
+    "<url>",
+    "Website root URL"
+  )
+  .option(
+    "--headed",
+    "Show Chromium during reconnaissance",
+    false
+  )
+  .action(
+    async (
+      url:
+        string,
+      options:
+        {
+          headed:
+            boolean;
+        }
+    ) => {
+
+      const networkRuntime =
+        new PlaywrightNetworkReconRuntime({
+          headless:
+            !options.headed
+        });
+
+
+      const discovery =
+        new AdaptiveEndpointDiscovery({
+          networkRuntime
+        });
+
+
+      const result =
+        await discovery.discover(
+          url
+        );
+
+
+      const graph =
+        buildProductUrlGraphFromEndpointRun(
+          result.replay
+        );
+
+
+      process.stdout.write(
+        formatProductUrlGraphReport(
+          graph.snapshot()
         ) +
         "\n"
       );
