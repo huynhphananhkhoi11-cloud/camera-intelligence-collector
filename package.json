@@ -4,16 +4,17 @@
   "description": "",
   "main": "index.js",
   "bin": {
-    "camintel": "./dist/v02/cli/camintel.js"
+    "camintel": "./dist/v03/cli/camintel.js"
   },
   "scripts": {
     "test": "vitest run",
-    "camintel": "tsx src/v02/cli/camintel.ts",
+    "camintel": "tsx src/v03/cli/camintel.ts",
     "check": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.json",
     "collect": "tsx src/collect.ts",
     "test:watch": "vitest",
-    "collect:v02": "tsx src/v02/cli/collectV2.ts"
+    "collect:v02": "tsx src/v02/cli/collectV2.ts",
+    "camintel:v2": "tsx src/v02/cli/camintel.ts"
   },
   "keywords": [],
   "author": "",
