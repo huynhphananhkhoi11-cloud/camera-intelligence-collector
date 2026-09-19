@@ -160,6 +160,69 @@ describe(
 
 
     test(
+      "HIGH condition conflict stays audited while confirmed camera remains ACCEPT",
+      () => {
+
+        const html =
+          saleCameraHtml(
+            "C&#242;n h&#224;ng",
+            "4.8/5"
+          ).replace(
+            "https://schema.org/NewCondition",
+            "https://schema.org/UsedCondition"
+          );
+
+        const result =
+          processProductHtml(
+            html,
+            "https://example.com/condition-conflict",
+            "UNKNOWN"
+          );
+
+        const conflicts =
+          detectConflicts(
+            result
+          );
+
+        expect(
+          result.analysis.entity.type
+        ).toBe(
+          "CAMERA"
+        );
+
+        expect(
+          result.analysis.condition.conflict
+        ).toBe(true);
+
+        expect(
+          conflicts.some(
+            conflict =>
+              conflict.field ===
+                "CONDITION" &&
+              conflict.severity ===
+                "HIGH"
+          )
+        ).toBe(true);
+
+        expect(
+          result.validation.decision
+        ).toBe(
+          "ACCEPT"
+        );
+
+        expect(
+          result.validation.reasons.some(
+            reason =>
+              reason.includes(
+                "CONDITION"
+              )
+          )
+        ).toBe(true);
+      }
+    );
+
+
+    test(
       "MEDIUM rating conflict does not by itself force REVIEW",
       () => {
 
