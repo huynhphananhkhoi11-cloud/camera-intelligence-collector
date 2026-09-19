@@ -3,6 +3,10 @@ import {
 } from "commander";
 
 import {
+  AdaptiveEndpointDiscovery
+} from "../acquisition/adaptiveEndpointDiscovery.js";
+
+import {
   createDefaultAcquisitionRouter
 } from "../acquisition/defaultAcquisitionRouter.js";
 
@@ -14,6 +18,10 @@ import {
   formatAcquisitionDoctorReport,
   runAcquisitionDoctor
 } from "../diagnostics/acquisitionDoctor.js";
+
+import {
+  formatEndpointDiscoveryReport
+} from "../diagnostics/endpointDiscoveryReport.js";
 
 import {
   formatNetworkReconSnapshot
@@ -114,6 +122,62 @@ program
       process.stdout.write(
         formatNetworkReconSnapshot(
           snapshot
+        ) +
+        "\n"
+      );
+    }
+  );
+
+
+program
+  .command(
+    "endpoints"
+  )
+  .description(
+    "Auto-qualify and replay listing-like XHR/fetch endpoints"
+  )
+  .argument(
+    "<url>",
+    "Website root URL"
+  )
+  .option(
+    "--headed",
+    "Show Chromium during reconnaissance",
+    false
+  )
+  .action(
+    async (
+      url:
+        string,
+      options:
+        {
+          headed:
+            boolean;
+        }
+    ) => {
+
+      const networkRuntime =
+        new PlaywrightNetworkReconRuntime({
+          headless:
+            !options.headed
+        });
+
+
+      const discovery =
+        new AdaptiveEndpointDiscovery({
+          networkRuntime
+        });
+
+
+      const result =
+        await discovery.discover(
+          url
+        );
+
+
+      process.stdout.write(
+        formatEndpointDiscoveryReport(
+          result
         ) +
         "\n"
       );
