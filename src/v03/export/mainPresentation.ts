@@ -278,15 +278,15 @@ function productNameDisplay(
       " "
     )
     .replace(
-      /\s*[-–—]?\s*(?:hàng\s*)?(?:đã\s*)?qua\s+sử\s+dụng\b.*$/iu,
+      /\s*[-–—]?\s*(?:hàng\s*)?(?:đã\s*)?qua\s+sử\s+dụng(?![\p{L}\p{N}_]).*$/iu,
       ""
     )
     .replace(
-      /\s*[-–—]?\s*(?:hàng\s*)?cũ\b.*$/iu,
+      /\s*[-–—]?\s*(?:hàng\s*)?cũ(?![\p{L}\p{N}_]).*$/iu,
       ""
     )
     .replace(
-      /\s*[-–—]?\s*(?:hàng\s*)?mới\b.*$/iu,
+      /\s*[-–—]?\s*(?:hàng\s*)?mới(?![\p{L}\p{N}_]).*$/iu,
       ""
     )
     .replace(
@@ -345,10 +345,10 @@ function oldNewFromText(
     /\bnew\b/iu.test(
       value
     ) ||
-    /\bhàng\s*mới\b/iu.test(
+    /\bhàng\s*mới(?![\p{L}\p{N}_])/iu.test(
       value
     ) ||
-    /\bmới\s*100%\b/iu.test(
+    /\bmới\s*100%/iu.test(
       value
     )
   ) {
@@ -363,10 +363,10 @@ function oldNewFromText(
     /\bsecond[\s-]?hand\b/iu.test(
       value
     ) ||
-    /\bhàng\s*cũ\b/iu.test(
+    /\bhàng\s*cũ(?![\p{L}\p{N}_])/iu.test(
       value
     ) ||
-    /\bcũ\b/iu.test(
+    /\bcũ(?![\p{L}\p{N}_])/iu.test(
       value
     ) ||
     normalized.includes(
@@ -942,7 +942,7 @@ function hasRentalEvidence(
     );
 
 
-  return /\bthuê\b/iu.test(
+  return /\bthuê(?![\p{L}\p{N}_])/iu.test(
     visible
   );
 }
