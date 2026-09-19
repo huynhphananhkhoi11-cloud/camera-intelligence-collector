@@ -69,6 +69,14 @@ export function formatBulkCollectionReport(
         result.rootUrl,
       "Discovered candidate URLs: " +
         result.candidateUrls.length,
+      "Sources: static=" +
+        result.discovery.channelCounts.STATIC_HTML +
+        " sitemap=" +
+        result.discovery.channelCounts.SITEMAP +
+        " endpoint=" +
+        result.discovery.channelCounts.ENDPOINT_REPLAY +
+        " rendered=" +
+        result.discovery.channelCounts.RENDERED_DOM,
       "Attempted detail URLs: " +
         result.attemptedUrls.length,
       "Identity clusters: " +
