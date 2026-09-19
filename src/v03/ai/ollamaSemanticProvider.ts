@@ -43,6 +43,35 @@ export const HUMAN_READER_SYSTEM_PROMPT =
   );
 
 
+export class AIInferenceTimeoutError
+extends Error {
+
+  readonly timeoutMs:
+    number;
+
+
+  constructor(
+    timeoutMs:
+      number
+  ) {
+
+    super(
+      "AI_TIMEOUT after " +
+      timeoutMs +
+      "ms"
+    );
+
+
+    this.name =
+      "AIInferenceTimeoutError";
+
+
+    this.timeoutMs =
+      timeoutMs;
+  }
+}
+
+
 export interface OllamaSemanticProviderOptions {
   readonly baseUrl?:
     string;
@@ -140,7 +169,7 @@ export class OllamaSemanticProvider {
 
     this.timeoutMs =
       options.timeoutMs ??
-      120_000;
+      240_000;
 
 
     this.contextLength =
@@ -201,21 +230,38 @@ export class OllamaSemanticProvider {
     packet:
       EvidencePacket,
     model:
-      string
+      string,
+    timeoutMsOverride?:
+      number
   ):
     Promise<
       OllamaAnalyzeResult
     > {
 
+    const effectiveTimeoutMs =
+      timeoutMsOverride ??
+      this.timeoutMs;
+
+
     const controller =
       new AbortController();
 
 
+    let timedOut =
+      false;
+
+
     const timer =
       setTimeout(
-        () =>
-          controller.abort(),
-        this.timeoutMs
+        () => {
+
+          timedOut =
+            true;
+
+
+          controller.abort();
+        },
+        effectiveTimeoutMs
       );
 
 
@@ -434,6 +480,21 @@ export class OllamaSemanticProvider {
               )
             : null
       };
+    }
+    catch (
+      error
+    ) {
+
+      if (
+        timedOut
+      ) {
+        throw new AIInferenceTimeoutError(
+          effectiveTimeoutMs
+        );
+      }
+
+
+      throw error;
     }
     finally {
 

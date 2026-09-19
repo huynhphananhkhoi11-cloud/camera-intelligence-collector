@@ -71,5 +71,44 @@ describe(
         ).toBe(false);
       }
     );
+
+    test(
+      "workshop and editorial camera URLs rank below real product URLs",
+      () => {
+
+        const product =
+          scoreDiscoveredUrl(
+            "https://example.com/canon-eos-r50-vi.html",
+            "SITEMAP",
+            "Canon EOS R50 Body Only Chính hãng"
+          );
+
+
+        const workshop =
+          scoreDiscoveredUrl(
+            "https://example.com/workshop-chup-anh-cung-sony-alpha-20-8-2026.html",
+            "SITEMAP",
+            "Workshop chụp ảnh cùng Sony Alpha"
+          );
+
+
+        expect(
+          product
+        ).toBeGreaterThan(
+          workshop
+        );
+
+
+        expect(
+          shouldTraverseAsCatalog(
+            "https://example.com/workshop-chup-anh-cung-sony-alpha-20-8-2026.html",
+            "Workshop Sony Alpha"
+          )
+        ).toBe(
+          false
+        );
+      }
+    );
+
   }
 );

@@ -60,10 +60,19 @@ export interface ScaleRunSummary {
   readonly rootUrl:
     string;
 
+  readonly provider:
+    string;
+
   readonly discovered:
     number;
 
   readonly clearNonCameraSkipped:
+    number;
+
+  readonly clearNonProductSkipped:
+    number;
+
+  readonly deterministicNonCameraSkipped:
     number;
 
   readonly attemptedDetail:

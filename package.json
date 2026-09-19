@@ -16,7 +16,8 @@
     "collect:v02": "tsx src/v02/cli/collectV2.ts",
     "camintel:v2": "tsx src/v02/cli/camintel.ts",
     "ai-read": "tsx src/v03/cli/aiRead.ts",
-    "ai-scale": "tsx src/v03/cli/aiScale.ts"
+    "ai-scale": "tsx src/v03/cli/aiScale.ts",
+    "gemini-read": "tsx src/v03/cli/geminiRead.ts"
   },
   "keywords": [],
   "author": "",

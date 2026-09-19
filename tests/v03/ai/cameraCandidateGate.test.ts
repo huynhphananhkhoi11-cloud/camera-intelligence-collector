@@ -132,5 +132,28 @@ describe(
         );
       }
     );
+
+    test(
+      "skips workshop pages even when camera brands and models appear in the title",
+      () => {
+
+        const result =
+          decideCameraCandidate(
+            "https://shop.example/workshop-chup-anh-ao-dai-cung-sony-alpha-11-2-2026.html",
+            evidence(
+              "https://shop.example/workshop-chup-anh-ao-dai-cung-sony-alpha-11-2-2026.html",
+              "Workshop chụp ảnh Áo Dài cùng Sony Alpha"
+            )
+          );
+
+
+        expect(
+          result.route
+        ).toBe(
+          "CLEAR_NON_PRODUCT_CONTENT"
+        );
+      }
+    );
+
   }
 );

@@ -11,6 +11,10 @@ import {
 } from "../entities/productPageQualification.js";
 
 import {
+  routeEntityFromObservations
+} from "../entities/entityRouting.js";
+
+import {
   MultiSourceDiscoveryHub
 } from "../discovery/multiSourceDiscoveryHub.js";
 
@@ -41,6 +45,12 @@ import {
 } from "./groundingValidator.js";
 
 import {
+  GeminiInferenceTimeoutError,
+  GeminiSemanticProvider
+} from "./geminiSemanticProvider.js";
+
+import {
+  AIInferenceTimeoutError,
   OllamaSemanticProvider
 } from "./ollamaSemanticProvider.js";
 
@@ -67,6 +77,13 @@ export interface CameraScaleEngineOptions {
   readonly model?:
     string;
 
+  readonly semanticProvider?:
+    "gemini" |
+    "ollama";
+
+  readonly geminiApiKey?:
+    string;
+
   readonly ollamaBaseUrl?:
     string;
 
@@ -77,6 +94,12 @@ export interface CameraScaleEngineOptions {
     number;
 
   readonly browseBudgetMs?:
+    number;
+
+  readonly aiTimeoutMs?:
+    number;
+
+  readonly maxConsecutiveAiTimeouts?:
     number;
 
   readonly headless?:
@@ -266,10 +289,13 @@ export class CameraScaleEngine {
       Pick<
         CameraScaleEngineOptions,
         | "model"
+        | "semanticProvider"
         | "ollamaBaseUrl"
         | "maxCandidates"
         | "batchSize"
         | "browseBudgetMs"
+        | "aiTimeoutMs"
+        | "maxConsecutiveAiTimeouts"
         | "headless"
         | "keepTempOnSuccess"
       >
@@ -290,12 +316,29 @@ export class CameraScaleEngine {
       CameraScaleEngineOptions
   ) {
 
+    const semanticProvider =
+      options.semanticProvider ??
+      "gemini";
+
+
+    const defaultModel =
+      semanticProvider ===
+        "gemini"
+        ? "gemini-3.6-flash"
+        : "qwen3-vl:4b-instruct-q4_K_M";
+
+
     this.options = {
       ...options,
 
       model:
-        options.model ??
-        "qwen3-vl:4b-instruct-q4_K_M",
+        !options.model ||
+        options.model ===
+          "auto"
+          ? defaultModel
+          : options.model,
+
+      semanticProvider,
 
       ollamaBaseUrl:
         options.ollamaBaseUrl ??
@@ -320,6 +363,25 @@ export class CameraScaleEngine {
           options.browseBudgetMs ??
           45_000,
           "browseBudgetMs"
+        ),
+
+      aiTimeoutMs:
+        positiveInteger(
+          options.aiTimeoutMs ??
+          (
+            semanticProvider ===
+              "gemini"
+              ? 90_000
+              : 240_000
+          ),
+          "aiTimeoutMs"
+        ),
+
+      maxConsecutiveAiTimeouts:
+        positiveInteger(
+          options.maxConsecutiveAiTimeouts ??
+          2,
+          "maxConsecutiveAiTimeouts"
         ),
 
       headless:
@@ -352,6 +414,21 @@ export class CameraScaleEngine {
       new URL(
         this.options.rootUrl
       ).toString();
+
+
+    if (
+      this.options.semanticProvider ===
+        "gemini" &&
+      !(
+        this.options.geminiApiKey ??
+        process.env.GEMINI_API_KEY ??
+        ""
+      ).trim()
+    ) {
+      throw new Error(
+        "GEMINI_API_KEY is not set. Configure the environment variable before running Gemini."
+      );
+    }
 
 
     const runId =
@@ -411,6 +488,18 @@ export class CameraScaleEngine {
 
 
     let clearNonCameraSkipped =
+      0;
+
+
+    let clearNonProductSkipped =
+      0;
+
+
+    let deterministicNonCameraSkipped =
+      0;
+
+
+    let consecutiveAiTimeouts =
       0;
 
 
@@ -487,6 +576,28 @@ export class CameraScaleEngine {
 
       if (
         item.decision.route ===
+          "CLEAR_NON_PRODUCT_CONTENT"
+      ) {
+
+        clearNonProductSkipped +=
+          1;
+
+
+        excluded.push({
+          url:
+            item.url,
+
+          reason:
+            "early_non_product_content"
+        });
+
+
+        continue;
+      }
+
+
+      if (
+        item.decision.route ===
           "CLEAR_NON_CAMERA"
       ) {
 
@@ -522,28 +633,63 @@ export class CameraScaleEngine {
       " ai/detail candidates=" +
       detailQueue.length +
       " clear non-camera skipped=" +
-      clearNonCameraSkipped
+      clearNonCameraSkipped +
+      " non-product content skipped=" +
+      clearNonProductSkipped
     );
 
 
-    const doctor =
-      await doctorRuntime(
-        this.options.ollamaBaseUrl
-      );
-
-
-    const model =
-      selectInstalledModel(
-        doctor,
-        this.options.model
-      ).name;
+    let model =
+      this.options.model;
 
 
     const provider =
-      new OllamaSemanticProvider({
-        baseUrl:
-          this.options.ollamaBaseUrl
-      });
+      this.options.semanticProvider ===
+        "gemini"
+        ? new GeminiSemanticProvider({
+            apiKey:
+              (
+                this.options.geminiApiKey ??
+                process.env.GEMINI_API_KEY ??
+                ""
+              ).trim(),
+
+            timeoutMs:
+              this.options.aiTimeoutMs,
+
+            thinkingLevel:
+              "medium",
+
+            maxOutputTokens:
+              4_096
+          })
+        : (
+            await (
+              async () => {
+
+                const doctor =
+                  await doctorRuntime(
+                    this.options.ollamaBaseUrl
+                  );
+
+
+                model =
+                  selectInstalledModel(
+                    doctor,
+                    this.options.model
+                  ).name;
+
+
+                return new OllamaSemanticProvider({
+                  baseUrl:
+                    this.options.ollamaBaseUrl,
+
+                  timeoutMs:
+                    this.options.aiTimeoutMs
+                });
+              }
+            )()
+          );
 
 
     const capture =
@@ -646,6 +792,37 @@ export class CameraScaleEngine {
 
             qualifiedProductPages +=
               1;
+
+
+            const deterministicEntity =
+              routeEntityFromObservations(
+                observations.observations
+              );
+
+
+            if (
+              deterministicEntity.route ===
+                "NON_CAMERA" &&
+              deterministicEntity.classifier.confidence ===
+                "HIGH"
+            ) {
+
+              deterministicNonCameraSkipped +=
+                1;
+
+
+              excluded.push({
+                url:
+                  captured.finalUrl,
+
+                reason:
+                  "pre_ai_high_confidence_non_camera: " +
+                  deterministicEntity.subtype
+              });
+
+
+              return;
+            }
 
 
             const packet =
@@ -792,11 +969,53 @@ export class CameraScaleEngine {
 
           try {
 
+            const aiStartedAt =
+              Date.now();
+
+
             const analyzed =
               await provider.analyze(
                 packet,
-                model
+                model,
+                this.options.aiTimeoutMs
               );
+
+
+            const aiElapsedMs =
+              Date.now() -
+              aiStartedAt;
+
+
+            consecutiveAiTimeouts =
+              0;
+
+
+            this.writeInfo(
+              "[AI OK] " +
+              packet.finalUrl +
+              " elapsed=" +
+              aiElapsedMs +
+              "ms model_total=" +
+              String(
+                analyzed.totalDurationMs ??
+                "-"
+              ) +
+              "ms load=" +
+              String(
+                analyzed.loadDurationMs ??
+                "-"
+              ) +
+              "ms prompt_tokens=" +
+              String(
+                analyzed.promptEvalCount ??
+                "-"
+              ) +
+              " output_tokens=" +
+              String(
+                analyzed.evalCount ??
+                "-"
+              )
+            );
 
 
             const validation =
@@ -895,6 +1114,42 @@ export class CameraScaleEngine {
               1;
 
 
+            const isTimeout =
+              error instanceof
+                AIInferenceTimeoutError ||
+              error instanceof
+                GeminiInferenceTimeoutError;
+
+
+            if (
+              isTimeout
+            ) {
+              consecutiveAiTimeouts +=
+                1;
+            }
+            else {
+              consecutiveAiTimeouts =
+                0;
+            }
+
+
+            const reason =
+              error instanceof
+                Error
+                ? error.message
+                : String(
+                    error
+                  );
+
+
+            this.writeInfo(
+              "[AI FAIL] " +
+              packet.finalUrl +
+              " reason=" +
+              reason
+            );
+
+
             reviews.push({
               url:
                 packet.finalUrl,
@@ -902,21 +1157,31 @@ export class CameraScaleEngine {
               model,
 
               status:
-                "AI_UNRESOLVED",
+                isTimeout
+                  ? "AI_TIMEOUT"
+                  : "AI_UNRESOLVED",
 
-              reason:
-                error instanceof
-                  Error
-                  ? error.message
-                  : String(
-                      error
-                    )
+              reason
             });
 
 
             await spool.retainForReview(
               reference
             );
+
+
+            if (
+              consecutiveAiTimeouts >=
+                this.options.maxConsecutiveAiTimeouts
+            ) {
+              throw new Error(
+                "AI_CIRCUIT_BREAKER: " +
+                consecutiveAiTimeouts +
+                " consecutive inference timeout(s). " +
+                "Stopping the run to avoid wasting time; " +
+                "evidence spool is preserved."
+              );
+            }
           }
         }
 
@@ -977,10 +1242,18 @@ export class CameraScaleEngine {
         excluded,
         {
           rootUrl,
+
+          provider:
+            this.options.semanticProvider,
+
           discovered:
             discovery.allDiscoveredUrls.length,
 
           clearNonCameraSkipped,
+
+          clearNonProductSkipped,
+
+          deterministicNonCameraSkipped,
 
           attemptedDetail,
 

@@ -2,10 +2,15 @@ import type {
   UrlDiscoveryEvidence
 } from "../discovery/multiSourceDiscoveryTypes.js";
 
+import {
+  isLikelyNonProductContentUrl
+} from "../discovery/urlDiscoveryScoring.js";
+
 
 export type CameraCandidateRoute =
   | "CAMERA_CANDIDATE"
   | "CLEAR_NON_CAMERA"
+  | "CLEAR_NON_PRODUCT_CONTENT"
   | "UNKNOWN";
 
 
@@ -198,6 +203,41 @@ export function decideCameraCandidate(
     ].join(
       " "
     );
+
+
+  const originalAnchorText =
+    evidence
+      .map(
+        item =>
+          item.anchorText ??
+          ""
+      )
+      .join(
+        " "
+      );
+
+
+  if (
+    isLikelyNonProductContentUrl(
+      url,
+      originalAnchorText
+    )
+  ) {
+    return {
+      route:
+        "CLEAR_NON_PRODUCT_CONTENT",
+
+      reasons: [
+        "clear non-product content"
+      ],
+
+      cameraScore:
+        0,
+
+      nonCameraScore:
+        0
+    };
+  }
 
 
   const cameraMatches =

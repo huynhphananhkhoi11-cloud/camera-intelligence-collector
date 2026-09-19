@@ -14,6 +14,9 @@ import {
 
 
 interface Options {
+  readonly provider:
+    string;
+
   readonly model:
     string;
 
@@ -27,6 +30,12 @@ interface Options {
     number;
 
   readonly browseSeconds:
+    number;
+
+  readonly aiTimeoutSeconds:
+    number;
+
+  readonly maxConsecutiveAiTimeouts:
     number;
 
   readonly headed:
@@ -49,16 +58,21 @@ program
     "camintel-ai-scale"
   )
   .description(
-    "Camera-only, disk-bounded, staged Browser -> Qwen3-VL production runner"
+    "Camera-only staged Browser -> Gemini/Ollama semantic production runner"
   )
   .argument(
     "<url>",
     "Website root URL"
   )
   .option(
+    "--provider <name>",
+    "Semantic provider: gemini or ollama",
+    "gemini"
+  )
+  .option(
     "--model <name>",
-    "Installed Ollama model",
-    "qwen3-vl:4b-instruct-q4_K_M"
+    "Semantic model; auto selects the provider default",
+    "auto"
   )
   .option(
     "--ollama <url>",
@@ -97,6 +111,26 @@ program
     45
   )
   .option(
+    "--ai-timeout-seconds <n>",
+    "Maximum local AI inference time per product",
+    value =>
+      Number.parseInt(
+        value,
+        10
+      ),
+    240
+  )
+  .option(
+    "--max-consecutive-ai-timeouts <n>",
+    "Stop run after this many consecutive AI timeouts",
+    value =>
+      Number.parseInt(
+        value,
+        10
+      ),
+    2
+  )
+  .option(
     "--headed",
     "Show Chromium",
     false
@@ -119,10 +153,36 @@ program
         Options
     ) => {
 
+      const providerName =
+        options.provider
+          .trim()
+          .toLowerCase();
+
+
+      if (
+        providerName !==
+          "gemini" &&
+        providerName !==
+          "ollama"
+      ) {
+        throw new Error(
+          "--provider must be gemini or ollama."
+        );
+      }
+
+
       const engine =
         new CameraScaleEngine({
           rootUrl:
             url,
+
+          semanticProvider:
+            providerName as
+              "gemini" |
+              "ollama",
+
+          geminiApiKey:
+            process.env.GEMINI_API_KEY,
 
           outputPath:
             resolve(
@@ -144,6 +204,13 @@ program
           browseBudgetMs:
             options.browseSeconds *
             1000,
+
+          aiTimeoutMs:
+            options.aiTimeoutSeconds *
+            1000,
+
+          maxConsecutiveAiTimeouts:
+            options.maxConsecutiveAiTimeouts,
 
           headless:
             !options.headed,

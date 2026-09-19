@@ -43,6 +43,48 @@ const COMMERCE_TERMS = [
 ];
 
 
+const CONTENT_PAGE_TERMS = [
+  "workshop",
+  "event",
+  "su-kien",
+  "su kien",
+  "tin-tuc",
+  "tin tuc",
+  "news",
+  "blog",
+  "blogs",
+  "article",
+  "bai-viet",
+  "bai viet",
+  "gioi-thieu",
+  "gioi thieu",
+  "tuyen-dung",
+  "tuyen dung",
+  "huong-dan",
+  "huong dan",
+  "kinh-nghiem",
+  "kinh nghiem",
+  "thu-thuat",
+  "thu thuat",
+  "showroom",
+  "chi-nhanh",
+  "chi nhanh"
+];
+
+
+const PRODUCT_DETAIL_HINT_TERMS = [
+  "body-only",
+  "body only",
+  "chinh-hang",
+  "chinh hang",
+  "likenew",
+  "hang-moi",
+  "hang moi",
+  "hang-cu",
+  "hang cu"
+];
+
+
 const EXCLUDE_TERMS = [
   "cart",
   "checkout",
@@ -128,6 +170,47 @@ function pathDepth(
 }
 
 
+export function isLikelyNonProductContentUrl(
+  rawUrl:
+    string,
+  anchorText:
+    string |
+    null = null
+): boolean {
+
+  let url:
+    URL;
+
+
+  try {
+    url =
+      new URL(
+        rawUrl
+      );
+  }
+  catch {
+    return true;
+  }
+
+
+  const text =
+    normalized(
+      url.pathname +
+      " " +
+      (
+        anchorText ??
+        ""
+      )
+    );
+
+
+  return containsAny(
+    text,
+    CONTENT_PAGE_TERMS
+  );
+}
+
+
 export function scoreDiscoveredUrl(
   rawUrl:
     string,
@@ -166,6 +249,28 @@ export function scoreDiscoveredUrl(
 
   let score =
     0;
+
+
+  if (
+    containsAny(
+      text,
+      CONTENT_PAGE_TERMS
+    )
+  ) {
+    score -=
+      220;
+  }
+
+
+  if (
+    containsAny(
+      text,
+      PRODUCT_DETAIL_HINT_TERMS
+    )
+  ) {
+    score +=
+      25;
+  }
 
 
   if (
@@ -324,6 +429,16 @@ export function shouldTraverseAsCatalog(
         ""
       )
     );
+
+
+  if (
+    containsAny(
+      text,
+      CONTENT_PAGE_TERMS
+    )
+  ) {
+    return false;
+  }
 
 
   if (
