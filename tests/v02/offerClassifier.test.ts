@@ -344,5 +344,39 @@ describe(
         ).toBe(false);
       }
     );
+
+    test(
+      "explicit rental title and rental CTAs override generic ecommerce controls without independent sale truth",
+      () => {
+
+        const result =
+          classifyOffers({
+            title:
+              "Cho thuê máy ảnh Sony Alpha A6400",
+
+            visiblePriceTexts: [
+              "400.000 ₫ 350.000 ₫"
+            ],
+
+            buttons: [
+              "Thêm vào giỏ hàng",
+              "Liên hệ thuê tại đây",
+              "Đặt lịch thuê tại đây"
+            ],
+
+            siteMode:
+              "RENTAL"
+          });
+
+        expect(
+          result.rental
+        ).toBe(true);
+
+        expect(
+          result.sale
+        ).toBe(false);
+      }
+    );
+
   }
 );
