@@ -238,6 +238,12 @@ describe(
         ).toContain(
           "current-page product detail"
         );
+
+        expect(
+          current?.score
+        ).toBeLessThanOrEqual(
+          100
+        );
       }
     );
 
