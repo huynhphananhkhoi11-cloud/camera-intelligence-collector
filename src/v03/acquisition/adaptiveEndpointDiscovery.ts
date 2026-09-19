@@ -88,7 +88,7 @@ export class AdaptiveEndpointDiscovery {
     const replay =
       await this.replayEngine.replayQualified(
         qualification,
-        rootUrl,
+        recon.finalPageUrl,
         signal
       );
 
