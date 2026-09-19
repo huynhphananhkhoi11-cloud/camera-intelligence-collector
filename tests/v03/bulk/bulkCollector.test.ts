@@ -355,7 +355,7 @@ describe(
         expect(
           result.products
         ).toHaveLength(
-          4
+          2
         );
 
 
@@ -391,6 +391,13 @@ describe(
 
         expect(
           result.uncertain
+        ).toHaveLength(
+          0
+        );
+
+
+        expect(
+          result.skippedPages
         ).toHaveLength(
           2
         );
