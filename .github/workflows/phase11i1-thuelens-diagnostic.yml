@@ -69,47 +69,137 @@ jobs:
                 acquisition.html
               );
 
+            const productHeadingOwners =
+              [
+                '[itemtype*="Product"]',
+                "[data-product-id]",
+                ".product-detail",
+                ".product-details",
+                '[class*="product-detail"]',
+                '[class*="product_details"]',
+                "article.product",
+                ".product"
+              ].join(",");
+
             const capturedHeadingTopology =
               captured$(
                 "h1,h2,h3,h4"
               )
                 .toArray()
                 .map(
-                  (element, index) => ({
-                    index,
-                    tag:
-                      element.tagName,
-                    text:
-                      String(
-                        captured$(
-                          element
-                        ).text() ??
-                        ""
-                      )
-                        .replace(
-                          /\s+/g,
-                          " "
+                  (element, index) => {
+                    const node =
+                      captured$(
+                        element
+                      );
+
+                    const signature =
+                      [
+                        node.attr(
+                          "class"
+                        ),
+                        node.attr(
+                          "id"
                         )
-                        .trim(),
-                    className:
-                      String(
-                        captured$(
-                          element
+                      ]
+                        .filter(Boolean)
+                        .join(
+                          " "
+                        );
+
+                    const ancestors = [];
+                    let cursor =
+                      node;
+
+                    for (
+                      let depth = 0;
+                      depth < 6;
+                      depth++
+                    ) {
+                      cursor =
+                        cursor.parent();
+
+                      if (
+                        cursor.length ===
+                          0
+                      ) {
+                        break;
+                      }
+
+                      ancestors.push({
+                        tag:
+                          cursor.get(0)?.tagName ??
+                          "",
+                        className:
+                          String(
+                            cursor.attr(
+                              "class"
+                            ) ??
+                            ""
+                          )
+                      });
+                    }
+
+                    return {
+                      index,
+                      tag:
+                        element.tagName,
+                      text:
+                        String(
+                          node.text() ??
+                          ""
+                        )
+                          .replace(
+                            /\s+/g,
+                            " "
+                          )
+                          .trim(),
+                      className:
+                        String(
+                          node.attr(
+                            "class"
+                          ) ??
+                          ""
+                        ),
+                      id:
+                        String(
+                          node.attr(
+                            "id"
+                          ) ??
+                          ""
+                        ),
+                      signature,
+                      isChromeByAncestor:
+                        node.closest(
+                          "header,nav,footer,[role=\"navigation\"]"
+                        ).length >
+                        0,
+                      isChromeBySignature:
+                        (
+                          /logo/.test(
+                            signature.toLowerCase()
+                          ) ||
+                          /site[-_ ]?(?:title|brand)/.test(
+                            signature.toLowerCase()
+                          ) ||
+                          /(?:^|[\s_-])brand(?:$|[\s_-])/.test(
+                            signature.toLowerCase()
+                          )
+                        ),
+                      isProductOwner:
+                        node.is(
+                          productHeadingOwners
+                        ),
+                      closestProductOwner:
+                        node.closest(
+                          productHeadingOwners
                         ).attr(
                           "class"
                         ) ??
-                        ""
-                      ),
-                    id:
-                      String(
-                        captured$(
-                          element
-                        ).attr(
-                          "id"
-                        ) ??
-                        ""
-                      )
-                  })
+                        "",
+                      ancestors
+                    };
+                  }
                 );
 
             const headingTopology =
