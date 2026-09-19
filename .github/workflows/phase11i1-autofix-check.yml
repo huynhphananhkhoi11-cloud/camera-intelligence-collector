@@ -1,5 +1,8 @@
 name: phase11i1-autofix-check
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:
