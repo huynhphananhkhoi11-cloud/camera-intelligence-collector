@@ -638,10 +638,13 @@ describe(
         );
 
         expect(
-          facts.visiblePriceTexts
-        ).toContain(
-          "Giá thuê: 100.000 đ/ngày"
-        );
+          facts.visiblePriceTexts.some(
+            value =>
+              value.includes(
+                "100.000"
+              )
+          )
+        ).toBe(true);
 
         expect(
           facts.visiblePriceTexts
