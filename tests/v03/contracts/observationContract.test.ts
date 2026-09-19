@@ -119,6 +119,54 @@ describe(
 
 
     test(
+      "observations with different semantic roles are not silently collapsed",
+      () => {
+
+        const baseObservation = {
+          productIdentity:
+            "CANONICAL:https://example.com/canon-r50",
+          field:
+            "PRICE",
+          rawValue:
+            "18.000.000đ",
+          sourceKind:
+            "VISIBLE_TEXT" as const,
+          sourceUrl:
+            "https://example.com/canon-r50",
+          locator:
+            ".price"
+        };
+
+
+        const currentPrice = {
+          ...baseObservation,
+          semanticRole:
+            "CURRENT_PRODUCT_PRICE"
+        };
+
+
+        const oldPrice = {
+          ...baseObservation,
+          semanticRole:
+            "OLD_PRICE"
+        };
+
+
+        const observations =
+          preserveUniqueObservations([
+            currentPrice,
+            oldPrice
+          ]);
+
+
+        expect(
+          observations
+        ).toHaveLength(
+          2
+        );
+      }
+    );
+    test(
       "uncertain entities are not main-export eligible",
       () => {
 
