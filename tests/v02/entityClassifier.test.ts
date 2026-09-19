@@ -102,6 +102,37 @@ describe(
       }
     );
 
+
+    test.each([
+      "Cho thuê Máy ảnh Sony Alpha A6400 (Máy 2)",
+      "Sony a6400 (Chính hãng) (Body Only)",
+      "Máy ảnh Sony Alpha A6400 (Black) + Lens Sigma 18-50mm f/2.8 | Chính hãng"
+    ])(
+      "sparse direct camera title %s => CAMERA",
+      title => {
+
+        const result =
+          classifyEntity({
+            title
+          });
+
+        expect(
+          result.type
+        ).toBe(
+          "CAMERA"
+        );
+
+        expect(
+          result.evidence.some(
+            evidence =>
+              evidence.source ===
+                "TITLE"
+          )
+        ).toBe(true);
+      }
+    );
+
+
   }
 );
 
@@ -281,5 +312,26 @@ describe(
         ).not.toBe("CAMERA");
       }
     );
+
+    test(
+      "camera compatibility wording in an accessory title does not prove CAMERA",
+      () => {
+
+        const result =
+          classifyEntity({
+            title:
+              "Túi đựng máy ảnh Sony A6400",
+            category:
+              "Phụ kiện"
+          });
+
+        expect(
+          result.type
+        ).not.toBe(
+          "CAMERA"
+        );
+      }
+    );
+
   }
 );
