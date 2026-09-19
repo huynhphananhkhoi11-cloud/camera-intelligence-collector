@@ -119,7 +119,7 @@ export function buildIdentityTokens(
         "CANONICAL",
       value,
       token:
-        "CANONICAL:" +
+        "URL:" +
         value
     });
   }
@@ -203,7 +203,7 @@ export function buildIdentityTokens(
         "STRUCTURED_URL",
       value,
       token:
-        "STRUCTURED_URL:" +
+        "URL:" +
         value
     });
   }
@@ -258,17 +258,21 @@ export function buildIdentityTokens(
 
 
   /*
-   * Requested URL is only a fallback identity signal.
+   * The observed requested URL is always represented, but exact
+   * query parameters are preserved. Canonical/structured URL
+   * evidence uses the same URL token namespace so a demonstrated
+   * canonical target can bridge to the actual record for that URL.
    *
-   * It is intentionally omitted when stronger demonstrated
-   * identity signals exist, so query variants are never merged
-   * merely because a URL-normalization heuristic stripped data.
+   * Example:
+   *   /canon-r50?p=2  canonical -> /canon-r50
+   * may join the /canon-r50 record.
+   *
+   * Without that evidence:
+   *   URL:/canon-r50
+   *   URL:/canon-r50?p=2
+   * remain distinct.
    */
-  if (
-    tokens.length ===
-      0
-  ) {
-
+  {
     const value =
       normalizeUrl(
         signals.requestedUrl
@@ -280,7 +284,7 @@ export function buildIdentityTokens(
         "REQUESTED_URL",
       value,
       token:
-        "REQUESTED_URL:" +
+        "URL:" +
         value
     });
   }
