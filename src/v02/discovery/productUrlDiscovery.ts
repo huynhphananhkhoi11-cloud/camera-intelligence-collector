@@ -30,6 +30,37 @@ function clean(value: unknown): string {
     .trim();
 }
 
+function normalizeSearchText(
+  value:
+    unknown
+): string {
+
+  return clean(
+    value
+  )
+    .normalize(
+      "NFD"
+    )
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /đ/gi,
+      "d"
+    )
+    .replace(
+      /₫/g,
+      " vnd "
+    )
+    .toLowerCase()
+    .replace(
+      /\s+/g,
+      " "
+    )
+    .trim();
+}
+
 function isHardExcluded(url: URL): boolean {
   /* STATIC_ASSET_HARD_EXCLUSION */
   if (
@@ -439,6 +470,12 @@ export function discoverProductUrlsFromHtml(
     );
 
 
+  const normalizedDetailText =
+    normalizeSearchText(
+      detailText
+    );
+
+
   const detailHeading =
     clean(
       detailScope
@@ -449,30 +486,30 @@ export function discoverProductUrlsFromHtml(
 
 
   const hasDetailPrice =
-    /\d[\d.,\s]*\s*(?:Ä‘|â‚«|vnd)(?![\p{L}\p{N}_])/iu
+    /\d[\d.,\s]*\s*(?:d|vnd)\b/i
       .test(
-        detailText
+        normalizedDetailText
       );
 
 
   const hasTransactionCta =
-    /\b(?:mua ngay|thÃªm vÃ o giá»(?: hÃ ng)?|them vao gio(?: hang)?|buy now|add to cart|thuÃª ngay|thue ngay|Ä‘áº·t thuÃª|dat thue|rent now|book now)\b/iu
+    /\b(?:mua ngay|them vao gio(?: hang)?|buy now|add to cart|thue ngay|dat thue|rent now|book now)\b/i
       .test(
-        detailText
+        normalizedDetailText
       );
 
 
   const detailSignals =
     [
-      /(?:tÃ¬nh tráº¡ng|tinh trang|availability|in stock|cÃ²n hÃ ng|con hang)/iu,
-      /(?:báº£o hÃ nh|bao hanh|warranty|Ä‘iá»u kiá»‡n thuÃª|dieu kien thue|rental terms?)/iu,
-      /(?:sá»‘ lÆ°á»£ng|so luong|quantity|sku|mÃ£ sáº£n pháº©m|ma san pham|product code)/iu,
-      /(?:phá»¥ kiá»‡n|phu kien|accessories|included)/iu,
-      /(?:thÃ´ng sá»‘|thong so|specifications?|technical specifications?)/iu
+      /\b(?:tinh trang|availability|in stock|con hang)\b/i,
+      /\b(?:bao hanh|warranty|dieu kien thue|rental terms?)\b/i,
+      /\b(?:so luong|quantity|sku|ma san pham|product code)\b/i,
+      /\b(?:phu kien|accessories|included)\b/i,
+      /\b(?:thong so|specifications?|technical specifications?)\b/i
     ].filter(
       pattern =>
         pattern.test(
-          detailText
+          normalizedDetailText
         )
     ).length;
 
