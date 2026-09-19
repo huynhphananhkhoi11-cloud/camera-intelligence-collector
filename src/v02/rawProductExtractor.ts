@@ -430,6 +430,60 @@ export function extractRawProductFactsFromHtml(
     fallbackActionSelector
   ].join(",");
 
+
+  const normalizeActionText = (
+    value: unknown
+  ): string =>
+    clean(
+      value
+    )
+      .normalize(
+        "NFD"
+      )
+      .replace(
+        /[\u0300-\u036f]/g,
+        ""
+      )
+      .replace(
+        /đ/g,
+        "d"
+      )
+      .replace(
+        /Đ/g,
+        "D"
+      )
+      .toLowerCase();
+
+
+  const transactionActionPattern =
+    /\b(?:mua ngay|mua hang|mua nhanh|dat mua|them vao gio(?: hang)?|thue ngay|dat thue|thue san pham(?: nay)?|lien he thue|dat lich thue|buy now|add to cart|rent now|book rental|book now)\b/i;
+
+
+  const hasTransactionAction = (
+    scope:
+      ReturnType<
+        typeof $
+      >
+  ): boolean =>
+    scope
+      .find(
+        structuralActionSelector
+      )
+      .toArray()
+      .some(
+        element =>
+          transactionActionPattern
+            .test(
+              normalizeActionText(
+                $(element).text() ||
+                $(element).attr(
+                  "value"
+                )
+              )
+            )
+      );
+
+
   const primaryHeading =
     $("h1").first();
 
@@ -460,9 +514,9 @@ export function extractRawProductFactsFromHtml(
       }
 
       if (
-        cursor.find(
-          structuralActionSelector
-        ).length > 0
+        hasTransactionAction(
+          cursor
+        )
       ) {
         primaryProductScope =
           cursor;
