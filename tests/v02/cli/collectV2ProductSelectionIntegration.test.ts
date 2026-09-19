@@ -79,5 +79,24 @@ describe(
         );
       }
     );
+
+    test(
+      "passes a proven direct start product into candidate selection as a pinned seed",
+      () => {
+
+        expect(
+          source
+        ).toMatch(
+          /pinnedUrl:\s*requestedSeedUrl/
+        );
+
+        expect(
+          source
+        ).toContain(
+          "DIRECT_START_PRODUCT"
+        );
+      }
+    );
+
   }
 );
