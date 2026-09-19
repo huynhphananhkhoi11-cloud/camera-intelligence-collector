@@ -1,6 +1,6 @@
 import type {
-  AdaptiveEndpointDiscoveryResult
-} from "../acquisition/endpointReplayTypes.js";
+  MultiSourceDiscoveryResult
+} from "../discovery/multiSourceDiscoveryTypes.js";
 
 import type {
   EntityRoutingResult
@@ -42,7 +42,7 @@ export interface BulkCollectionResult {
     string;
 
   readonly discovery:
-    AdaptiveEndpointDiscoveryResult;
+    MultiSourceDiscoveryResult;
 
   readonly candidateUrls:
     readonly string[];
