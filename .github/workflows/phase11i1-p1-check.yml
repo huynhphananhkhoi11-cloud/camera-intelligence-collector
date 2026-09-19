@@ -1,0 +1,25 @@
+name: phase11i1-p1-check
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - agent/phase11i1-autofix
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run tests/v02/sectionizer.test.ts tests/v02/extraction/productDetailSemanticFallback.test.ts
+      - run: npm test
+      - run: npm run check
+      - run: npm run build
