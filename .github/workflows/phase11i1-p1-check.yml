@@ -27,6 +27,78 @@ jobs:
       - name: Install Chromium for live rental evidence smoke
         run: npx playwright install --with-deps chromium
 
+      - name: Diagnose CameraHouse live facts
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from "playwright";
+          import { collectBrowserDetail } from "./dist/v02/extraction/browserDetailCollector.js";
+          import { processProductHtml } from "./dist/v02/pipeline/productPipeline.js";
+
+          const url = "https://camerahouse.vn/products/body-sony-a6400";
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({
+            viewport: { width: 1440, height: 1000 }
+          });
+          const page = await context.newPage();
+
+          try {
+            const acquisition =
+              await collectBrowserDetail(
+                page,
+                url
+              );
+
+            const result =
+              processProductHtml(
+                acquisition.html,
+                acquisition.canonicalUrl || url,
+                "RENTAL"
+              );
+
+            console.log(
+              "CAMERAHOUSE_DIAGNOSTIC=" +
+              JSON.stringify(
+                {
+                  requestedUrl:
+                    acquisition.requestedUrl,
+                  finalUrl:
+                    acquisition.finalUrl,
+                  canonicalUrl:
+                    acquisition.canonicalUrl,
+                  acquisitionErrors:
+                    acquisition.errors,
+                  title:
+                    result.facts.title,
+                  listingCategory:
+                    result.facts.listingCategory,
+                  sections:
+                    result.facts.sections,
+                  visiblePriceTexts:
+                    result.facts.visiblePriceTexts,
+                  buttons:
+                    result.facts.buttons,
+                  entity:
+                    result.analysis.entity,
+                  offer:
+                    result.analysis.offer,
+                  rentalPrice:
+                    result.fields.rentalPrice,
+                  salePrice:
+                    result.fields.salePrice,
+                  validation:
+                    result.validation
+                },
+                null,
+                2
+              )
+            );
+          }
+          finally {
+            await context.close();
+            await browser.close();
+          }
+          NODE
+
       - name: Live rental evidence smoke
         env:
           CAMINTEL_STATE_DB: /tmp/camintel-phase11i1-p1.sqlite
