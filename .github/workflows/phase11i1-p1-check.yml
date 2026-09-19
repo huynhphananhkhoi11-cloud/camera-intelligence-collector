@@ -369,13 +369,13 @@ jobs:
               path: "/tmp/camerahouse-a6400.xlsx",
               url: "https://camerahouse.vn/products/body-sony-a6400",
               words: ["sony", "a6400"],
-              rentalPrice: 290000
+              rentalPrice: 250000
             },
             {
               path: "/tmp/camerahouse-a6400-18105.xlsx",
               url: "https://camerahouse.vn/products/sony-a6400-lens-sony-18-105mm",
               words: ["sony", "a6400", "18-105"],
-              rentalPrice: 400000
+              rentalPrice: 350000
             }
           ];
 
@@ -465,12 +465,25 @@ jobs:
               matched["Hình thức"] ?? ""
             );
 
-            if (!form.includes("RENTAL")) {
+            if (form !== "RENTAL") {
               throw new Error(
-                "Rental form missing for " +
+                "Expected rental-only form for " +
                 item.url +
                 ": " +
                 form
+              );
+            }
+
+            const salePrice = Number(
+              matched["Giá bán"] ?? 0
+            );
+
+            if (salePrice !== 0) {
+              throw new Error(
+                "Unexpected sale price on explicit rental product " +
+                item.url +
+                ": " +
+                salePrice
               );
             }
 
