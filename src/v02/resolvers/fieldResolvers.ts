@@ -83,6 +83,7 @@ interface PriceCandidate {
   source:
     | "VISIBLE"
     | "JSON_LD"
+    | "SECTION"
     | "LISTING";
 
   kind:
@@ -347,6 +348,56 @@ function visibleCandidates(
 }
 
 
+function sectionCandidates(
+  facts:
+    RawProductFacts,
+  kind:
+    "RENTAL" |
+    "SALE"
+): PriceCandidate[] {
+
+  if (
+    kind !==
+      "RENTAL"
+  ) {
+    return [];
+  }
+
+  const raw =
+    getSectionEvidenceText(
+      facts.sections,
+      [
+        "OTHER",
+        "RENTAL_CONDITIONS",
+        "RENTAL_TIME",
+        "PAYMENT",
+        "DOCUMENTS",
+        "DELIVERY"
+      ]
+    );
+
+  const amount =
+    parseRentalPrice(
+      raw
+    );
+
+  if (
+    amount ===
+      null
+  ) {
+    return [];
+  }
+
+  return [{
+    amount,
+    raw,
+    source:
+      "SECTION",
+    kind
+  }];
+}
+
+
 function structuredCandidates(
   facts:
     RawProductFacts
@@ -608,6 +659,20 @@ function resolvePrice(
       kind
     );
 
+  const section =
+    sectionCandidates(
+      facts,
+      kind
+    );
+
+
+  const explicit =
+    [
+      ...visible,
+      ...section
+    ];
+
+
   const structured =
     structuredComparableForKind(
       structuredCandidates(
@@ -615,7 +680,7 @@ function resolvePrice(
       ),
       kind,
       analysis,
-      visible
+      explicit
     );
 
   const listing =
@@ -627,6 +692,7 @@ function resolvePrice(
   const allComparable =
     [
       ...visible,
+      ...section,
       ...structured,
       ...(
         listing
@@ -637,10 +703,12 @@ function resolvePrice(
 
   /*
    * Final value priority:
-   * visible detail > structured Offer > listing.
+   * visible detail > bounded semantic section >
+   * structured Offer > listing.
    */
   const selected =
     visible[0] ??
+    section[0] ??
     structured[0] ??
     listing ??
     null;
