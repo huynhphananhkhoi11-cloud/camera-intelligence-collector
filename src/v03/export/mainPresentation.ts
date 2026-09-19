@@ -647,7 +647,7 @@ function oldNewDisplay(
 }
 
 
-function extractMoneyNumbers(function extractMoneyNumbers(
+function extractMoneyNumbers(
   value:
     string
 ): number[] {

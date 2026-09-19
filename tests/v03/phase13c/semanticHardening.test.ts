@@ -1467,5 +1467,69 @@ describe(
       }
     );
 
+
+    test(
+      "visible variant control deltas are typed as VARIANT_DELTA evidence",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <main>
+                <h1>Nikon Zf Body Only Black</h1>
+                <div class="current-price">40.990.000đ</div>
+                <select name="style">
+                  <option>Black Body Only</option>
+                  <option>Silver +1.500.000đ</option>
+                  <option>+ Lens 24-70 +6.000.000đ</option>
+                </select>
+                <button>Mua ngay</button>
+              </main>
+            </body>
+          </html>
+        `;
+
+
+        const result =
+          collectProductObservationsFromHtml(
+            html,
+            "https://example.com/nikon-zf"
+          );
+
+
+        const deltas =
+          result.observations
+            .filter(
+              item =>
+                item.field ===
+                  "PRICE" &&
+                item.semanticRole ===
+                  "VARIANT_DELTA"
+            )
+            .map(
+              item =>
+                item.rawValue
+            );
+
+
+        expect(
+          deltas.join(
+            " | "
+          )
+        ).toContain(
+          "+1.500.000đ"
+        );
+
+
+        expect(
+          deltas.join(
+            " | "
+          )
+        ).toContain(
+          "+6.000.000đ"
+        );
+      }
+    );
+
   }
 );

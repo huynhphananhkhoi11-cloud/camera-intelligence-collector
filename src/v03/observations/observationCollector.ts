@@ -462,27 +462,51 @@ function pushObservation(
   }
 
 
-  output.push({
-    productIdentity,
-    field,
-    rawValue:
-      cleaned,
-    sourceKind,
-    sourceUrl,
-    locator,
-    context:
-      context ??
-      null,
-    semanticRole:
-      metadata?.semanticRole ??
-      null,
-    ownership:
-      metadata?.ownership ??
-      null,
-    contextKind:
-      metadata?.contextKind ??
-      null
-  });
+  const observation:
+    ProductObservation = {
+      productIdentity,
+      field,
+      rawValue:
+        cleaned,
+      sourceKind,
+      sourceUrl,
+      locator,
+      context:
+        context ??
+        null
+    };
+
+
+  if (
+    metadata?.semanticRole !==
+      undefined
+  ) {
+    observation.semanticRole =
+      metadata.semanticRole;
+  }
+
+
+  if (
+    metadata?.ownership !==
+      undefined
+  ) {
+    observation.ownership =
+      metadata.ownership;
+  }
+
+
+  if (
+    metadata?.contextKind !==
+      undefined
+  ) {
+    observation.contextKind =
+      metadata.contextKind;
+  }
+
+
+  output.push(
+    observation
+  );
 }
 
 
@@ -705,7 +729,7 @@ function priceSemanticRole(
 
 
   if (
-    /(?:gia\s*cu|gia\s*niem\s*yet|gia\s*goc|list\s*price|old[-_\s]*price|regular[-_\s]*price|was\s*:)/iu
+    /(?:gia\s*cu|gia\s*niem\s*yet|gia\s*goc|list\s*price|old[-_\s]*price|regular[-_\s]*price|(?:class|parentclass|id)=[^|]*(?:old|regular|list)[-_\s]*price|was\s*:)/iu
       .test(
         text
       )
@@ -763,7 +787,7 @@ function priceSemanticRole(
 }
 
 
-function priceContextKind(function priceContextKind(
+function priceContextKind(
   role:
     ObservationSemanticRole |
     null
@@ -1092,14 +1116,12 @@ function collectVisibleSemanticDetails(
     (
       element:
         Parameters<
-          Parameters<
-            typeof scope.find
-          >[0]
+          typeof $
         >[0]
     ): boolean => {
 
       const node =
-        $(element as never);
+        $(element);
 
 
       const foreignOwner =
@@ -1435,37 +1457,6 @@ function collectVisibleSemanticDetails(
                     "PRIMARY_PRODUCT"
                 }
               );
-
-
-              if (
-                /[+\-]\s*\d[\d.,\s]*(?:đ|₫|vnd)/iu
-                  .test(
-                    value
-                  )
-              ) {
-                pushObservation(
-                  output,
-                  productIdentity,
-                  "PRICE",
-                  value,
-                  "VISIBLE_TEXT",
-                  sourceUrl,
-                  "variant-price[" +
-                  selectIndex +
-                  "].option[" +
-                  optionIndex +
-                  "]",
-                  descriptor,
-                  {
-                    semanticRole:
-                      "VARIANT_DELTA",
-                    ownership:
-                      "PRIMARY_PRODUCT",
-                    contextKind:
-                      "SALE"
-                  }
-                );
-              }
             }
           );
       }
@@ -1569,35 +1560,107 @@ function collectVisibleSemanticDetails(
               "PRIMARY_PRODUCT"
           }
         );
+      }
+    );
+
+
+  scope.find(
+    [
+      "select option",
+      'input[type="radio"]',
+      "button",
+      '[role="button"]'
+    ].join(
+      ","
+    )
+  )
+    .each(
+      (
+        index,
+        element
+      ) => {
+
+        if (
+          isForeignRelatedNode(
+            element
+          )
+        ) {
+          return;
+        }
+
+
+        const node =
+          $(element);
+
+
+        const id =
+          clean(
+            node.attr(
+              "id"
+            )
+          );
+
+
+        const raw =
+          clean(
+            [
+              node.text(),
+              node.attr(
+                "value"
+              ),
+              node.attr(
+                "aria-label"
+              ),
+              id
+                ? scope.find(
+                    'label[for="' +
+                    id.replace(
+                      /"/g,
+                      '\\"'
+                    ) +
+                    '"]'
+                  ).first().text()
+                : ""
+            ]
+              .filter(
+                Boolean
+              )
+              .join(
+                " "
+              )
+          );
 
 
         if (
-          /[+\-]\s*\d[\d.,\s]*(?:đ|₫|vnd)/iu
+          !/[+\-]\s*\d[\d.,\s]*(?:đ|₫|vnd)(?:\s|$)/iu
             .test(
-              labelText
+              raw
             )
         ) {
-          pushObservation(
-            output,
-            productIdentity,
-            "PRICE",
-            labelText,
-            "VISIBLE_TEXT",
-            sourceUrl,
-            "variant-price[" +
-            index +
-            "]",
-            "radio variant option",
-            {
-              semanticRole:
-                "VARIANT_DELTA",
-              ownership:
-                "PRIMARY_PRODUCT",
-              contextKind:
-                "SALE"
-            }
-          );
+          return;
         }
+
+
+        pushObservation(
+          output,
+          productIdentity,
+          "PRICE",
+          raw,
+          "VISIBLE_TEXT",
+          sourceUrl,
+          "variant-price[" +
+          index +
+          "]",
+          "Visible variant control delta",
+          {
+            semanticRole:
+              "VARIANT_DELTA",
+            ownership:
+              "PRIMARY_PRODUCT",
+            contextKind:
+              "SALE"
+          }
+        );
       }
     );
 
