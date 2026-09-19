@@ -3,4 +3,8 @@ export * from "./acquisitionErrors.js";
 export * from "./acquisitionRouter.js";
 export * from "./acquisitionTypes.js";
 export * from "./defaultAcquisitionRouter.js";
+export * from "./networkReconBackend.js";
+export * from "./networkReconRedaction.js";
+export * from "./networkReconTypes.js";
+export * from "./playwrightNetworkReconRuntime.js";
 export * from "./staticHttpBackend.js";
