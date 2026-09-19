@@ -161,6 +161,13 @@ describe(
                         </script>
                       </head>
                       <body>
+                        <nav class="breadcrumb">
+                          <a>Trang chủ</a>
+                          <a>Máy ảnh</a>
+                          <a>Máy ảnh Canon</a>
+                          <a>Canon EOS R50</a>
+                        </nav>
+
                         <h1>Canon EOS R50</h1>
                         <div class="price">18.000.000đ</div>
                         <button>Mua ngay</button>
