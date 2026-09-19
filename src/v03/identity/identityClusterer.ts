@@ -61,10 +61,21 @@ function uniqueTokens(
       of record.tokens
     ) {
 
-      if (
-        !byToken.has(
+      const existing =
+        byToken.get(
           token.token
-        )
+        );
+
+
+      if (
+        existing ===
+          undefined ||
+        TOKEN_PRIORITY[
+          token.kind
+        ] <
+          TOKEN_PRIORITY[
+            existing.kind
+          ]
       ) {
         byToken.set(
           token.token,
