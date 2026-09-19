@@ -652,9 +652,12 @@ export function classifyOffers(
   const rentalAmounts =
     [
       parseRentalPrice(
-        pageText
+        input.pageText ?? ""
       ),
-      ...visiblePriceTexts.map(
+      ...(
+        input.visiblePriceTexts ??
+        []
+      ).map(
         value =>
           parseRentalPrice(
             value
@@ -671,7 +674,10 @@ export function classifyOffers(
 
 
   const saleAmounts =
-    visiblePriceTexts
+    (
+      input.visiblePriceTexts ??
+      []
+    )
       .map(
         value =>
           parseSalePrice(
