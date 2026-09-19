@@ -30,6 +30,7 @@ import {
 } from "node:url";
 
 import {
+  canonicalizeUrl,
   discoverProductUrls,
   type ProductUrlCandidate
 } from "../discovery/productUrlDiscovery.js";
@@ -534,7 +535,7 @@ export async function runCollectV2(
     )
     .argument(
       "[url]",
-      "Catalog/category URL for a new run"
+      "Catalog/category or product URL for a new run"
     )
     .option(
       "--site-mode <mode>",
@@ -969,6 +970,9 @@ export async function runCollectV2(
                 undefined
             ) {
               const currentPageUrl =
+                canonicalizeUrl(
+                  catalogPage.url()
+                ) ??
                 catalogPage.url();
 
               const directCandidate =
