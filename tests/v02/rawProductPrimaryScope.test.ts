@@ -675,5 +675,58 @@ describe(
       }
     );
 
+
+    test(
+      "site-logo H1 does not outrank the product-detail H1",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <header class="site-header">
+                <h1 class="site-header__logo">
+                  RentLens
+                </h1>
+              </header>
+
+              <main>
+                <article class="product-details">
+                  <h1 class="product-details__title">
+                    Cho thuê chân máy tại Hà Nội - Tripod Benro KH25N
+                  </h1>
+
+                  <h2 class="product-details__category">
+                    Phụ kiện máy ảnh Phụ kiện máy quay
+                  </h2>
+
+                  <div>
+                    Giá thuê: 100.000 đ/ngày
+                  </div>
+                </article>
+              </main>
+            </body>
+          </html>
+        `;
+
+        const facts =
+          extractRawProductFactsFromHtml(
+            html,
+            "https://shop.test/lens/cho-thue-chan-may-quay-benro-kh-25"
+          );
+
+        expect(
+          facts.title
+        ).toBe(
+          "Cho thuê chân máy tại Hà Nội - Tripod Benro KH25N"
+        );
+
+        expect(
+          facts.title
+        ).not.toBe(
+          "RentLens"
+        );
+      }
+    );
+
   }
 );
