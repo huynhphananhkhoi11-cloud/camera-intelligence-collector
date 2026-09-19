@@ -167,6 +167,54 @@ describe(
       }
     );
     test(
+      "observations with different ownership are not silently collapsed",
+      () => {
+
+        const baseObservation = {
+          productIdentity:
+            "CANONICAL:https://example.com/canon-r50",
+          field:
+            "AVAILABILITY",
+          rawValue:
+            "Còn hàng",
+          sourceKind:
+            "VISIBLE_TEXT" as const,
+          sourceUrl:
+            "https://example.com/canon-r50",
+          locator:
+            ".stock"
+        };
+
+
+        const primaryObservation = {
+          ...baseObservation,
+          ownership:
+  "PRIMARY_PRODUCT" as const
+        };
+
+
+        const relatedObservation = {
+          ...baseObservation,
+          ownership:
+  "RELATED" as const
+        };
+
+
+        const observations =
+          preserveUniqueObservations([
+            primaryObservation,
+            relatedObservation
+          ]);
+
+
+        expect(
+          observations
+        ).toHaveLength(
+          2
+        );
+      }
+    );
+    test(
       "uncertain entities are not main-export eligible",
       () => {
 

@@ -9,6 +9,13 @@ export type ObservationSemanticRole =
   | "INSTALLMENT_AMOUNT";
 
 
+export type ObservationOwnership =
+  | "PRIMARY_PRODUCT"
+  | "RELATED"
+  | "PAGE_CHROME"
+  | "UNKNOWN";
+
+
 export type EntityClassification =
   | "CAMERA"
   | "NON_CAMERA"
@@ -33,6 +40,7 @@ export interface FieldObservation {
   rawValue: string;
   normalizedValue?: string | number | boolean | null;
   semanticRole?: ObservationSemanticRole | null;
+  ownership?: ObservationOwnership | null;
   sourceKind: ObservationSourceKind;
   sourceUrl: string;
   locator?: string | null;
@@ -50,6 +58,7 @@ function fingerprint(
     observation.field,
     observation.rawValue,
     observation.semanticRole ?? null,
+    observation.ownership ?? null,
     observation.sourceKind,
     observation.sourceUrl,
     observation.locator ?? null
