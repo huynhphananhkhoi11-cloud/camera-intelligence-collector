@@ -3,11 +3,19 @@ import type {
 } from "./productUrlDiscovery.js";
 
 
+export interface ProductCandidateSelectionOptions {
+  readonly pinnedUrl?:
+    string;
+}
+
+
 export function selectProductCandidates(
   candidates:
     readonly ProductUrlCandidate[],
   limit:
-    number
+    number,
+  options:
+    ProductCandidateSelectionOptions = {}
 ): ProductUrlCandidate[] {
 
   if (
@@ -82,19 +90,48 @@ export function selectProductCandidates(
   }
 
 
-  return Array.from(
-    byUrl.values()
-  )
-    .sort(
-      (a, b) =>
-        (
-          b.score -
-          a.score
-        ) ||
-        a.url.localeCompare(
-          b.url
-        )
+  const ranked =
+    Array.from(
+      byUrl.values()
     )
+      .sort(
+        (a, b) =>
+          (
+            b.score -
+            a.score
+          ) ||
+          a.url.localeCompare(
+            b.url
+          )
+      );
+
+
+  const pinnedUrl =
+    options.pinnedUrl;
+
+
+  const pinned =
+    pinnedUrl
+      ? byUrl.get(
+          pinnedUrl
+        )
+      : undefined;
+
+
+  const selected =
+    pinned
+      ? [
+          pinned,
+          ...ranked.filter(
+            candidate =>
+              candidate.url !==
+                pinned.url
+          )
+        ]
+      : ranked;
+
+
+  return selected
     .slice(
       0,
       limit
