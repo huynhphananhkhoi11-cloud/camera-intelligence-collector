@@ -493,10 +493,43 @@ export function discoverProductUrlsFromHtml(
 
 
   const hasTransactionCta =
-    /\b(?:mua ngay|them vao gio(?: hang)?|buy now|add to cart|thue ngay|dat thue|rent now|book now)\b/i
+    /\b(?:mua ngay|them vao gio(?: hang)?|buy now|add to cart|thue ngay|dat thue|thue san pham(?: nay)?|lien he thue|dat lich thue|rent now|book now)\b/i
       .test(
         normalizedDetailText
       );
+
+
+  const actionTexts =
+    detailScope
+      .find(
+        [
+          "button",
+          "a.btn",
+          "a.button",
+          '[role="button"]',
+          'input[type="submit"]',
+          'input[type="button"]'
+        ].join(",")
+      )
+      .toArray()
+      .map(
+        element =>
+          normalizeSearchText(
+            $(element).text() ||
+            $(element).attr("value")
+          )
+      )
+      .filter(Boolean);
+
+
+  const hasDirectProductCta =
+    actionTexts.some(
+      text =>
+        /^(?:thue san pham(?: nay)?|lien he thue|dat lich thue)\b/i
+          .test(
+            text
+          )
+    );
 
 
   const detailSignals =
@@ -526,6 +559,7 @@ export function discoverProductUrlsFromHtml(
     hasTransactionCta &&
     (
       hasStrongProductPath ||
+      hasDirectProductCta ||
       detailSignals >=
         2
     )
