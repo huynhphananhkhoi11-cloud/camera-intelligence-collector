@@ -300,6 +300,196 @@ function inferBusinessKind(
 }
 
 
+function normalizeMoneyContext(
+  value: unknown
+): string {
+  return clean(
+    value
+  )
+    .normalize(
+      "NFD"
+    )
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /đ/g,
+      "d"
+    )
+    .replace(
+      /Đ/g,
+      "D"
+    )
+    .toLowerCase();
+}
+
+
+function saleVisiblePriority(
+  raw:
+    string
+): number {
+  const text =
+    normalizeMoneyContext(
+      raw
+    );
+
+  /*
+   * These strings describe auxiliary money, not the product's
+   * own sale price. Keep them available as raw page evidence,
+   * but never let them win primary-price selection.
+   */
+  if (
+    /\b(?:qua tang|gift)\b.*\b(?:tri gia|worth|value)\b/
+      .test(
+        text
+      )
+  ) {
+    return -300;
+  }
+
+  if (
+    /^(?:giam|tiet kiem|save|discount)\b/
+      .test(
+        text
+      )
+  ) {
+    return -250;
+  }
+
+  if (
+    /^\s*[+-]/
+      .test(
+        raw
+      ) ||
+    /^(?:body only|lens|ong kinh|kit)\b.*[+-]\s*\d/
+      .test(
+        text
+      )
+  ) {
+    return -200;
+  }
+
+
+  let score =
+    0;
+
+
+  /*
+   * Explicit sale labels are strongest. They remain ahead of
+   * plain currency values such as gifts, deposits or accessories.
+   */
+  if (
+    /\b(?:gia ban|gia hien tai|gia khuyen mai|sale price|current price)\b/
+      .test(
+        text
+      )
+  ) {
+    score +=
+      120;
+  }
+
+
+  /*
+   * A current-price + list-price + discount group is a common
+   * storefront representation. parseSalePrice() already returns
+   * the first amount, so this semantic shape is stronger than a
+   * nearby standalone currency value.
+   */
+  const currencyAmounts =
+    raw.match(
+      /\d[\d.,\s]*\s*(?:đ|₫|vnd)/giu
+    ) ??
+    [];
+
+
+  if (
+    currencyAmounts.length >=
+      2 &&
+    /\b(?:giam|tiet kiem|save|discount)\b/
+      .test(
+        text
+      )
+  ) {
+    score +=
+      80;
+  }
+
+
+  return score;
+}
+
+
+function selectPrimaryVisibleCandidate(
+  candidates:
+    PriceCandidate[],
+  kind:
+    "RENTAL" |
+    "SALE"
+): PriceCandidate | null {
+  if (
+    candidates.length ===
+      0
+  ) {
+    return null;
+  }
+
+  if (
+    kind ===
+      "RENTAL"
+  ) {
+    return candidates[0] ??
+      null;
+  }
+
+
+  let selected =
+    candidates[0] ??
+    null;
+
+  let selectedScore =
+    selected
+      ? saleVisiblePriority(
+          selected.raw
+        )
+      : Number.NEGATIVE_INFINITY;
+
+
+  for (
+    let index = 1;
+    index <
+      candidates.length;
+    index++
+  ) {
+    const candidate =
+      candidates[index];
+
+    if (!candidate) {
+      continue;
+    }
+
+    const score =
+      saleVisiblePriority(
+        candidate.raw
+      );
+
+    if (
+      score >
+        selectedScore
+    ) {
+      selected =
+        candidate;
+
+      selectedScore =
+        score;
+    }
+  }
+
+
+  return selected;
+}
+
+
 function visibleCandidates(
   facts:
     RawProductFacts,
@@ -706,8 +896,15 @@ function resolvePrice(
    * visible detail > bounded semantic section >
    * structured Offer > listing.
    */
+  const primaryVisible =
+    selectPrimaryVisibleCandidate(
+      visible,
+      kind
+    );
+
+
   const selected =
-    visible[0] ??
+    primaryVisible ??
     section[0] ??
     structured[0] ??
     listing ??
