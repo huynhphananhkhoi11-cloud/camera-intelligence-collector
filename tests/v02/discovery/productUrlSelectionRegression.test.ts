@@ -140,6 +140,68 @@ describe(
 
 
     test(
+      "matching Product JSON-LD keeps detail pagination out of catalog traversal",
+      () => {
+
+        const html = `
+          <html>
+            <head>
+              <script type="application/ld+json">
+              {
+                "@context": "https://schema.org",
+                "@type": "Product",
+                "name": "Canon EOS R50",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "18000000",
+                  "priceCurrency": "VND"
+                }
+              }
+              </script>
+            </head>
+
+            <body>
+              <main>
+                <h1>
+                  Canon EOS R50 (NEW 100%)
+                </h1>
+
+                <section>
+                  <h2>
+                    Related products
+                  </h2>
+
+                  <a href="/canon-eos-r50-new?p=2">
+                    2
+                  </a>
+                </section>
+              </main>
+            </body>
+          </html>
+        `;
+
+        const result =
+          discoverProductUrlsFromHtml(
+            html,
+            "https://example.com/canon-eos-r50-new"
+          );
+
+        expect(
+          result.productUrls
+        ).toContain(
+          "https://example.com/canon-eos-r50-new"
+        );
+
+        expect(
+          result.paginationUrls
+        ).not.toContain(
+          "https://example.com/canon-eos-r50-new?p=2"
+        );
+      }
+    );
+
+
+    test(
       "strong product-detail pagination is not traversed as catalog pagination",
       () => {
 
