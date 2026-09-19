@@ -477,12 +477,18 @@ export function discoverProductUrlsFromHtml(
     ).length;
 
 
+  const currentPageIsStrongProductDetail =
+    Boolean(
+      detailHeading &&
+      hasDetailPrice &&
+      hasTransactionCta &&
+      detailSignals >=
+        2
+    );
+
+
   if (
-    detailHeading &&
-    hasDetailPrice &&
-    hasTransactionCta &&
-    detailSignals >=
-      2
+    currentPageIsStrongProductDetail
   ) {
 
     addCandidate(
@@ -564,9 +570,23 @@ export function discoverProductUrlsFromHtml(
         )
       ) {
 
-        pagination.add(
-          canonical
-        );
+        /*
+         * Pagination discovered on a strong product-detail page
+         * belongs to detail-page subcontent (for example related
+         * products), not to the catalog traversal frontier.
+         *
+         * Following it can re-crawl the same primary product under
+         * query variants such as ?p=2 and duplicate the exported row.
+         * Catalog pages still expose pagination normally because they
+         * do not satisfy the strong current-page detail contract.
+         */
+        if (
+          !currentPageIsStrongProductDetail
+        ) {
+          pagination.add(
+            canonical
+          );
+        }
 
         return;
       }
