@@ -124,5 +124,86 @@ describe(
         ]);
       }
     );
+
+    test(
+      "preserves a proven requested direct-product seed even when its score is lower and limit is one",
+      () => {
+
+        const selected =
+          selectProductCandidates(
+            [
+              {
+                url:
+                  "https://example.com/requested-camera",
+                score:
+                  70,
+                reasons: [
+                  "current-page product detail"
+                ]
+              },
+              {
+                url:
+                  "https://example.com/related-camera",
+                score:
+                  120,
+                reasons: [
+                  "related product card"
+                ]
+              }
+            ],
+            1,
+            {
+              pinnedUrl:
+                "https://example.com/requested-camera"
+            }
+          );
+
+        expect(
+          selected.map(
+            item =>
+              item.url
+          )
+        ).toEqual([
+          "https://example.com/requested-camera"
+        ]);
+      }
+    );
+
+
+    test(
+      "does not invent a pinned product that was not discovered",
+      () => {
+
+        const selected =
+          selectProductCandidates(
+            [
+              {
+                url:
+                  "https://example.com/real-product",
+                score:
+                  90,
+                reasons: [
+                  "catalog product"
+                ]
+              }
+            ],
+            1,
+            {
+              pinnedUrl:
+                "https://example.com/not-discovered"
+            }
+          );
+
+        expect(
+          selected.map(
+            item =>
+              item.url
+          )
+        ).toEqual([
+          "https://example.com/real-product"
+        ]);
+      }
+    );
+
   }
 );
