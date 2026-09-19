@@ -321,6 +321,84 @@ function uniqueInOrder(
 }
 
 
+function hasInteractiveChallengeEvidence(
+  body:
+    string
+): boolean {
+
+  const lower =
+    body.toLowerCase();
+
+
+  return (
+    /class\s*=\s*["'][^"']*(?:g-recaptcha|h-captcha|cf-turnstile)[^"']*["']/i
+      .test(
+        body
+      ) ||
+    /<iframe[^>]+src\s*=\s*["'][^"']*(?:recaptcha|hcaptcha|turnstile)[^"']*["']/i
+      .test(
+        body
+      ) ||
+    lower.includes(
+      "verify you are human"
+    ) ||
+    lower.includes(
+      "are you a robot"
+    ) ||
+    lower.includes(
+      "human verification"
+    )
+  );
+}
+
+
+function detectStaticChallengeState(
+  status:
+    number,
+  body:
+    string,
+  url:
+    string
+): ChallengeState {
+
+  const generic =
+    detectChallenge({
+      status,
+      bodyText:
+        body,
+      url
+    });
+
+
+  if (
+    generic.state !==
+      "CHALLENGE_CONFIRMED"
+  ) {
+    return generic.state;
+  }
+
+
+  if (
+    status >=
+      400 ||
+    hasInteractiveChallengeEvidence(
+      body
+    )
+  ) {
+    return "CHALLENGE_CONFIRMED";
+  }
+
+
+  /*
+   * Many ordinary pages preload reCAPTCHA/Turnstile scripts
+   * for forms without presenting a blocking challenge.
+   * A script reference alone must not classify a healthy
+   * HTML document as human-verification.
+   */
+  return "NONE";
+}
+
+
 export class StaticHttpBackend
 implements AcquisitionBackend {
 
@@ -714,17 +792,12 @@ implements AcquisitionBackend {
         context.rootUrl;
 
 
-      const challenge =
-        detectChallenge({
-          status:
-            response.status,
-
-          bodyText:
-            body,
-
-          url:
-            finalUrl
-        });
+      const challengeState =
+        detectStaticChallengeState(
+          response.status,
+          body,
+          finalUrl
+        );
 
 
       const snapshot:
@@ -746,8 +819,7 @@ implements AcquisitionBackend {
 
           body,
 
-          challengeState:
-            challenge.state
+          challengeState
         };
 
 
