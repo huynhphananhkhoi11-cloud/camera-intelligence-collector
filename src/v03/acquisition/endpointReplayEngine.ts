@@ -120,6 +120,48 @@ function resolveHttpUrl(
 }
 
 
+function htmlBaseUrl(
+  body:
+    string,
+  documentUrl:
+    string,
+  rootOrigin:
+    string
+): string {
+
+  const $ =
+    load(
+      body
+    );
+
+
+  const baseHref =
+    $("base[href]")
+      .first()
+      .attr(
+        "href"
+      );
+
+
+  if (
+    baseHref ===
+      undefined
+  ) {
+    return documentUrl;
+  }
+
+
+  return (
+    resolveHttpUrl(
+      baseHref,
+      documentUrl,
+      rootOrigin
+    ) ??
+    documentUrl
+  );
+}
+
+
 function collectJsonUrls(
   value:
     unknown,
@@ -247,6 +289,14 @@ function extractSameOriginUrls(
       );
 
 
+    const baseUrl =
+      htmlBaseUrl(
+        response.body,
+        rootUrl,
+        rootOrigin
+      );
+
+
     $("a[href]")
       .each(
         (
@@ -272,7 +322,7 @@ function extractSameOriginUrls(
           const resolved =
             resolveHttpUrl(
               href,
-              response.finalUrl,
+              baseUrl,
               rootOrigin
             );
 
