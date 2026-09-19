@@ -409,7 +409,7 @@ describe(
           expect.arrayContaining([
             "Website",
             "Tên sản phẩm",
-            "Hình thức",
+            "Hàng cũ/Hàng mới",
             "Thông số mô tả",
             "Giá thuê/ngày",
             "Điều kiện thuê riêng",
@@ -452,7 +452,7 @@ describe(
 
         const conditionColumn =
           headers.indexOf(
-            "Hình thức"
+            "Hàng cũ/Hàng mới"
           );
 
 
@@ -477,7 +477,7 @@ describe(
             ).value
           )
         ).toBe(
-          "NEW 100% | Đã qua sử dụng"
+          "Hàng mới | Hàng cũ"
         );
 
 
