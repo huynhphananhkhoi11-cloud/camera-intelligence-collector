@@ -23,3 +23,154 @@ jobs:
       - run: npm test
       - run: npm run check
       - run: npm run build
+
+      - name: Install Chromium for live rental evidence smoke
+        run: npx playwright install --with-deps chromium
+
+      - name: Live rental evidence smoke
+        env:
+          CAMINTEL_STATE_DB: /tmp/camintel-phase11i1-p1.sqlite
+        run: |
+          set -euo pipefail
+
+          node dist/v02/cli/collectV2.js "https://thuemayanhsaigon.com/equipment/21" --headless --fresh --site-mode RENTAL --max-pages 1 --max-products 1 --concurrency 1 --output /tmp/sony-a6400.xlsx
+          node dist/v02/cli/collectV2.js "https://camerahouse.vn/products/body-sony-a6400" --headless --fresh --site-mode RENTAL --max-pages 1 --max-products 1 --concurrency 1 --output /tmp/camerahouse-a6400.xlsx
+          node dist/v02/cli/collectV2.js "https://camerahouse.vn/products/sony-a6400-lens-sony-18-105mm" --headless --fresh --site-mode RENTAL --max-pages 1 --max-products 1 --concurrency 1 --output /tmp/camerahouse-a6400-18105.xlsx
+
+          node --input-type=module <<'NODE'
+          import ExcelJS from "exceljs";
+
+          const cases = [
+            {
+              path: "/tmp/sony-a6400.xlsx",
+              url: "https://thuemayanhsaigon.com/equipment/21",
+              words: ["sony", "a6400"],
+              rentalPrice: 360000
+            },
+            {
+              path: "/tmp/camerahouse-a6400.xlsx",
+              url: "https://camerahouse.vn/products/body-sony-a6400",
+              words: ["sony", "a6400"],
+              rentalPrice: 290000
+            },
+            {
+              path: "/tmp/camerahouse-a6400-18105.xlsx",
+              url: "https://camerahouse.vn/products/sony-a6400-lens-sony-18-105mm",
+              words: ["sony", "a6400", "18-105"],
+              rentalPrice: 400000
+            }
+          ];
+
+          for (const item of cases) {
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.readFile(item.path);
+
+            const accepted = workbook.getWorksheet("Dữ liệu đối thủ");
+
+            if (!accepted) {
+              throw new Error("Missing accepted sheet for " + item.url);
+            }
+
+            const headers = [];
+            accepted.getRow(1).eachCell((cell, column) => {
+              headers[column] = String(cell.value ?? "").trim();
+            });
+
+            const rows = [];
+
+            accepted.eachRow((row, rowNumber) => {
+              if (rowNumber === 1) {
+                return;
+              }
+
+              const record = {};
+
+              row.eachCell((cell, column) => {
+                record[headers[column] ?? String(column)] =
+                  cell.value ?? "";
+              });
+
+              rows.push(record);
+            });
+
+            const matched = rows.find(row =>
+              String(row.URL ?? "").trim() === item.url
+            );
+
+            if (!matched) {
+              const review = workbook.getWorksheet("Cần kiểm tra");
+              const reviewUrls = [];
+
+              if (review) {
+                const reviewHeaders = [];
+                review.getRow(1).eachCell((cell, column) => {
+                  reviewHeaders[column] = String(cell.value ?? "").trim();
+                });
+
+                review.eachRow((row, rowNumber) => {
+                  if (rowNumber === 1) {
+                    return;
+                  }
+
+                  row.eachCell((cell, column) => {
+                    if (reviewHeaders[column] === "URL") {
+                      reviewUrls.push(String(cell.value ?? ""));
+                    }
+                  });
+                });
+              }
+
+              throw new Error(
+                "Requested rental product not ACCEPTed: " +
+                item.url +
+                "; review=" +
+                reviewUrls.join(",")
+              );
+            }
+
+            const name = String(
+              matched["Tên sản phẩm"] ?? ""
+            ).toLowerCase();
+
+            for (const word of item.words) {
+              if (!name.includes(word)) {
+                throw new Error(
+                  "Unexpected identity for " +
+                  item.url +
+                  ": " +
+                  name
+                );
+              }
+            }
+
+            const form = String(
+              matched["Hình thức"] ?? ""
+            );
+
+            if (!form.includes("RENTAL")) {
+              throw new Error(
+                "Rental form missing for " +
+                item.url +
+                ": " +
+                form
+              );
+            }
+
+            const actualPrice = Number(
+              matched["Giá thuê/ngày"]
+            );
+
+            if (actualPrice !== item.rentalPrice) {
+              throw new Error(
+                "Unexpected rental price for " +
+                item.url +
+                ": expected=" +
+                item.rentalPrice +
+                "; actual=" +
+                actualPrice
+              );
+            }
+          }
+
+          console.log("LIVE_RENTAL_EVIDENCE_SMOKE=PASS");
+          NODE
