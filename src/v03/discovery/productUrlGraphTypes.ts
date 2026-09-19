@@ -16,6 +16,7 @@ export type DiscoveryOwnerKind =
 
 
 export type DiscoveryRelation =
+  | "CANDIDATE_LINK"
   | "PRODUCT_LINK"
   | "PAGINATION"
   | "RELATED_PRODUCT"
