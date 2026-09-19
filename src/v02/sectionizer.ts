@@ -172,6 +172,56 @@ export function sectionizeHtml(
     return false;
   };
 
+  const isPeerSectionBoundary = (
+    node: any
+  ): boolean => {
+
+    const tag =
+      String(
+        node?.tagName ?? ""
+      ).toLowerCase();
+
+    const text =
+      clean(
+        $(node).text()
+      );
+
+
+    if (
+      !text
+    ) {
+      return false;
+    }
+
+
+    if (
+      classifySectionHeading(
+        text
+      ) !== null
+    ) {
+      return true;
+    }
+
+
+    if (
+      /^h[1-6]$/.test(tag) ||
+      tag === "dt"
+    ) {
+      const normalized =
+        norm(
+          text
+        );
+
+      return /^(?:san pham lien quan|san pham tuong tu|goi y san pham|related products?|similar products?|you may also like|recommendations?)$/
+        .test(
+          normalized
+        );
+    }
+
+
+    return false;
+  };
+
   for (
     const node
     of candidates
@@ -267,7 +317,7 @@ export function sectionizeHtml(
               candidate =>
                 candidate !==
                   node &&
-                isBoundary(
+                isPeerSectionBoundary(
                   candidate
                 )
             );
