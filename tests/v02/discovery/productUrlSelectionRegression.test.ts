@@ -279,5 +279,46 @@ describe(
       }
     );
 
+
+    test(
+      "recognizes a product-like path with title price and CTA even when optional detail sections are absent",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <main>
+                <h1>Body Sony A6400</h1>
+                <div>290,000₫</div>
+                <button>Thêm vào giỏ</button>
+                <h2>Mô tả</h2>
+                <p>Giá thuê: 290.000đ / 1 Ngày</p>
+                <p>Set thiết bị cho thuê bao gồm: 1 Body Camera, 2 Pin, 1 Sạc Pin</p>
+              </main>
+            </body>
+          </html>
+        `;
+
+        const result =
+          discoverProductUrlsFromHtml(
+            html,
+            "https://example.com/products/body-sony-a6400"
+          );
+
+        const current =
+          result.candidates.find(
+            item =>
+              item.url ===
+                "https://example.com/products/body-sony-a6400"
+          );
+
+        expect(
+          current?.reasons
+        ).toContain(
+          "current-page product detail"
+        );
+      }
+    );
+
   }
 );
