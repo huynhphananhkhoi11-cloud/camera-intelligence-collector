@@ -15,6 +15,7 @@ export type ObservationField =
   | "PRICE_CURRENCY"
   | "CONDITION"
   | "AVAILABILITY"
+  | "INVENTORY_LEVEL"
   | "RATING"
   | "REVIEW_COUNT"
   | "RATING_REVIEW_TEXT"
