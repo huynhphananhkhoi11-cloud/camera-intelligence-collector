@@ -275,10 +275,19 @@ export class RenderedDomDiscovery {
         [];
 
 
-    const origin =
+    const rootSite =
       new URL(
         rootUrl
-      ).origin;
+      );
+
+
+    const rootSiteKey =
+      rootSite.hostname
+        .replace(
+          /^www\./i,
+          ""
+        )
+        .toLowerCase();
 
 
     const evidence:
@@ -363,8 +372,13 @@ export class RenderedDomDiscovery {
 
 
           if (
-            parsed.origin !==
-              origin ||
+            parsed.hostname
+              .replace(
+                /^www\./i,
+                ""
+              )
+              .toLowerCase() !==
+              rootSiteKey ||
             (
               parsed.protocol !==
                 "http:" &&
