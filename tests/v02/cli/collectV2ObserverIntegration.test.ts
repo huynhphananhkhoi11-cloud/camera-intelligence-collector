@@ -189,6 +189,31 @@ describe(
 
 
     test(
+      "run shutdown closes the browser process directly",
+      () => {
+
+        expect(
+          source
+        ).toContain(
+          "browser.isConnected()"
+        );
+
+        expect(
+          source
+        ).toContain(
+          "await browser.close();"
+        );
+
+        expect(
+          source
+        ).not.toContain(
+          "await context.close();"
+        );
+      }
+    );
+
+
+    test(
       "observer focus failure is diagnostic-only",
       () => {
 
