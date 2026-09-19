@@ -1,9 +1,7 @@
 name: Known-site live gate
 
 on:
-  push:
-    branches:
-      - feat/v3-semantic-contracts
+  workflow_dispatch:
 
 permissions:
   contents: read

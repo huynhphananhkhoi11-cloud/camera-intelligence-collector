@@ -1213,15 +1213,40 @@ function collectVisibleSemanticDetails(
           $(element);
 
 
+        const directText =
+          clean(
+            node.contents()
+              .filter(
+                (
+                  _,
+                  child
+                ) =>
+                  child.type ===
+                    "text"
+              )
+              .text()
+          );
+
+
         const raw =
           clean(
-            node.text() ||
             node.attr(
               "content"
-            ) ||
+            )
+          ) ||
+          clean(
             node.attr(
               "data-price"
             )
+          ) ||
+          directText ||
+          (
+            node.children().length ===
+              0
+              ? clean(
+                  node.text()
+                )
+              : ""
           );
 
 
@@ -1842,9 +1867,15 @@ function collectVisibleSemanticDetails(
     scope.find(
       [
         '[itemprop="availability"]',
-        '[class*="stock"]',
-        '[class*="availability"]',
-        '[class*="inventory"]'
+        ".stock",
+        ".stock-status",
+        ".availability",
+        ".availability-status",
+        ".inventory",
+        ".inventory-status",
+        '[class~="stock"]',
+        '[class~="availability"]',
+        '[class~="inventory"]'
       ].join(
         ","
       )
@@ -1870,15 +1901,67 @@ function collectVisibleSemanticDetails(
         $(element);
 
 
+      const nestedProductCount =
+        node.find(
+          [
+            "article",
+            ".product-item",
+            ".product-card",
+            '[class*="product-item"]',
+            '[class*="product-card"]',
+            '[class*="related"]',
+            '[class*="recommend"]',
+            '[class*="similar"]',
+            '[class*="upsell"]',
+            '[class*="cross-sell"]'
+          ].join(
+            ","
+          )
+        ).length;
+
+
+      if (
+        nestedProductCount >
+          0
+      ) {
+        return;
+      }
+
+
+      const directText =
+        clean(
+          node.contents()
+            .filter(
+              (
+                _,
+                child
+              ) =>
+                child.type ===
+                  "text"
+            )
+            .text()
+        );
+
+
       const raw =
         clean(
-          node.text() ||
-          node.attr(
-            "href"
-          ) ||
           node.attr(
             "content"
           )
+        ) ||
+        clean(
+          node.attr(
+            "aria-label"
+          )
+        ) ||
+        clean(
+          node.attr(
+            "href"
+          )
+        ) ||
+        directText ||
+        clean(
+          node.text()
         );
 
 
@@ -1886,6 +1969,16 @@ function collectVisibleSemanticDetails(
         !raw ||
         raw.length >
           160
+      ) {
+        return;
+      }
+
+
+      if (
+        !/(?:schema\.org\/(?:InStock|OutOfStock|PreOrder|BackOrder|Discontinued)|còn\s+hàng|hết\s+hàng|tạm\s+hết|chờ\s+nhập|đặt\s+hàng\s+trước|cho\s+phép\s+đặt\s+hàng\s+trước|pre[-\s]?order|in\s*stock|out\s*of\s*stock|còn\s+lại\s+\d+)/iu
+          .test(
+            raw
+          )
       ) {
         return;
       }

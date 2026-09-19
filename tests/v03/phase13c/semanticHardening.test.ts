@@ -1536,5 +1536,156 @@ describe(
       }
     );
 
+
+    test(
+      "nested duplicated visible price text cannot create concatenated mega price",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <main class="product-detail">
+
+                <h1>
+                  Canon EOS R50
+                </h1>
+
+                <div class="current-price">
+                  15.990.000đ
+
+                  <span class="mobile-price">
+                    15.990.000đ
+                  </span>
+                </div>
+
+                <button>
+                  Mua ngay
+                </button>
+
+              </main>
+            </body>
+          </html>
+        `;
+
+
+        const result =
+          collectProductObservationsFromHtml(
+            html,
+            "https://zshop.vn/canon-eos-r50.html"
+          );
+
+
+        const row =
+          buildMainPresentationRow(
+            product(
+              result.observations
+            ),
+            "https://zshop.vn/"
+          );
+
+
+        expect(
+          row.salePrice
+        ).toBe(
+          "15.990.000 VND"
+        );
+
+
+        expect(
+          row.salePrice
+        ).not.toContain(
+          "15.990.000.015.990.000"
+        );
+      }
+    );
+
+
+    test(
+      "related product grids cannot contaminate primary stock",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+
+              <main class="product-detail">
+
+                <h1>
+                  Fujifilm X-T6
+                </h1>
+
+                <div class="current-price">
+                  45.990.000đ
+                </div>
+
+                <div class="availability">
+                  Còn hàng
+                </div>
+
+                <button>
+                  Mua ngay
+                </button>
+
+                <section class="related-products">
+
+                  <div class="product-card stock-related-products">
+                    Fujifilm GFX 100S
+                    141.900.000đ
+                    109.000.000đ
+                    Mua ngay
+                  </div>
+
+                  <div class="product-card">
+                    Fujifilm X-T5
+                    38.990.000đ
+                  </div>
+
+                </section>
+
+              </main>
+
+            </body>
+          </html>
+        `;
+
+
+        const result =
+          collectProductObservationsFromHtml(
+            html,
+            "https://binhminhdigital.com/fujifilm-x-t6.html"
+          );
+
+
+        const row =
+          buildMainPresentationRow(
+            product(
+              result.observations
+            ),
+            "https://binhminhdigital.com/"
+          );
+
+
+        expect(
+          row.stock
+        ).toBe(
+          "Còn hàng"
+        );
+
+
+        expect(
+          row.stock
+        ).not.toContain(
+          "GFX 100S"
+        );
+
+
+        expect(
+          row.stock
+        ).not.toContain(
+          "109.000.000"
+        );
+      }
+    );
+
   }
 );

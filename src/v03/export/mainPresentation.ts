@@ -1049,6 +1049,41 @@ function visibleInventoryQuantities(
 }
 
 
+function isCleanAvailabilityText(
+  value:
+    string
+): boolean {
+
+  const text =
+    value.trim();
+
+
+  if (
+    !text ||
+    text.length >
+      160
+  ) {
+    return false;
+  }
+
+
+  if (
+    /(?:mua\s+ngay|giá\s+gốc|gia\s+goc|giá\s+hiện\s+tại|gia\s+hien\s+tai|thêm\s+vào\s+giỏ|them\s+vao\s+gio|sản\s+phẩm\s+liên\s+quan|san\s+pham\s+lien\s+quan)/iu
+      .test(
+        text
+      )
+  ) {
+    return false;
+  }
+
+
+  return /(?:schema\.org\/(?:InStock|OutOfStock|PreOrder|BackOrder|Discontinued)|còn\s+hàng|hết\s+hàng|tạm\s+hết|chờ\s+nhập|đặt\s+hàng\s+trước|cho\s+phép\s+đặt\s+hàng\s+trước|pre[-\s]?order|in\s*stock|out\s*of\s*stock|còn\s+lại\s+\d+)/iu
+    .test(
+      text
+    );
+}
+
+
 function inventoryDisplay(
   observations:
     readonly ProductObservation[]
@@ -1144,7 +1179,10 @@ function inventoryDisplay(
       .filter(
         observation =>
           observation.field ===
-            "AVAILABILITY"
+            "AVAILABILITY" &&
+          isCleanAvailabilityText(
+            observation.rawValue
+          )
       )
       .map(
         observation => {
