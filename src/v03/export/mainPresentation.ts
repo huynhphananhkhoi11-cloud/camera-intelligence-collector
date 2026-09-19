@@ -572,16 +572,77 @@ function formatMoney(
 }
 
 
+function semanticPriceObservations(
+  observations:
+    readonly ProductObservation[]
+): ProductObservation[] {
+
+  const prices =
+    observationsFor(
+      observations,
+      "PRICE"
+    );
+
+
+  const hasSemanticMetadata =
+    prices.some(
+      observation =>
+        observation.semanticRole !==
+          undefined &&
+        observation.semanticRole !==
+          null
+    );
+
+
+  if (
+    !hasSemanticMetadata
+  ) {
+    return prices;
+  }
+
+
+  return prices.filter(
+    observation =>
+      (
+        observation.semanticRole ===
+          "CURRENT_PRODUCT_PRICE" ||
+        observation.semanticRole ===
+          "VARIANT_PRICE"
+      ) &&
+      observation.ownership !==
+        "RELATED" &&
+      observation.contextKind !==
+        "RENTAL" &&
+      observation.contextKind !==
+        "GIFT" &&
+      observation.contextKind !==
+        "INSTALLMENT" &&
+      observation.contextKind !==
+        "PROMOTION"
+  );
+}
+
+
 function priceDisplay(
   observations:
     readonly ProductObservation[]
 ): string {
 
   const rawValues =
-    uniqueValues(
-      observations,
-      "PRICE"
-    );
+    [
+      ...new Set(
+        semanticPriceObservations(
+          observations
+        )
+          .map(
+            observation =>
+              observation.rawValue.trim()
+          )
+          .filter(
+            Boolean
+          )
+      )
+    ];
 
 
   const values =
@@ -649,6 +710,48 @@ function priceDisplay(
 }
 
 
+function primaryOwnedInventoryObservations(
+  observations:
+    readonly ProductObservation[]
+): ProductObservation[] {
+
+  const candidates =
+    observations.filter(
+      observation =>
+        observation.field ===
+          "AVAILABILITY" ||
+        observation.field ===
+          "INVENTORY_LEVEL"
+    );
+
+
+  const hasOwnership =
+    candidates.some(
+      observation =>
+        observation.ownership !==
+          undefined &&
+        observation.ownership !==
+          null
+    );
+
+
+  if (
+    !hasOwnership
+  ) {
+    return candidates;
+  }
+
+
+  return candidates.filter(
+    observation =>
+      observation.ownership ===
+        "PRIMARY_PRODUCT" ||
+      observation.ownership ===
+        "UNKNOWN"
+  );
+}
+
+
 function visibleInventoryQuantities(
   observations:
     readonly ProductObservation[]
@@ -660,15 +763,20 @@ function visibleInventoryQuantities(
 
 
   for (
-    const raw
-    of uniqueValues(
-      observations,
-      "AVAILABILITY"
-    )
+    const observation
+    of observations
   ) {
 
+    if (
+      observation.field !==
+        "AVAILABILITY"
+    ) {
+      continue;
+    }
+
+
     const match =
-      raw.match(
+      observation.rawValue.match(
         /(?:tồn\s*kho|còn(?:\s*lại)?|stock|remaining)[^0-9]{0,20}(\d+)/iu
       );
 
@@ -712,14 +820,22 @@ function inventoryDisplay(
     readonly ProductObservation[]
 ): string {
 
+  const owned =
+    primaryOwnedInventoryObservations(
+      observations
+    );
+
+
   const structured =
-    uniqueValues(
-      observations,
-      "INVENTORY_LEVEL"
-    )
+    owned
+      .filter(
+        observation =>
+          observation.field ===
+            "INVENTORY_LEVEL"
+      )
       .flatMap(
-        value =>
-          value.match(
+        observation =>
+          observation.rawValue.match(
             /\d+(?:[.,]\d+)?/g
           ) ??
           []
@@ -746,7 +862,7 @@ function inventoryDisplay(
       ...new Set([
         ...structured,
         ...visibleInventoryQuantities(
-          observations
+          owned
         )
       ])
     ]
@@ -790,12 +906,18 @@ function inventoryDisplay(
 
 
   const states =
-    uniqueValues(
-      observations,
-      "AVAILABILITY"
-    )
+    owned
+      .filter(
+        observation =>
+          observation.field ===
+            "AVAILABILITY"
+      )
       .map(
-        value => {
+        observation => {
+
+          const value =
+            observation.rawValue;
+
 
           const tail =
             schemaTail(

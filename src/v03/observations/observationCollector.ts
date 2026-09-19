@@ -6,6 +6,11 @@ import {
   preserveUniqueObservations
 } from "../contracts/observationContract.js";
 
+import type {
+  ObservationContextKind,
+  ObservationSemanticRole
+} from "../contracts/observationContract.js";
+
 import {
   extractRawProductFactsFromHtml
 } from "../../v02/rawProductExtractor.js";
@@ -601,6 +606,761 @@ function offerObjects(
 
 
   return [];
+}
+
+
+function normalizedSemanticText(
+  value:
+    unknown
+): string {
+
+  return clean(
+    value
+  )
+    .normalize(
+      "NFD"
+    )
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /đ/giu,
+      "d"
+    )
+    .toLowerCase();
+}
+
+
+function priceSemanticRole(
+  observation:
+    ProductObservation
+): ObservationSemanticRole {
+
+  const text =
+    normalizedSemanticText(
+      [
+        observation.rawValue,
+        observation.context,
+        observation.locator
+      ]
+        .filter(
+          Boolean
+        )
+        .join(
+          " "
+        )
+    );
+
+
+  if (
+    /(?:qua\s*tang|tang\s*kem|gift|tri\s*gia)/iu
+      .test(
+        text
+      )
+  ) {
+    return "GIFT_VALUE";
+  }
+
+
+  if (
+    /(?:tra\s*gop|installment|\/\s*thang|moi\s*thang|per\s*month)/iu
+      .test(
+        text
+      )
+  ) {
+    return "INSTALLMENT_AMOUNT";
+  }
+
+
+  if (
+    /(?:gia\s*cu|gia\s*niem\s*yet|gia\s*goc|list\s*price|old\s*price|was\s*:)/iu
+      .test(
+        text
+      )
+  ) {
+    return "OLD_PRICE";
+  }
+
+
+  if (
+    /(?:tiet\s*kiem|saving|save\s+|giam\s*gia|discount)/iu
+      .test(
+        text
+      )
+  ) {
+    return "SAVING_VALUE";
+  }
+
+
+  if (
+    /(?:lowprice|highprice|variant|option)/iu
+      .test(
+        text
+      )
+  ) {
+    return "VARIANT_PRICE";
+  }
+
+
+  return "CURRENT_PRODUCT_PRICE";
+}
+
+
+function priceContextKind(
+  role:
+    ObservationSemanticRole
+): ObservationContextKind {
+
+  if (
+    role ===
+      "GIFT_VALUE"
+  ) {
+    return "GIFT";
+  }
+
+
+  if (
+    role ===
+      "INSTALLMENT_AMOUNT"
+  ) {
+    return "INSTALLMENT";
+  }
+
+
+  if (
+    role ===
+      "OLD_PRICE" ||
+    role ===
+      "DISCOUNT_VALUE" ||
+    role ===
+      "SAVING_VALUE"
+  ) {
+    return "PROMOTION";
+  }
+
+
+  return "SALE";
+}
+
+
+function annotateObservationSemantics(
+  observations:
+    ProductObservation[]
+): void {
+
+  for (
+    const observation
+    of observations
+  ) {
+
+    if (
+      observation.field ===
+        "PRICE"
+    ) {
+
+      const role =
+        priceSemanticRole(
+          observation
+        );
+
+
+      observation.semanticRole ??=
+        role;
+
+      observation.ownership ??=
+        role ===
+          "GIFT_VALUE" ||
+        role ===
+          "ACCESSORY_PRICE"
+          ? "RELATED"
+          : "PRIMARY_PRODUCT";
+
+      observation.contextKind ??=
+        priceContextKind(
+          role
+        );
+
+      continue;
+    }
+
+
+    if (
+      observation.field ===
+        "AVAILABILITY" ||
+      observation.field ===
+        "INVENTORY_LEVEL"
+    ) {
+      observation.ownership ??=
+        "PRIMARY_PRODUCT";
+
+      observation.contextKind ??=
+        "AVAILABILITY";
+
+      continue;
+    }
+
+
+    if (
+      observation.field ===
+        "SPECS"
+    ) {
+      observation.ownership ??=
+        "PRIMARY_PRODUCT";
+
+      observation.contextKind ??=
+        "SPECIFICATION";
+
+      continue;
+    }
+
+
+    if (
+      observation.field ===
+        "RATING" ||
+      observation.field ===
+        "REVIEW_COUNT" ||
+      observation.field ===
+        "RATING_REVIEW_TEXT"
+    ) {
+      observation.ownership ??=
+        "PRIMARY_PRODUCT";
+
+      observation.contextKind ??=
+        "REVIEW";
+
+      continue;
+    }
+
+
+    if (
+      observation.field ===
+        "CONDITION"
+    ) {
+      observation.ownership ??=
+        "PRIMARY_PRODUCT";
+    }
+  }
+}
+
+
+function collectVisibleSemanticDetails(
+  $:
+    ReturnType<
+      typeof load
+    >,
+  output:
+    ProductObservation[],
+  productIdentity:
+    string,
+  sourceUrl:
+    string
+): void {
+
+  const scope =
+    $("main").first().length >
+      0
+      ? $("main").first()
+      : $("body").first();
+
+
+  const isConditionText =
+    (
+      value:
+        string
+    ): boolean => {
+
+      const normalized =
+        normalizedSemanticText(
+          value
+        );
+
+
+      return /(?:\bhang\s+(?:moi|cu)\b|\blike\s*new\b|\blikenew\b|\bused\b|\bsecond[\s-]?hand\b|\brefurbished\b|\bda\s+qua\s+su\s+dung\b|\bnew\s*100%\b)/iu
+        .test(
+          normalized
+        );
+    };
+
+
+  scope.find(
+    "select"
+  )
+    .each(
+      (
+        selectIndex,
+        element
+      ) => {
+
+        const select =
+          $(element);
+
+
+        const descriptor =
+          [
+            select.attr(
+              "name"
+            ),
+            select.attr(
+              "id"
+            ),
+            select.attr(
+              "class"
+            ),
+            select.prev(
+              "label"
+            ).text(),
+            select.closest(
+              "label"
+            ).text()
+          ]
+            .filter(
+              Boolean
+            )
+            .join(
+              " "
+            );
+
+
+        select.find(
+          "option"
+        )
+          .each(
+            (
+              optionIndex,
+              optionElement
+            ) => {
+
+              const value =
+                clean(
+                  $(optionElement)
+                    .text()
+                );
+
+
+              if (
+                !value ||
+                !isConditionText(
+                  value
+                )
+              ) {
+                return;
+              }
+
+
+              pushObservation(
+                output,
+                productIdentity,
+                "CONDITION",
+                value,
+                "VISIBLE_TEXT",
+                sourceUrl,
+                "condition-select[" +
+                selectIndex +
+                "].option[" +
+                optionIndex +
+                "]",
+                descriptor
+              );
+            }
+          );
+      }
+    );
+
+
+  scope.find(
+    'input[type="radio"]'
+  )
+    .each(
+      (
+        index,
+        element
+      ) => {
+
+        const input =
+          $(element);
+
+
+        const id =
+          clean(
+            input.attr(
+              "id"
+            )
+          );
+
+
+        const labelText =
+          clean(
+            [
+              id
+                ? scope.find(
+                    'label[for="' +
+                    id.replace(
+                      /"/g,
+                      '\\"'
+                    ) +
+                    '"]'
+                  ).first().text()
+                : "",
+              input.closest(
+                "label"
+              ).text(),
+              input.next(
+                "label"
+              ).text(),
+              input.attr(
+                "value"
+              )
+            ]
+              .filter(
+                Boolean
+              )
+              .join(
+                " "
+              )
+          );
+
+
+        if (
+          !isConditionText(
+            labelText
+          )
+        ) {
+          return;
+        }
+
+
+        pushObservation(
+          output,
+          productIdentity,
+          "CONDITION",
+          labelText,
+          "VISIBLE_TEXT",
+          sourceUrl,
+          "condition-radio[" +
+          index +
+          "]"
+        );
+      }
+    );
+
+
+  scope.find(
+    "table tr"
+  )
+    .each(
+      (
+        index,
+        element
+      ) => {
+
+        const row =
+          $(element);
+
+
+        const cells =
+          row.find(
+            "th,td"
+          );
+
+
+        if (
+          cells.length <
+            2
+        ) {
+          return;
+        }
+
+
+        const key =
+          clean(
+            cells.eq(
+              0
+            ).text()
+          );
+
+
+        const value =
+          clean(
+            cells.eq(
+              1
+            ).text()
+          );
+
+
+        if (
+          !key ||
+          !value ||
+          key.length >
+            100
+        ) {
+          return;
+        }
+
+
+        pushObservation(
+          output,
+          productIdentity,
+          "SPECS",
+          key +
+          ": " +
+          value,
+          "VISIBLE_TEXT",
+          sourceUrl,
+          "spec-table[" +
+          index +
+          "]"
+        );
+      }
+    );
+
+
+  scope.find(
+    "dl"
+  )
+    .each(
+      (
+        listIndex,
+        element
+      ) => {
+
+        const list =
+          $(element);
+
+
+        list.find(
+          "dt"
+        )
+          .each(
+            (
+              termIndex,
+              termElement
+            ) => {
+
+              const term =
+                $(termElement);
+
+
+              const key =
+                clean(
+                  term.text()
+                );
+
+
+              const value =
+                clean(
+                  term.next(
+                    "dd"
+                  ).first().text()
+                );
+
+
+              if (
+                !key ||
+                !value ||
+                key.length >
+                  100
+              ) {
+                return;
+              }
+
+
+              pushObservation(
+                output,
+                productIdentity,
+                "SPECS",
+                key +
+                ": " +
+                value,
+                "VISIBLE_TEXT",
+                sourceUrl,
+                "spec-dl[" +
+                listIndex +
+                "].term[" +
+                termIndex +
+                "]"
+              );
+            }
+          );
+      }
+    );
+
+
+  const ratingNodes =
+    scope.find(
+      '[itemprop="ratingValue"],[data-rating],[class*="rating"],[aria-label*="rating" i]'
+    );
+
+
+  ratingNodes.each(
+    (
+      index,
+      element
+    ) => {
+
+      const node =
+        $(element);
+
+
+      const rawCandidates =
+        [
+          node.attr(
+            "content"
+          ),
+          node.attr(
+            "data-rating"
+          ),
+          node.attr(
+            "aria-label"
+          ),
+          node.text()
+        ]
+          .map(
+            clean
+          )
+          .filter(
+            Boolean
+          );
+
+
+      for (
+        const raw
+        of rawCandidates
+      ) {
+
+        const explicit =
+          raw.match(
+            /(?:^|[^0-9])([0-5](?:[.,]\d+)?)\s*(?:\/\s*5|out\s+of\s+5|tren\s*5|trên\s*5|sao\b)/iu
+          );
+
+
+        const direct =
+          !explicit &&
+          /^(?:[0-5](?:[.,]\d+)?)$/u
+            .test(
+              raw
+            )
+            ? raw
+            : null;
+
+
+        const value =
+          explicit?.[1] ??
+          direct;
+
+
+        if (
+          !value
+        ) {
+          continue;
+        }
+
+
+        pushObservation(
+          output,
+          productIdentity,
+          "RATING",
+          value.replace(
+            ",",
+            "."
+          ),
+          "VISIBLE_TEXT",
+          sourceUrl,
+          "visible-rating[" +
+          index +
+          "]"
+        );
+
+
+        break;
+      }
+    }
+  );
+
+
+  const reviewNodes =
+    scope.find(
+      '[itemprop="reviewCount"],[class*="review-count"],[class*="review_count"],[class*="reviews"]'
+    );
+
+
+  reviewNodes.each(
+    (
+      index,
+      element
+    ) => {
+
+      const node =
+        $(element);
+
+
+      const raw =
+        clean(
+          node.attr(
+            "content"
+          ) ??
+          node.text()
+        );
+
+
+      const explicit =
+        raw.match(
+          /(\d[\d.,]*)\s*(?:danh\s*gia|đánh\s*giá|reviews?|ratings?)/iu
+        );
+
+
+      const direct =
+        !explicit &&
+        node.attr(
+          "itemprop"
+        ) ===
+          "reviewCount" &&
+        /^\d[\d.,]*$/u.test(
+          raw
+        )
+          ? raw
+          : null;
+
+
+      const value =
+        explicit?.[1] ??
+        direct;
+
+
+      if (
+        !value
+      ) {
+        return;
+      }
+
+
+      const digits =
+        value.replace(
+          /\D/g,
+          ""
+        );
+
+
+      if (
+        !digits
+      ) {
+        return;
+      }
+
+
+      pushObservation(
+        output,
+        productIdentity,
+        "REVIEW_COUNT",
+        digits,
+        "VISIBLE_TEXT",
+        sourceUrl,
+        "visible-review-count[" +
+        index +
+        "]"
+      );
+    }
+  );
 }
 
 
@@ -1357,6 +2117,14 @@ export function collectProductObservationsFromHtml(
     );
 
 
+  collectVisibleSemanticDetails(
+    $,
+    output,
+    identityId,
+    finalUrl
+  );
+
+
   const structuredProduct =
     primaryProductObject(
       rawFacts.jsonLd,
@@ -1382,6 +2150,11 @@ export function collectProductObservationsFromHtml(
       "Structured Product observations were not collected because no unambiguous primary Product object was established."
     );
   }
+
+
+  annotateObservationSemantics(
+    output
+  );
 
 
   return {
