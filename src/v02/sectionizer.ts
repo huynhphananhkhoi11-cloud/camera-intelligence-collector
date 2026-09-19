@@ -108,6 +108,19 @@ export function classifySectionHeading(
     return "COMBO";
   }
 
+  /*
+   * Generic product-description headings are useful as a bounded
+   * primary-detail evidence region. They remain OTHER so downstream
+   * consumers must opt in explicitly instead of treating arbitrary
+   * description text as a specialized field.
+   */
+  if (
+    /^(mo ta|mo ta san pham|chi tiet san pham|description|product description|product details?)$/
+      .test(text)
+  ) {
+    return "OTHER";
+  }
+
   return null;
 }
 
