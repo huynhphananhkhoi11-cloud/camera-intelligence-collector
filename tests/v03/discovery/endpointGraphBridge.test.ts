@@ -18,7 +18,7 @@ describe(
   () => {
 
     test(
-      "keeps endpoint provenance on every discovered URL",
+      "keeps endpoint provenance without prematurely claiming product truth",
       () => {
 
         const run:
@@ -98,7 +98,7 @@ describe(
           ownerKind:
             "ENDPOINT_RESPONSE",
           relation:
-            "PRODUCT_LINK",
+            "CANDIDATE_LINK",
           sourceRef:
             "candidate-1",
           metadata: {
