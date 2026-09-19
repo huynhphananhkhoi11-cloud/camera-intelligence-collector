@@ -246,6 +246,8 @@ export async function waitForProductHydration(
         boolean;
       hasTransactionAction:
         boolean;
+      hasChromeOnlyHeading:
+        boolean;
     };
 
   try {
@@ -283,13 +285,61 @@ export async function waitForProductHydration(
                 )
                 .trim();
 
-          const h1 =
-            clean(
-              document
-                .querySelector(
-                  "h1"
+          const headingIsChrome = (
+            element:
+              Element
+          ): boolean => {
+
+            if (
+              element.closest(
+                [
+                  "header",
+                  "nav",
+                  "footer",
+                  '[role="navigation"]'
+                ].join(",")
+              )
+            ) {
+              return true;
+            }
+
+            const signature =
+              clean(
+                [
+                  element.getAttribute(
+                    "class"
+                  ),
+                  element.getAttribute(
+                    "id"
+                  )
+                ].join(
+                  " "
                 )
-                ?.textContent
+              );
+
+            return /(?:^|[\s_-])(?:logo|site[-_ ]?title|site[-_ ]?brand|brand)(?:$|[\s_-])/
+              .test(
+                signature
+              );
+          };
+
+
+          const headings =
+            Array.from(
+              document.querySelectorAll(
+                "h1"
+              )
+            );
+
+          const nonChromeHeading =
+            headings.find(
+              heading =>
+                clean(
+                  heading.textContent
+                ) &&
+                !headingIsChrome(
+                  heading
+                )
             );
 
           const productJsonLd =
@@ -343,7 +393,7 @@ export async function waitForProductHydration(
           return {
             hasProductIdentity:
               Boolean(
-                h1 ||
+                nonChromeHeading ||
                 productJsonLd
               ),
 
@@ -351,7 +401,12 @@ export async function waitForProductHydration(
               /\b(?:mua ngay|mua hang|mua nhanh|dat mua|them vao gio(?: hang)?|thue ngay|dat thue|thue san pham(?: nay)?|lien he thue|dat lich thue|buy now|add to cart|rent now|book rental|book now)\b/i
                 .test(
                   actionText
-                )
+                ),
+
+            hasChromeOnlyHeading:
+              headings.length >
+                0 &&
+              !nonChromeHeading
           };
         }
       );
@@ -362,7 +417,10 @@ export async function waitForProductHydration(
 
   if (
     state.hasProductIdentity ||
-    !state.hasTransactionAction
+    (
+      !state.hasTransactionAction &&
+      !state.hasChromeOnlyHeading
+    )
   ) {
     return;
   }
@@ -370,15 +428,94 @@ export async function waitForProductHydration(
   try {
     await page.waitForFunction(
       () => {
-        const heading =
-          document
-            .querySelector(
+        const clean =
+          (
+            value:
+              unknown
+          ): string =>
+            String(
+              value ??
+              ""
+            )
+              .normalize(
+                "NFD"
+              )
+              .replace(
+                /[\u0300-\u036f]/g,
+                ""
+              )
+              .replace(
+                /đ/g,
+                "d"
+              )
+              .replace(
+                /Đ/g,
+                "D"
+              )
+              .toLowerCase()
+              .replace(
+                /\s+/g,
+                " "
+              )
+              .trim();
+
+        const headingIsChrome = (
+          element:
+            Element
+        ): boolean => {
+
+          if (
+            element.closest(
+              [
+                "header",
+                "nav",
+                "footer",
+                '[role="navigation"]'
+              ].join(",")
+            )
+          ) {
+            return true;
+          }
+
+          const signature =
+            clean(
+              [
+                element.getAttribute(
+                  "class"
+                ),
+                element.getAttribute(
+                  "id"
+                )
+              ].join(
+                " "
+              )
+            );
+
+          return /(?:^|[\s_-])(?:logo|site[-_ ]?title|site[-_ ]?brand|brand)(?:$|[\s_-])/
+            .test(
+              signature
+            );
+        };
+
+        const hasNonChromeHeading =
+          Array.from(
+            document.querySelectorAll(
               "h1"
             )
-            ?.textContent
-            ?.trim();
+          )
+            .some(
+              heading =>
+                clean(
+                  heading.textContent
+                ) &&
+                !headingIsChrome(
+                  heading
+                )
+            );
 
-        if (heading) {
+        if (
+          hasNonChromeHeading
+        ) {
           return true;
         }
 
