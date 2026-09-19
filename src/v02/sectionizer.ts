@@ -224,41 +224,89 @@ export function sectionizeHtml(
     }
 
     /*
-     * Conservative fallback.
+     * Conservative wrapper fallback.
      *
-     * Only inspect the parent if direct siblings
-     * produced nothing. Avoid consuming a whole
-     * product page/container.
+     * Real product templates often place the heading in a small
+     * title wrapper and the content in a sibling wrapper:
+     *
+     *   <div class="section">
+     *     <div class="title"><h2>...</h2></div>
+     *     <div class="content">...</div>
+     *   </div>
+     *
+     * Walk only a few ancestors and accept the nearest bounded
+     * container that has content and no other heading boundary.
+     * This avoids climbing into the whole page and absorbing
+     * related products or unrelated sections.
      */
     if (
       parts.length === 0
     ) {
 
-      const parent =
+      let container =
         $(node).parent();
 
-      const parentText =
-        clean(
-          parent.text()
-        );
 
-      const withoutHeading =
-        clean(
-          parentText
-            .replace(
-              heading,
-              ""
-            )
-        );
-
-      if (
-        withoutHeading &&
-        withoutHeading.length <=
-          1500
+      for (
+        let depth =
+          0;
+        depth <
+          3 &&
+        container.length >
+          0;
+        depth++
       ) {
-        parts.push(
-          withoutHeading
-        );
+
+        const otherBoundaries =
+          container
+            .find(
+              "h1,h2,h3,h4,h5,h6,dt,strong,b"
+            )
+            .toArray()
+            .filter(
+              candidate =>
+                candidate !==
+                  node &&
+                isBoundary(
+                  candidate
+                )
+            );
+
+
+        const containerText =
+          clean(
+            container.text()
+          );
+
+
+        const withoutHeading =
+          clean(
+            containerText
+              .replace(
+                heading,
+                ""
+              )
+          );
+
+
+        if (
+          withoutHeading &&
+          withoutHeading.length <=
+            5000 &&
+          otherBoundaries.length ===
+            0
+        ) {
+
+          parts.push(
+            withoutHeading
+          );
+
+          break;
+        }
+
+
+        container =
+          container.parent();
       }
     }
 
