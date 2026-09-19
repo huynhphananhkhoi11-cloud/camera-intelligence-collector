@@ -504,10 +504,19 @@ implements NetworkReconRuntime {
     }
 
 
-    const rootOrigin =
+    const rootSite =
       new URL(
         rootUrl
-      ).origin;
+      );
+
+
+    const rootSiteKey =
+      rootSite.hostname
+        .replace(
+          /^www\./i,
+          ""
+        )
+        .toLowerCase();
 
 
     let browser:
@@ -558,11 +567,20 @@ implements NetworkReconRuntime {
 
         try {
 
-          return (
+          const requestUrl =
             new URL(
               request.url()
-            ).origin ===
-              rootOrigin
+            );
+
+
+          return (
+            requestUrl.hostname
+              .replace(
+                /^www\./i,
+                ""
+              )
+              .toLowerCase() ===
+              rootSiteKey
           );
         }
         catch {
