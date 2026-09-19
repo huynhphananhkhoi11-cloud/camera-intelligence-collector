@@ -175,7 +175,7 @@ describe(
           resolution.clusters[0]
             ?.identityId
         ).toBe(
-          "CANONICAL:https://example.com/a"
+          "URL:https://example.com/a"
         );
       }
     );
