@@ -293,11 +293,36 @@ export async function waitForProductHydration(
             if (
               element.closest(
                 [
-                  "header",
                   "nav",
                   "footer",
                   '[role="navigation"]'
                 ].join(",")
+              )
+            ) {
+              return true;
+            }
+
+            const productOwnerSelector =
+              [
+                '[itemtype*="Product"]',
+                "[data-product-id]",
+                ".product-detail",
+                ".product-details",
+                '[class*="product-detail"]',
+                '[class*="product_details"]',
+                "article.product",
+                ".product"
+              ].join(",");
+
+            const header =
+              element.closest(
+                "header"
+              );
+
+            if (
+              header &&
+              !header.closest(
+                productOwnerSelector
               )
             ) {
               return true;
@@ -317,10 +342,20 @@ export async function waitForProductHydration(
                 )
               );
 
-            return /(?:^|[\s_-])(?:logo|site[-_ ]?title|site[-_ ]?brand|brand)(?:$|[\s_-])/
-              .test(
-                signature
-              );
+            return (
+              /logo/
+                .test(
+                  signature
+                ) ||
+              /site[-_ ]?(?:title|brand)/
+                .test(
+                  signature
+                ) ||
+              /(?:^|[\s_-])brand(?:$|[\s_-])/
+                .test(
+                  signature
+                )
+            );
           };
 
 
@@ -467,11 +502,36 @@ export async function waitForProductHydration(
           if (
             element.closest(
               [
-                "header",
                 "nav",
                 "footer",
                 '[role="navigation"]'
               ].join(",")
+            )
+          ) {
+            return true;
+          }
+
+          const productOwnerSelector =
+            [
+              '[itemtype*="Product"]',
+              "[data-product-id]",
+              ".product-detail",
+              ".product-details",
+              '[class*="product-detail"]',
+              '[class*="product_details"]',
+              "article.product",
+              ".product"
+            ].join(",");
+
+          const header =
+            element.closest(
+              "header"
+            );
+
+          if (
+            header &&
+            !header.closest(
+              productOwnerSelector
             )
           ) {
             return true;
@@ -491,10 +551,20 @@ export async function waitForProductHydration(
               )
             );
 
-          return /(?:^|[\s_-])(?:logo|site[-_ ]?title|site[-_ ]?brand|brand)(?:$|[\s_-])/
-            .test(
-              signature
-            );
+          return (
+            /logo/
+              .test(
+                signature
+              ) ||
+            /site[-_ ]?(?:title|brand)/
+              .test(
+                signature
+              ) ||
+            /(?:^|[\s_-])brand(?:$|[\s_-])/
+              .test(
+                signature
+              )
+          );
         };
 
         const hasNonChromeHeading =
