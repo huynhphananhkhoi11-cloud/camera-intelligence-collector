@@ -216,6 +216,16 @@ const ENTITY_EVIDENCE_META:
         "specs+description"
     },
 
+    "explicit bundled camera body": {
+      source:
+        "SCOPED_DETAIL",
+      weight: 75,
+      ruleId:
+        "entity.camera.bundled_body",
+      scope:
+        "specs+description"
+    },
+
     "camera model family": {
       source: "TITLE",
       weight: 45,
@@ -597,6 +607,18 @@ export function classifyEntity(
     cameraEvidence.push("explicit camera device class");
   }
 
+
+  if (
+    has(
+      detail,
+      /\b(?:1|mot)\s+body\s+(?:camera|canon|sony|nikon|fujifilm|fuji|panasonic|lumix|olympus|leica|pentax)\b/
+    )
+  ) {
+    cameraEvidence.push(
+      "explicit bundled camera body"
+    );
+  }
+
   /*
    * Weak title/family evidence.
    * It helps when specs are sparse, but cannot by itself
@@ -706,6 +728,28 @@ export function classifyEntity(
    * 4. CAMERA DECISION
    * =====================================================
    */
+
+  /*
+   * A bounded bundle description that explicitly contains a camera
+   * body, together with a camera category, is direct camera proof.
+   * Strong non-camera identities were already resolved above.
+   */
+  if (
+    cameraCategory &&
+    cameraEvidence.includes(
+      "explicit bundled camera body"
+    )
+  ) {
+    return makeResult(
+      "CAMERA",
+      "HIGH",
+      [
+        "camera category",
+        "explicit bundled camera body"
+      ]
+    );
+  }
+
 
   /*
    * Strong semantic camera bundle.
