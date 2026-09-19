@@ -131,3 +131,21 @@ export interface ReplayDiscoveryResult {
   readonly warnings:
     readonly string[];
 }
+
+
+export interface EndpointDiscoveryRun {
+  readonly qualifiedCandidateCount:
+    number;
+
+  readonly replayedCandidateCount:
+    number;
+
+  readonly discoveries:
+    readonly ReplayDiscoveryResult[];
+
+  readonly discoveredUrls:
+    readonly string[];
+
+  readonly warnings:
+    readonly string[];
+}
