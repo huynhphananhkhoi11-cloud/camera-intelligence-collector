@@ -177,7 +177,7 @@ export function parseSalePrice(
 
   const matches = [
     ...text.matchAll(
-      /(\d[\d.,\s]*)\s*(?:đ|₫|vnd)(?![\p{L}\p{N}_])/giu
+      /(\d[\d.,\s]*)\s*(?:đ|₫|vnd)(?=$|\s|\/|\d|[+\-]|(?:giảm|giam|giá|gia|save|discount))/giu
     )
   ];
 
