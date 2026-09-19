@@ -26,7 +26,7 @@ describe(
             () => `
               <li>
                 <a href="/may-anh">
-                  MÃ¡y áº£nh
+                  Máy ảnh
                 </a>
               </li>
             `
@@ -48,7 +48,7 @@ describe(
                     CANON EOS R50 NEW 100%
                   </a>
                   <span>
-                    18.000.000Ä‘
+                    18.000.000đ
                   </span>
                 </div>
               </main>
@@ -88,7 +88,7 @@ describe(
               Canon EOS R50
             </a>
             <span>
-              18.000.000Ä‘
+              18.000.000đ
             </span>
           </div>
         `;
@@ -152,27 +152,27 @@ describe(
                 </h1>
 
                 <div>
-                  GiÃ¡: 18.000.000Ä‘
+                  Giá: 18.000.000đ
                 </div>
 
                 <div>
-                  TÃ¬nh tráº¡ng: CÃ²n hÃ ng
+                  Tình trạng: Còn hàng
                 </div>
 
                 <div>
-                  Báº£o hÃ nh: 12 thÃ¡ng
+                  Bảo hành: 12 tháng
                 </div>
 
                 <div>
-                  Phá»¥ kiá»‡n: Pin, Sáº¡c
+                  Phụ kiện: Pin, Sạc
                 </div>
 
                 <h2>
-                  ThÃ´ng sá»‘ ká»¹ thuáº­t
+                  Thông số kỹ thuật
                 </h2>
 
                 <button>
-                  ThÃªm vÃ o giá» hÃ ng
+                  Thêm vào giỏ hàng
                 </button>
 
                 <button>
@@ -196,5 +196,82 @@ describe(
         );
       }
     );
+
+    test(
+      "recognizes a UTF-8 Vietnamese rental detail page as the current-page product candidate",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <main>
+                <h1>SONY A6400</h1>
+                <div>Giá thuê: 360.000 ₫ / ngày</div>
+                <div>Tình trạng: Còn hàng</div>
+                <div>Điều kiện thuê: Cọc CCCD</div>
+                <div>Phụ kiện: Pin, sạc</div>
+                <h2>Thông số kỹ thuật</h2>
+                <button>Thuê ngay</button>
+                <section class="related-products">
+                  <a href="/equipment/104">CANON M</a>
+                </section>
+              </main>
+            </body>
+          </html>
+        `;
+
+        const result =
+          discoverProductUrlsFromHtml(
+            html,
+            "https://example.com/equipment/21"
+          );
+
+        const current =
+          result.candidates.find(
+            item =>
+              item.url ===
+                "https://example.com/equipment/21"
+          );
+
+        expect(
+          current?.reasons
+        ).toContain(
+          "current-page product detail"
+        );
+      }
+    );
+
+
+    test(
+      "does not promote a catalog landing page to a direct product without product-detail signals",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <main>
+                <h1>Thuê máy ảnh</h1>
+                <div>Giá từ 300.000 ₫ / ngày</div>
+                <a href="/equipment/21">SONY A6400</a>
+                <a href="/equipment/104">CANON M</a>
+              </main>
+            </body>
+          </html>
+        `;
+
+        const result =
+          discoverProductUrlsFromHtml(
+            html,
+            "https://example.com/thue-may-anh"
+          );
+
+        expect(
+          result.productUrls
+        ).not.toContain(
+          "https://example.com/thue-may-anh"
+        );
+      }
+    );
+
   }
 );
