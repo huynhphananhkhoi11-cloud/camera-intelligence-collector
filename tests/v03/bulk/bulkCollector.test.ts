@@ -318,12 +318,17 @@ describe(
               2,
 
             discovery: {
-              networkRuntime,
+              supplementalEnabled:
+                false,
 
-              replayEngine:
-                new EndpointReplayEngine({
-                  transport
-                })
+              endpoint: {
+                networkRuntime,
+
+                replayEngine:
+                  new EndpointReplayEngine({
+                    transport
+                  })
+              }
             },
 
             observation: {
