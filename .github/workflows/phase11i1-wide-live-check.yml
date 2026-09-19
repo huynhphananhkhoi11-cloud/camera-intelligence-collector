@@ -1,0 +1,747 @@
+name: phase11i1-wide-live-check
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - agent/phase11i1-autofix
+
+jobs:
+  wide-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run 10-domain live benchmark
+        run: |
+          set -euo pipefail
+
+          node --input-type=module <<'NODE'
+          import { spawnSync } from "node:child_process";
+          import { existsSync } from "node:fs";
+          import ExcelJS from "exceljs";
+
+          const cli =
+            "./dist/v02/cli/collectV2.js";
+
+          const cases = [
+            {
+              id: "thuemayanhsaigon-a6400",
+              mode: "ASSERT",
+              url: "https://thuemayanhsaigon.com/equipment/21",
+              siteMode: "RENTAL",
+              words: ["sony", "a6400"],
+              requireAccepted: true,
+              requireRental: true
+            },
+            {
+              id: "camerahouse-a6400-body",
+              mode: "ASSERT",
+              url: "https://camerahouse.vn/products/body-sony-a6400",
+              siteMode: "RENTAL",
+              words: ["sony", "a6400"],
+              requireAccepted: true,
+              requireRental: true
+            },
+            {
+              id: "tiemchupanh-a6400",
+              mode: "ASSERT",
+              url: "https://tiemchupanh.com/san-pham/cho-thue-may-anh-sony-alpha-a6400/",
+              siteMode: "RENTAL",
+              words: ["sony", "a6400"],
+              requireAccepted: true,
+              requireRental: true
+            },
+            {
+              id: "dathanhcamera-a6400",
+              mode: "ASSERT",
+              url: "https://dathanhcamera.com/thue-camera-may-anh/cho-thue-may-anh-sony-alpha-a6400-may-2",
+              siteMode: "RENTAL",
+              words: ["sony", "a6400"],
+              requireAccepted: true,
+              requireRental: true
+            },
+            {
+              id: "mayanhtop1-r50-new",
+              mode: "ASSERT",
+              url: "https://mayanhtop1.com/canon-eos-r50-new",
+              siteMode: "SALE_NEW",
+              words: ["canon", "r50"],
+              requireAccepted: true,
+              requireSalePrice: true
+            },
+            {
+              id: "zshop-a6400",
+              mode: "ASSERT",
+              url: "https://zshop.vn/sony-alpha-a6400.html",
+              siteMode: "SALE_NEW",
+              words: ["sony", "a6400"],
+              requireAccepted: true,
+              requireSalePrice: true
+            },
+            {
+              id: "vjshop-a6400",
+              mode: "ASSERT",
+              url: "https://vjshop.vn/may-anh-mirrorless/sony-alpha-a6400-black-base-lens-sigma-18-50mm-f28",
+              siteMode: "SALE_NEW",
+              words: ["sony", "a6400"],
+              requireAccepted: true,
+              requireSalePrice: true
+            },
+            {
+              id: "anhducdigital-a6400",
+              mode: "ASSERT",
+              url: "https://anhducdigital.vn/may-anh-sony-alpha-a6400-body-only-black-chinh-hang-p3327.html",
+              siteMode: "SALE_NEW",
+              words: ["sony", "a6400"],
+              requireAccepted: true,
+              requireSalePrice: true
+            },
+            {
+              id: "thuemayanhbt-catalog",
+              mode: "OBSERVE",
+              url: "https://www.thuemayanhbt.com/categories",
+              siteMode: "RENTAL"
+            },
+            {
+              id: "thuelens-catalog",
+              mode: "OBSERVE",
+              url: "https://thuelens.com/lens/",
+              siteMode: "RENTAL"
+            },
+            {
+              id: "contact-negative-control",
+              mode: "ASSERT",
+              url: "https://thuemayanhsaigon.com/contact",
+              siteMode: "RENTAL",
+              acceptedMax: 0
+            }
+          ];
+
+          const routeSheets = [
+            ["Dữ liệu đối thủ", "ACCEPT"],
+            ["Cần kiểm tra", "REVIEW"],
+            ["Không liên quan", "EXCLUDE"]
+          ];
+
+          function cellText(value) {
+            if (value === null || value === undefined) {
+              return "";
+            }
+
+            if (typeof value === "object") {
+              if ("text" in value) {
+                return String(value.text ?? "");
+              }
+
+              if ("result" in value) {
+                return String(value.result ?? "");
+              }
+
+              if ("hyperlink" in value) {
+                return String(value.hyperlink ?? "");
+              }
+            }
+
+            return String(value);
+          }
+
+          function normalizeUrl(value) {
+            try {
+              const parsed = new URL(String(value));
+              parsed.hash = "";
+              parsed.search = "";
+              parsed.hostname =
+                parsed.hostname
+                  .toLowerCase()
+                  .replace(/^www\./, "");
+
+              let text = parsed.toString();
+
+              if (text.endsWith("/")) {
+                text = text.slice(0, -1);
+              }
+
+              return text;
+            }
+            catch {
+              return String(value ?? "")
+                .trim()
+                .replace(/\/$/, "");
+            }
+          }
+
+          function amount(value) {
+            if (typeof value === "number") {
+              return Number.isFinite(value)
+                ? value
+                : 0;
+            }
+
+            const digits =
+              cellText(value)
+                .replace(/[^0-9.-]/g, "");
+
+            const parsed =
+              Number(digits);
+
+            return Number.isFinite(parsed)
+              ? parsed
+              : 0;
+          }
+
+          async function readRows(path) {
+            const workbook =
+              new ExcelJS.Workbook();
+
+            await workbook.xlsx.readFile(
+              path
+            );
+
+            const rows = [];
+
+            for (const [sheetName, route] of routeSheets) {
+              const sheet =
+                workbook.getWorksheet(
+                  sheetName
+                );
+
+              if (!sheet) {
+                continue;
+              }
+
+              const headers = [];
+
+              sheet.getRow(1)
+                .eachCell(
+                  (cell, column) => {
+                    headers[column] =
+                      cellText(
+                        cell.value
+                      ).trim();
+                  }
+                );
+
+              sheet.eachRow(
+                (row, rowNumber) => {
+                  if (rowNumber === 1) {
+                    return;
+                  }
+
+                  const record = {
+                    __route:
+                      route
+                  };
+
+                  row.eachCell(
+                    (cell, column) => {
+                      const key =
+                        headers[column] ??
+                        String(column);
+
+                      record[key] =
+                        cell.value ??
+                        "";
+                    }
+                  );
+
+                  const meaningful =
+                    Object.entries(record)
+                      .some(
+                        ([key, value]) =>
+                          key !== "__route" &&
+                          cellText(value).trim() !== ""
+                      );
+
+                  if (meaningful) {
+                    rows.push(record);
+                  }
+                }
+              );
+            }
+
+            return rows;
+          }
+
+          const results = [];
+
+          for (const item of cases) {
+            const output =
+              "/tmp/" +
+              item.id +
+              ".xlsx";
+
+            const db =
+              "/tmp/" +
+              item.id +
+              ".sqlite";
+
+            const args = [
+              cli,
+              item.url,
+              "--headless",
+              "--fresh",
+              "--site-mode",
+              item.siteMode,
+              "--max-pages",
+              "1",
+              "--max-products",
+              "1",
+              "--concurrency",
+              "1",
+              "--output",
+              output
+            ];
+
+            const run =
+              spawnSync(
+                process.execPath,
+                args,
+                {
+                  encoding:
+                    "utf8",
+                  timeout:
+                    120000,
+                  env: {
+                    ...process.env,
+                    CAMINTEL_STATE_DB:
+                      db
+                  }
+                }
+              );
+
+            process.stdout.write(
+              run.stdout ??
+              ""
+            );
+
+            process.stderr.write(
+              run.stderr ??
+              ""
+            );
+
+            const errorCountMatch =
+              String(
+                run.stdout ??
+                ""
+              ).match(
+                /Errors:\s*(\d+)/i
+              );
+
+            const reportedErrors =
+              errorCountMatch
+                ? Number(
+                    errorCountMatch[1]
+                  )
+                : 0;
+
+            if (
+              run.error ||
+              run.status !== 0 ||
+              reportedErrors > 0 ||
+              !existsSync(output)
+            ) {
+              results.push({
+                id:
+                  item.id,
+                url:
+                  item.url,
+                mode:
+                  item.mode,
+                status:
+                  "TECHNICAL_ERROR",
+                exitCode:
+                  run.status,
+                reportedErrors,
+                message:
+                  run.error
+                    ? String(
+                        run.error.message ??
+                        run.error
+                      )
+                    : "collector did not complete cleanly"
+              });
+
+              continue;
+            }
+
+            const rows =
+              await readRows(
+                output
+              );
+
+            const accepted =
+              rows.filter(
+                row =>
+                  row.__route ===
+                  "ACCEPT"
+              );
+
+            if (
+              item.mode ===
+                "OBSERVE"
+            ) {
+              results.push({
+                id:
+                  item.id,
+                url:
+                  item.url,
+                mode:
+                  item.mode,
+                status:
+                  "OBSERVE",
+                accepted:
+                  accepted.length,
+                review:
+                  rows.filter(
+                    row =>
+                      row.__route ===
+                      "REVIEW"
+                  ).length,
+                excluded:
+                  rows.filter(
+                    row =>
+                      row.__route ===
+                      "EXCLUDE"
+                  ).length,
+                observedUrls:
+                  rows
+                    .map(
+                      row =>
+                        cellText(
+                          row.URL
+                        )
+                    )
+                    .filter(Boolean)
+              });
+
+              continue;
+            }
+
+            const failures = [];
+
+            if (
+              Number.isFinite(
+                item.acceptedMax
+              ) &&
+              accepted.length >
+                item.acceptedMax
+            ) {
+              failures.push(
+                "accepted count " +
+                accepted.length +
+                " > " +
+                item.acceptedMax
+              );
+            }
+
+            let matched = null;
+
+            if (
+              item.words ||
+              item.requireAccepted ||
+              item.requireRental ||
+              item.requireSalePrice
+            ) {
+              matched =
+                rows.find(
+                  row =>
+                    normalizeUrl(
+                      cellText(
+                        row.URL
+                      )
+                    ) ===
+                    normalizeUrl(
+                      item.url
+                    )
+                ) ??
+                null;
+
+              if (!matched) {
+                failures.push(
+                  "requested direct URL not preserved"
+                );
+              }
+            }
+
+            if (
+              matched &&
+              item.requireAccepted &&
+              matched.__route !==
+                "ACCEPT"
+            ) {
+              failures.push(
+                "requested product route=" +
+                matched.__route
+              );
+            }
+
+            if (
+              matched &&
+              item.words
+            ) {
+              const name =
+                cellText(
+                  matched[
+                    "Tên sản phẩm"
+                  ]
+                ).toLowerCase();
+
+              for (const word of item.words) {
+                if (
+                  !name.includes(
+                    word.toLowerCase()
+                  )
+                ) {
+                  failures.push(
+                    "name missing " +
+                    word +
+                    ": " +
+                    name
+                  );
+                }
+              }
+            }
+
+            if (
+              matched &&
+              item.requireRental
+            ) {
+              const form =
+                cellText(
+                  matched[
+                    "Hình thức"
+                  ]
+                );
+
+              const rentalPrice =
+                amount(
+                  matched[
+                    "Giá thuê/ngày"
+                  ]
+                );
+
+              if (
+                !form.includes(
+                  "RENTAL"
+                )
+              ) {
+                failures.push(
+                  "rental form missing: " +
+                  form
+                );
+              }
+
+              if (
+                rentalPrice <= 0
+              ) {
+                failures.push(
+                  "rental price missing"
+                );
+              }
+            }
+
+            if (
+              matched &&
+              item.requireSalePrice
+            ) {
+              const salePrice =
+                amount(
+                  matched[
+                    "Giá bán"
+                  ]
+                );
+
+              if (
+                salePrice <= 0
+              ) {
+                failures.push(
+                  "sale price missing"
+                );
+              }
+            }
+
+            results.push({
+              id:
+                item.id,
+              url:
+                item.url,
+              mode:
+                item.mode,
+              status:
+                failures.length === 0
+                  ? "ASSERTED_PASS"
+                  : "ASSERTED_FAIL",
+              failures,
+              accepted:
+                accepted.length,
+              review:
+                rows.filter(
+                  row =>
+                    row.__route ===
+                    "REVIEW"
+                ).length,
+              excluded:
+                rows.filter(
+                  row =>
+                    row.__route ===
+                    "EXCLUDE"
+                ).length,
+              matched:
+                matched
+                  ? {
+                      route:
+                        matched.__route,
+                      name:
+                        cellText(
+                          matched[
+                            "Tên sản phẩm"
+                          ]
+                        ),
+                      form:
+                        cellText(
+                          matched[
+                            "Hình thức"
+                          ]
+                        ),
+                      rentalPrice:
+                        amount(
+                          matched[
+                            "Giá thuê/ngày"
+                          ]
+                        ),
+                      salePrice:
+                        amount(
+                          matched[
+                            "Giá bán"
+                          ]
+                        ),
+                      url:
+                        cellText(
+                          matched.URL
+                        )
+                    }
+                  : null
+            });
+          }
+
+          const summary = {
+            schema:
+              "camintel.phase11i1-wide.v1",
+            generatedAt:
+              new Date()
+                .toISOString(),
+            distinctDomains:
+              new Set(
+                cases
+                  .filter(
+                    item =>
+                      item.id !==
+                      "contact-negative-control"
+                  )
+                  .map(
+                    item =>
+                      new URL(
+                        item.url
+                      ).hostname.replace(
+                        /^www\./,
+                        ""
+                      )
+                  )
+              ).size,
+            assertedPass:
+              results.filter(
+                item =>
+                  item.status ===
+                  "ASSERTED_PASS"
+              ).length,
+            assertedFail:
+              results.filter(
+                item =>
+                  item.status ===
+                  "ASSERTED_FAIL"
+              ).length,
+            technicalError:
+              results.filter(
+                item =>
+                  item.status ===
+                  "TECHNICAL_ERROR"
+              ).length,
+            observe:
+              results.filter(
+                item =>
+                  item.status ===
+                  "OBSERVE"
+              ).length,
+            results
+          };
+
+          console.log(
+            "WIDE_BENCHMARK_SUMMARY=" +
+            JSON.stringify(
+              summary,
+              null,
+              2
+            )
+          );
+
+          const hardFailures =
+            results.filter(
+              item =>
+                item.mode ===
+                  "ASSERT" &&
+                (
+                  item.status ===
+                    "ASSERTED_FAIL" ||
+                  item.status ===
+                    "TECHNICAL_ERROR"
+                )
+            );
+
+          if (
+            hardFailures.length >
+              0
+          ) {
+            console.error(
+              "WIDE_BENCHMARK_GATE=FAIL"
+            );
+
+            for (const item of hardFailures) {
+              console.error(
+                item.id +
+                ": " +
+                item.status +
+                " " +
+                JSON.stringify(
+                  item.failures ??
+                  item.message ??
+                  ""
+                )
+              );
+            }
+
+            process.exitCode =
+              1;
+          }
+          else {
+            console.log(
+              "WIDE_BENCHMARK_GATE=PASS"
+            );
+          }
+          NODE
