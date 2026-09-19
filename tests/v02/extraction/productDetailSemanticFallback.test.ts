@@ -20,6 +20,10 @@ import {
   analyzeRawProduct
 } from "../../../src/v02/evidenceEngine.ts";
 
+import {
+  processProductHtml
+} from "../../../src/v02/pipeline/productPipeline.ts";
+
 describe(
   "product detail semantic fallback regression",
   () => {
@@ -167,5 +171,97 @@ describe(
         );
       }
     );
+
+    test(
+      "uses bounded generic description evidence for a rental camera page built on ecommerce controls",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <main>
+                <section class="product-detail">
+                  <h1>Body Sony A6400</h1>
+
+                  <div class="current-price">
+                    290,000₫
+                  </div>
+
+                  <button>
+                    Thêm vào giỏ
+                  </button>
+
+                  <h2>Mô tả</h2>
+
+                  <div>
+                    <p>GIÁ THUÊ: 290.000đ / 1 Ngày</p>
+                    <p>GIÁ NIÊM YẾT NÀY LÀ GIÁ CHO THUÊ THEO NGÀY</p>
+                    <p>Set thiết bị cho thuê bao gồm: 1 Body Camera, 2 Pin, 1 Sạc Pin.</p>
+                    <p>Cảm biến CMOS APS-C 24.2MP.</p>
+                    <p>EVF OLED 2.36m-Dot.</p>
+                    <p>Hệ thống AF 425 điểm.</p>
+                    <p>Chụp liên tiếp 11 fps.</p>
+                    <p>ISO 100-102400.</p>
+                  </div>
+
+                  <h2>Sản phẩm liên quan</h2>
+
+                  <div class="related-products">
+                    <span class="price">49,000₫</span>
+                    <a href="/products/unrelated">Phụ kiện khác</a>
+                  </div>
+                </section>
+              </main>
+            </body>
+          </html>
+        `;
+
+        const result =
+          processProductHtml(
+            html,
+            "https://example.com/products/body-sony-a6400",
+            "RENTAL"
+          );
+
+        expect(
+          result.analysis.entity.type
+        ).toBe(
+          "CAMERA"
+        );
+
+        expect(
+          result.analysis.offer.rental
+        ).toBe(true);
+
+        expect(
+          result.analysis.offer.sale
+        ).toBe(false);
+
+        expect(
+          result.row.rentalPrice
+        ).toBe(
+          290_000
+        );
+
+        expect(
+          result.row.form
+        ).toBe(
+          "RENTAL"
+        );
+
+        expect(
+          result.validation.decision
+        ).toBe(
+          "ACCEPT"
+        );
+
+        expect(
+          result.validation.evidenceCoverage
+        ).toBe(
+          1
+        );
+      }
+    );
+
   }
 );
