@@ -215,5 +215,58 @@ describe(
       }
     );
 
+
+    test(
+      "extracts a bounded description when the heading sits in a title wrapper beside the content wrapper",
+      () => {
+
+        const sections =
+          sectionizeHtml(`
+            <main>
+              <div class="product-description">
+                <div class="title-wrapper">
+                  <h2>Mô tả</h2>
+                </div>
+
+                <div class="description-content">
+                  <p><strong>GIÁ THUÊ: 250.000đ / 1 Ngày</strong></p>
+                  <p>Cảm biến CMOS APS-C 24.2MP.</p>
+                  <p>EVF 2.36m-Dot.</p>
+                  <p>AF 425 điểm.</p>
+                  <p>ISO 100-102400.</p>
+                </div>
+              </div>
+
+              <h2>Sản phẩm liên quan</h2>
+              <div>Canon EOS 6D 300.000đ</div>
+            </main>
+          `);
+
+        const description =
+          getSectionContent(
+            sections,
+            "OTHER"
+          );
+
+        expect(
+          description
+        ).toContain(
+          "GIÁ THUÊ: 250.000đ / 1 Ngày"
+        );
+
+        expect(
+          description
+        ).toContain(
+          "Cảm biến CMOS APS-C"
+        );
+
+        expect(
+          description
+        ).not.toContain(
+          "Canon EOS 6D"
+        );
+      }
+    );
+
   }
 );
