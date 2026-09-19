@@ -522,9 +522,14 @@ export function discoverProductUrlsFromHtml(
       2
   ) {
 
+    /*
+     * SQLite persistence constrains discovery_score to [0, 100].
+     * Direct-start preservation is handled by pinned selection,
+     * so this candidate does not need an out-of-band score.
+     */
     addCandidate(
       baseUrl,
-      120,
+      100,
       "current-page product detail"
     );
   }
