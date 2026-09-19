@@ -16,6 +16,17 @@ export type ObservationOwnership =
   | "UNKNOWN";
 
 
+export type ObservationContextKind =
+  | "SALE"
+  | "RENTAL"
+  | "PROMOTION"
+  | "INSTALLMENT"
+  | "GIFT"
+  | "SPECIFICATION"
+  | "AVAILABILITY"
+  | "REVIEW";
+
+
 export type EntityClassification =
   | "CAMERA"
   | "NON_CAMERA"
@@ -41,6 +52,7 @@ export interface FieldObservation {
   normalizedValue?: string | number | boolean | null;
   semanticRole?: ObservationSemanticRole | null;
   ownership?: ObservationOwnership | null;
+  contextKind?: ObservationContextKind | null;
   sourceKind: ObservationSourceKind;
   sourceUrl: string;
   locator?: string | null;
@@ -59,6 +71,7 @@ function fingerprint(
     observation.rawValue,
     observation.semanticRole ?? null,
     observation.ownership ?? null,
+    observation.contextKind ?? null,
     observation.sourceKind,
     observation.sourceUrl,
     observation.locator ?? null
