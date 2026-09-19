@@ -136,6 +136,100 @@ describe(
 
 
     test(
+      "relative hrefs in replayed HTML fragments resolve against the document URL, not the API endpoint URL",
+      async () => {
+
+        const engine =
+          new EndpointReplayEngine({
+            transport:
+              transport(
+                request => ({
+                  request,
+                  finalUrl:
+                    "https://example.com/api/paging.php",
+                  status:
+                    200,
+                  contentType:
+                    "text/html",
+                  body:
+                    '<a href="camera/canon-r50">Canon R50</a>',
+                  challengeState:
+                    "NONE"
+                })
+              )
+          });
+
+
+        const result =
+          await engine.replayCandidate(
+            candidate({
+              requestBody:
+                "id=6&page_per=10000"
+            }),
+            "https://example.com/"
+          );
+
+
+        expect(
+          result.discoveredUrls
+        ).toEqual([
+          "https://example.com/camera/canon-r50"
+        ]);
+
+        expect(
+          result.discoveredUrls[0]
+        ).not.toContain(
+          "/api/camera/"
+        );
+      }
+    );
+
+
+    test(
+      "an explicit HTML base element overrides the document URL for relative replay links",
+      async () => {
+
+        const engine =
+          new EndpointReplayEngine({
+            transport:
+              transport(
+                request => ({
+                  request,
+                  finalUrl:
+                    "https://example.com/api/paging.php",
+                  status:
+                    200,
+                  contentType:
+                    "text/html",
+                  body:
+                    '<base href="/shop/"><a href="camera/canon-r50">Canon R50</a>',
+                  challengeState:
+                    "NONE"
+                })
+              )
+          });
+
+
+        const result =
+          await engine.replayCandidate(
+            candidate({
+              requestBody:
+                "id=6&page_per=10000"
+            }),
+            "https://example.com/"
+          );
+
+
+        expect(
+          result.discoveredUrls
+        ).toEqual([
+          "https://example.com/shop/camera/canon-r50"
+        ]);
+      }
+    );
+
+
+    test(
       "pagination advances only through the demonstrated page parameter",
       async () => {
 
