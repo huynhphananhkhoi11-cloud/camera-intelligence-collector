@@ -150,7 +150,7 @@ function mainColumns(
       },
       {
         header:
-          "Hình thức",
+          "Hàng cũ/Hàng mới",
         key:
           "form",
         width:
