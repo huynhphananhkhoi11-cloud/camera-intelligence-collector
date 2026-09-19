@@ -55,6 +55,176 @@ jobs:
                 "RENTAL"
               );
 
+            const topology =
+              await page.evaluate(() => {
+                const crop = value =>
+                  String(value ?? "")
+                    .replace(/\\s+/g, " ")
+                    .trim()
+                    .slice(0, 5000);
+
+                const attrs = element => {
+                  if (!(element instanceof Element)) {
+                    return null;
+                  }
+
+                  return {
+                    tag:
+                      element.tagName,
+                    id:
+                      element.id,
+                    className:
+                      crop(element.getAttribute("class")),
+                    href:
+                      element.getAttribute("href"),
+                    dataTarget:
+                      element.getAttribute("data-target"),
+                    dataBsTarget:
+                      element.getAttribute("data-bs-target"),
+                    ariaControls:
+                      element.getAttribute("aria-controls"),
+                    role:
+                      element.getAttribute("role")
+                  };
+                };
+
+                const all =
+                  Array.from(
+                    document.querySelectorAll("*")
+                  );
+
+                const smallestContaining =
+                  phrase => {
+                    const normalizedPhrase =
+                      phrase.toLowerCase();
+
+                    const matches =
+                      all.filter(element =>
+                        crop(element.textContent)
+                          .toLowerCase()
+                          .includes(normalizedPhrase)
+                      );
+
+                    matches.sort(
+                      (a, b) =>
+                        crop(a.textContent).length -
+                        crop(b.textContent).length
+                    );
+
+                    const element =
+                      matches[0] ?? null;
+
+                    if (!element) {
+                      return null;
+                    }
+
+                    return {
+                      element:
+                        attrs(element),
+                      text:
+                        crop(element.textContent),
+                      outerHTML:
+                        crop(element.outerHTML),
+                      parent:
+                        element.parentElement
+                          ? {
+                              element:
+                                attrs(element.parentElement),
+                              outerHTML:
+                                crop(element.parentElement.outerHTML)
+                            }
+                          : null,
+                      grandparent:
+                        element.parentElement?.parentElement
+                          ? {
+                              element:
+                                attrs(element.parentElement.parentElement),
+                              outerHTML:
+                                crop(element.parentElement.parentElement.outerHTML)
+                            }
+                          : null
+                    };
+                  };
+
+                const descriptionHeading =
+                  all.find(element => {
+                    const tag =
+                      element.tagName.toLowerCase();
+
+                    if (
+                      !/^h[1-6]$/.test(tag) &&
+                      tag !== "button" &&
+                      tag !== "a" &&
+                      element.getAttribute("role") !== "tab"
+                    ) {
+                      return false;
+                    }
+
+                    return crop(element.textContent)
+                      .toLowerCase() === "mô tả";
+                  }) ?? null;
+
+                const headingTopology =
+                  descriptionHeading
+                    ? {
+                        element:
+                          attrs(descriptionHeading),
+                        outerHTML:
+                          crop(descriptionHeading.outerHTML),
+                        nextSibling:
+                          descriptionHeading.nextElementSibling
+                            ? {
+                                element:
+                                  attrs(descriptionHeading.nextElementSibling),
+                                outerHTML:
+                                  crop(descriptionHeading.nextElementSibling.outerHTML)
+                              }
+                            : null,
+                        parent:
+                          descriptionHeading.parentElement
+                            ? {
+                                element:
+                                  attrs(descriptionHeading.parentElement),
+                                outerHTML:
+                                  crop(descriptionHeading.parentElement.outerHTML)
+                              }
+                            : null,
+                        grandparent:
+                          descriptionHeading.parentElement?.parentElement
+                            ? {
+                                element:
+                                  attrs(descriptionHeading.parentElement.parentElement),
+                                outerHTML:
+                                  crop(descriptionHeading.parentElement.parentElement.outerHTML)
+                              }
+                            : null
+                      }
+                    : null;
+
+                return {
+                  bodyHasGiaThue:
+                    crop(document.body?.innerText)
+                      .toLowerCase()
+                      .includes("giá thuê"),
+                  headingTopology,
+                  rentalText:
+                    smallestContaining("GIÁ THUÊ"),
+                  sensorText:
+                    smallestContaining("APS-C"),
+                  includedText:
+                    smallestContaining("Set thiết bị")
+                };
+              });
+
+            console.log(
+              "CAMERAHOUSE_TOPOLOGY=" +
+              JSON.stringify(
+                topology,
+                null,
+                2
+              )
+            );
+
             console.log(
               "CAMERAHOUSE_DIAGNOSTIC=" +
               JSON.stringify(
