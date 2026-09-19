@@ -1,6 +1,7 @@
 export type ProductIdentityTokenKind =
   | "CANONICAL"
   | "STRUCTURED_ID"
+  | "STRUCTURED_URL"
   | "SKU"
   | "PRODUCT_ID"
   | "REQUESTED_URL";
