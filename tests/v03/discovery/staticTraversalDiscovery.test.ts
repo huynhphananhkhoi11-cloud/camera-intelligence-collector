@@ -149,5 +149,97 @@ describe(
         );
       }
     );
+
+
+    test(
+      "uses a common HTML sitemap as an additional discovery seed",
+      async () => {
+
+        const fetchFn:
+          StaticFetch =
+            async (
+              input
+            ) => {
+
+              const url =
+                String(
+                  input
+                );
+
+
+              if (
+                url ===
+                  "https://example.com/"
+              ) {
+                return response(
+                  url,
+                  "<html><body>Home</body></html>"
+                );
+              }
+
+
+              if (
+                url ===
+                  "https://example.com/sitemap-view.html"
+              ) {
+                return response(
+                  url,
+                  '<a href="/may-anh-cu/canon-r50-likenew">Canon R50 Likenew</a>'
+                );
+              }
+
+
+              return {
+                status:
+                  404,
+                ok:
+                  false,
+                url,
+                headers: {
+                  get(
+                    name:
+                      string
+                  ) {
+                    return name.toLowerCase() ===
+                      "content-type"
+                      ? "text/html"
+                      : null;
+                  }
+                },
+                async text() {
+                  return "";
+                }
+              };
+            };
+
+
+        const discovery =
+          new StaticTraversalDiscovery({
+            staticHttp: {
+              fetchFn
+            },
+            maxPages:
+              10,
+            maxDepth:
+              1
+          });
+
+
+        const result =
+          await discovery.discover(
+            "https://example.com/"
+          );
+
+
+        expect(
+          result.evidence.map(
+            item =>
+              item.url
+          )
+        ).toContain(
+          "https://example.com/may-anh-cu/canon-r50-likenew"
+        );
+      }
+    );
   }
 );
