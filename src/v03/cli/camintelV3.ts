@@ -11,6 +11,14 @@ import {
 } from "../bulk/bulkCollector.js";
 
 import {
+  exportBulkWorkbook
+} from "../export/excelExporter.js";
+
+import {
+  resolveV3OutputPath
+} from "../platform/outputPath.js";
+
+import {
   createDefaultAcquisitionRouter
 } from "../acquisition/defaultAcquisitionRouter.js";
 
@@ -428,6 +436,118 @@ program
         formatBulkCollectionReport(
           result
         ) +
+        "\n"
+      );
+    }
+  );
+
+
+program
+  .command(
+    "collect"
+  )
+  .description(
+    "Run the V3 collector from a root URL and export an Excel workbook"
+  )
+  .argument(
+    "<url>",
+    "Website root URL"
+  )
+  .option(
+    "--max-products <n>",
+    "Maximum detail URLs for this run",
+    value =>
+      Number.parseInt(
+        value,
+        10
+      ),
+    5000
+  )
+  .option(
+    "--concurrency <n>",
+    "Parallel detail requests",
+    value =>
+      Number.parseInt(
+        value,
+        10
+      ),
+    3
+  )
+  .option(
+    "--output <path>",
+    "Explicit Excel output path"
+  )
+  .action(
+    async (
+      url:
+        string,
+      options:
+        {
+          maxProducts:
+            number;
+
+          concurrency:
+            number;
+
+          output?:
+            string;
+        }
+    ) => {
+
+      const collector =
+        new BulkCollector({
+          maxProducts:
+            options.maxProducts,
+
+          concurrency:
+            options.concurrency
+        });
+
+
+      process.stdout.write(
+        "CAMINTEL V3 COLLECT\n\n"
+      );
+
+
+      process.stdout.write(
+        "Discovering and collecting product data...\n"
+      );
+
+
+      const result =
+        await collector.collect(
+          url
+        );
+
+
+      const output =
+        resolveV3OutputPath({
+          rootUrl:
+            url,
+
+          explicitOutput:
+            options.output
+        });
+
+
+      await exportBulkWorkbook(
+        output.outputPath,
+        result
+      );
+
+
+      process.stdout.write(
+        "\n" +
+        formatBulkCollectionReport(
+          result
+        ) +
+        "\n\n"
+      );
+
+
+      process.stdout.write(
+        "Excel: " +
+        output.outputPath +
         "\n"
       );
     }
