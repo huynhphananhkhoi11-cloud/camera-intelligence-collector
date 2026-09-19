@@ -71,6 +71,12 @@ describe(
         ]);
 
         expect(
+          selected[0]?.score
+        ).toBe(
+          100
+        );
+
+        expect(
           selected[1]?.score
         ).toBe(
           85
