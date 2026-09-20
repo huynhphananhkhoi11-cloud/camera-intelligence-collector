@@ -46,7 +46,7 @@ describe("Dev6 workbook comparator", () => {
       [
         "zshop.vn",
         "Canon EOS R50",
-        "Hàng mới",
+        "NEW",
         "APS-C CMOS 24.2MP",
         "400.000 VND/ngày",
         "",
