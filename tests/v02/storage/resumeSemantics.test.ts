@@ -34,6 +34,16 @@ const NOW =
   "2026-09-18T07:00:00.000Z";
 
 
+/*
+ * This suite uses a unique temp DB per test and expects no real writer
+ * contention. Keep the SQLite busy budget well below Vitest's 5s default
+ * timeout so a leaked/deferred lock surfaces as a concrete SQLite failure
+ * instead of racing the test harness at the same 5000ms boundary.
+ */
+const TEST_SQLITE_BUSY_TIMEOUT_MS =
+  1000;
+
+
 function tempDatabase() {
   const directory =
     mkdtempSync(
@@ -78,7 +88,10 @@ function runStore(
     {
       now:
         () =>
-          NOW
+          NOW,
+
+      timeoutMs:
+        TEST_SQLITE_BUSY_TIMEOUT_MS
     }
   );
 }
@@ -93,7 +106,10 @@ function resumeStore(
     {
       now:
         () =>
-          NOW
+          NOW,
+
+      timeoutMs:
+        TEST_SQLITE_BUSY_TIMEOUT_MS
     }
   );
 }
@@ -312,7 +328,10 @@ function seedMixedInterruptedRun(
       {
         now:
           () =>
-            NOW
+            NOW,
+
+        timeoutMs:
+          TEST_SQLITE_BUSY_TIMEOUT_MS
       }
     );
 
