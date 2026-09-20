@@ -34,7 +34,7 @@
       "liveReference": {
         "salePriceVnd": 15990000,
         "rentalPricePerDayVnd": 400000,
-        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+        "sourceStatus": "WEB_REFERENCE_CRAWLED_LAST_MONTH_REFRESH_IN_BROWSER_BEFORE_RUN"
       },
       "guards": [
         "KHÁCH THƯỜNG MUA THÊM is not bundle",
@@ -55,9 +55,9 @@
         "selectedVariantIncludes": "Kit Lens 18-45mm"
       },
       "liveReference": {
-        "salePriceVnd": 18490000,
-        "rentalPricePerDayVnd": 400000,
-        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+        "salePriceVnd": null,
+        "rentalPricePerDayVnd": null,
+        "sourceStatus": "STALE_WEB_REFERENCE_8_MONTHS_REFRESH_IN_BROWSER_BEFORE_RUN"
       },
       "guards": [
         "preserve variation_id=65130 in final URL",
@@ -74,8 +74,8 @@
         "condition": "USED"
       },
       "liveReference": {
-        "salePriceVnd": 14990000,
-        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+        "salePriceVnd": null,
+        "sourceStatus": "STALE_WEB_REFERENCE_8_MONTHS_REFRESH_IN_BROWSER_BEFORE_RUN"
       },
       "guards": [
         "Bảo hành 06 tháng is not accessory",
@@ -93,9 +93,9 @@
         "selectedVariantIncludes": "Tamron 17-70mm f/2.8"
       },
       "liveReference": {
-        "salePriceVnd": 32480000,
-        "rentalPricePerDayVnd": 400000,
-        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+        "salePriceVnd": null,
+        "rentalPricePerDayVnd": null,
+        "sourceStatus": "WEB_OPEN_FAILED_REFRESH_IN_BROWSER_BEFORE_RUN"
       },
       "guards": [
         "preserve variation_id=70768 in final URL",
@@ -111,7 +111,7 @@
         "productNameIncludes": "Sony FE 50mm F/1.8"
       },
       "liveReference": {
-        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+        "sourceStatus": "WEB_REFERENCE_CRAWLED_2_MONTHS_STABLE_DISPOSITION_ONLY"
       },
       "guards": [
         "must not create Camera Data row"
@@ -126,7 +126,7 @@
         "productNameIncludes": "Workshop Nhiếp Ảnh Ánh Sáng & Cảm Xúc"
       },
       "liveReference": {
-        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+        "sourceStatus": "DOCUMENT_REFERENCE_WEB_OPEN_FAILED_STABLE_DISPOSITION_ONLY"
       },
       "guards": [
         "must not create Camera Data row"
@@ -145,7 +145,7 @@
       "liveReference": {
         "salePriceVnd": 53990182,
         "reviewCount": 7,
-        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+        "sourceStatus": "WEB_SEARCH_CRAWLED_TODAY_REFRESH_IN_BROWSER_BEFORE_RUN"
       },
       "guards": [
         "use the visible primary product price for the body-only page",
@@ -168,8 +168,8 @@
       },
       "liveReference": {
         "salePriceVnd": 15790000,
-        "sourceStatus": "WEB_VISIBLE_2026-09-20",
-        "stockText": "7 cửa hàng có sản phẩm"
+        "sourceStatus": "WEB_SEARCH_CRAWLED_LAST_WEEK_REFRESH_IN_BROWSER_BEFORE_RUN",
+        "stockText": "Có 7 cửa hàng có sản phẩm"
       },
       "guards": [
         "availability/store data only if visible for the selected product",
@@ -191,7 +191,7 @@
       },
       "liveReference": {
         "salePriceVnd": 20290000,
-        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+        "sourceStatus": "WEB_SEARCH_CRAWLED_2_WEEKS_REFRESH_IN_BROWSER_BEFORE_RUN"
       },
       "guards": [
         "camera + lens bundle must remain CAMERA",
@@ -222,7 +222,7 @@
           "Hộp",
           "Sách"
         ],
-        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+        "sourceStatus": "WEB_REFERENCE_CRAWLED_LAST_MONTH_REFRESH_IN_BROWSER_BEFORE_RUN"
       },
       "guards": [
         "accessories are explicit product contents",
