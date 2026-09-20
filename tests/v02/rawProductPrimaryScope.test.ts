@@ -463,5 +463,61 @@ describe(
         );
       }
     );
+
+    test(
+      "ignores a narrow title chrome action and expands to the first ancestor that also contains the primary price",
+      () => {
+
+        const html = `
+          <html>
+            <body>
+              <main class="product-page">
+                <section class="hero">
+                  <div class="title-chrome">
+                    <h1>Sony Alpha A7 Mark IV (Body Only)</h1>
+                    <button>Hotline tư vấn</button>
+                  </div>
+
+                  <div class="buy-zone">
+                    <div class="product-price">
+                      <span>53.990.182 ₫</span>
+                    </div>
+                    <button>Đặt mua</button>
+                  </div>
+                </section>
+
+                <section class="related-products">
+                  <article class="product-card">
+                    <div class="price">69.980.000 ₫</div>
+                  </article>
+                </section>
+              </main>
+            </body>
+          </html>
+        `;
+
+
+        const facts =
+          extractRawProductFactsFromHtml(
+            html,
+            "https://shop.test/sony-a7-iv-body"
+          );
+
+
+        expect(
+          facts.visiblePriceTexts
+        ).toContain(
+          "53.990.182 ₫"
+        );
+
+
+        expect(
+          facts.visiblePriceTexts
+        ).not.toContain(
+          "69.980.000 ₫"
+        );
+      }
+    );
+
   }
 );
