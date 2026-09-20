@@ -155,5 +155,45 @@ describe(
       }
     );
 
+
+    test(
+      "skips a standalone lens URL from focal-length plus aperture signature even without anchor evidence",
+      () => {
+
+        const result =
+          decideCameraCandidate(
+            "https://shop.example/sony-fe-50mm-f-1.8.html",
+            []
+          );
+
+
+        expect(
+          result.route
+        ).toBe(
+          "CLEAR_NON_CAMERA"
+        );
+      }
+    );
+
+
+    test(
+      "does not classify a camera kit URL as standalone lens",
+      () => {
+
+        const result =
+          decideCameraCandidate(
+            "https://shop.example/canon-eos-r50-rf-s18-45mm-f4.5-6.3-kit",
+            []
+          );
+
+
+        expect(
+          result.route
+        ).not.toBe(
+          "CLEAR_NON_CAMERA"
+        );
+      }
+    );
+
   }
 );
