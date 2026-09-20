@@ -28,3 +28,6 @@ CameraIntelligence_AI.xlsx
 *.partial.xlsx
 artifacts/gemini-read/
 CameraIntelligence_AI_Test.xlsx
+
+.camintel/
+*.run-state.json
