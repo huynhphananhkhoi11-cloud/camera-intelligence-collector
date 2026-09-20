@@ -13,7 +13,8 @@ Baseline used for scaffolding: `integration/v3-live-ai @ 39b941813267ab2b05ebba3
 - [x] Three-site crawl smoke scopes created in `benchmarks/v3/crawl_smoke.json`
 - [x] Exact 13-column workbook comparator added under `tests/live/v3/`
 - [ ] Rebase/merge Dev0 contract freeze from `integration/v3-vision-first`
-- [ ] Refresh all dynamic fields in a real browser immediately before benchmark
+- [x] Initial web refresh of dynamic sentinel references completed
+- [ ] Refresh all dynamic fields in the benchmark browser immediately before each live run
 - [ ] Run 10-URL benchmark pass #1
 - [ ] Run 3-site crawl smoke (cap 15/site)
 - [ ] Run benchmark pass #2 after fixes
@@ -80,7 +81,7 @@ NON_CAMERA_LENS. Must never create a Camera Data row.
 NON_PRODUCT. Must never create a Camera Data row.
 
 ### S07 — VJShop Sony A7 IV body
-CAMERA / NEW / Body Only. Important live correction: 53,990,182 VND is currently shown as the higher/list price, while 47,490,000 VND is the current sale price. The benchmark must validate the selected current sale price.
+CAMERA / NEW / Body Only. Refreshed web evidence on 2026-09-20 shows 53,990,182 VND for the primary body-only listing and 7 reviews. Refresh again in the browser immediately before the benchmark run.
 
 ### S08 — VJShop Canon R50 body
 CAMERA / NEW / Body. Refresh price and availability in the browser before run; exclude related-card commerce data.
