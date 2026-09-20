@@ -1665,19 +1665,15 @@ async function clipForSelector(
       }
 
 
-      const docWidth =
+      const viewportWidth =
         Math.max(
-          document.documentElement.scrollWidth,
-          document.body?.scrollWidth ??
-            0,
+          1,
           window.innerWidth
         );
 
-      const docHeight =
+      const viewportHeight =
         Math.max(
-          document.documentElement.scrollHeight,
-          document.body?.scrollHeight ??
-            0,
+          1,
           window.innerHeight
         );
 
@@ -1696,20 +1692,31 @@ async function clipForSelector(
       const padding =
         16;
 
+      /*
+       * page.screenshot({ fullPage: false, clip }) clips the resulting
+       * viewport image. Keep clip coordinates viewport-relative after
+       * scrollIntoViewIfNeeded instead of adding window.scrollX/Y.
+       */
       const x =
         Math.max(
           0,
-          window.scrollX +
-          rect.left -
-          padding
+          Math.min(
+            viewportWidth -
+            1,
+            rect.left -
+            padding
+          )
         );
 
       const y =
         Math.max(
           0,
-          window.scrollY +
-          rect.top -
-          padding
+          Math.min(
+            viewportHeight -
+            1,
+            rect.top -
+            padding
+          )
         );
 
       const width =
@@ -1717,7 +1724,7 @@ async function clipForSelector(
           1,
           Math.min(
             maxWidth,
-            docWidth -
+            viewportWidth -
             x,
             rect.width +
             (
@@ -1732,7 +1739,7 @@ async function clipForSelector(
           1,
           Math.min(
             maxHeight,
-            docHeight -
+            viewportHeight -
             y,
             Math.max(
               260,
