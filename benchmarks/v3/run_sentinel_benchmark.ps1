@@ -39,6 +39,9 @@ if (-not $SkipCheck) {
   Assert-ExitCode "TypeScript check"
 }
 
+npx.cmd tsx ".\tests\live\v3\checkGroundTruthFreshness.ts"
+Assert-ExitCode "Ground-truth freshness gate"
+
 npm.cmd run smart-batch:v2 -- ".\benchmarks\v3\sentinel_10_urls.txt" --output $OutputPath
 Assert-ExitCode "10-URL Vision-First benchmark"
 
