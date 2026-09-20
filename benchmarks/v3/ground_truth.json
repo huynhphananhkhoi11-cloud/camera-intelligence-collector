@@ -39,6 +39,9 @@
       "guards": [
         "KHÁCH THƯỜNG MUA THÊM is not bundle",
         "VAT/warranty is not accessory"
+      ],
+      "expectedNullFields": [
+        "bundleIncluded"
       ]
     },
     {
@@ -147,6 +150,10 @@
       "guards": [
         "use the visible primary product price for the body-only page",
         "related-card price must not contaminate primary product"
+      ],
+      "expectedNullFields": [
+        "rentalPricePerDay",
+        "rentalTerms"
       ]
     },
     {
@@ -167,6 +174,10 @@
       "guards": [
         "availability/store data only if visible for the selected product",
         "related products excluded"
+      ],
+      "expectedNullFields": [
+        "rentalPricePerDay",
+        "rentalTerms"
       ]
     },
     {
@@ -185,6 +196,10 @@
       "guards": [
         "camera + lens bundle must remain CAMERA",
         "do not classify as lens-only"
+      ],
+      "expectedNullFields": [
+        "rentalPricePerDay",
+        "rentalTerms"
       ]
     },
     {
@@ -212,6 +227,10 @@
       "guards": [
         "accessories are explicit product contents",
         "warranty remains policy, not accessory"
+      ],
+      "expectedNullFields": [
+        "rentalPricePerDay",
+        "rentalTerms"
       ]
     }
   ]
