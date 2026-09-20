@@ -68,8 +68,7 @@ const SYSTEM_PROMPT = [
   "Do not treat warranty, VAT, purchase policy, or generic service policy as accessories.",
   "Do not treat customers-also-buy, related products, or recommended products as bundles.",
   "Do not copy prices, ratings, review counts, or stock from related products.",
-  "For every non-null semantic fact, preserve the exact visible evidence in rawText and cite its shotId.",
-  "Classify lens-only and other non-camera products as NON_CAMERA and articles/workshops as NON_PRODUCT."
+  "For every non-null semantic fact, preserve the exact visible evidence in rawText and cite its shotId."
 ].join("\n");
 
 function modelOutputText(body: {
