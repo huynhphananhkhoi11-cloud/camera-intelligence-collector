@@ -48,7 +48,6 @@ const RatingEvidenceSchema = z.object({
 }).strict();
 
 export const VisualExtractionSchema = z.object({
-  disposition: z.enum(["CAMERA", "NON_CAMERA", "NON_PRODUCT", "UNCERTAIN"]),
   website: z.string().min(1),
   productName: EvidenceTextSchema.nullable(),
   condition: ConditionEvidenceSchema.nullable(),
