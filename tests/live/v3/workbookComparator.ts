@@ -56,7 +56,7 @@ export type BenchmarkMismatch = {
   message: string;
 };
 
-type CameraRow = {
+export type CameraRow = {
   website: string;
   productName: string;
   condition: string;
