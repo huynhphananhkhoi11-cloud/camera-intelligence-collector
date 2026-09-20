@@ -32,7 +32,8 @@ import {
 } from "../../../src/v03/state/atomicRunStateStore.js";
 import {
   createRunState,
-  transitionRunItem
+  transitionRunItem,
+  type RunState
 } from "../../../src/v03/state/runState.js";
 import {
   planResumeForItem
@@ -48,6 +49,42 @@ const profile = (
   projectId,
   authKey
 });
+
+function capturedState(
+  runId: string
+): RunState {
+  const initial = createRunState({
+    runId,
+    inputHash: "hash",
+    urls: ["https://example.test/camera"]
+  });
+
+  return transitionRunItem(
+    initial,
+    0,
+    "CAPTURED",
+    {
+      captureManifestPath: "spool/" + runId + "/0/capture_manifest.json",
+      requestPayloadPath: "spool/" + runId + "/0/request.json"
+    }
+  );
+}
+
+function extractedState(
+  runId: string
+): RunState {
+  let state = capturedState(runId);
+
+  state = transitionRunItem(state, 0, "AI_IN_FLIGHT", {
+    providerProfileId: "primary",
+    attempts: 1
+  });
+
+  return transitionRunItem(state, 0, "EXTRACTED", {
+    resultJsonPath: "spool/" + runId + "/0/result.json",
+    latencyMs: 125
+  });
+}
 
 describe("provider backoff", () => {
   it("uses bounded exponential backoff with jitter and honors Retry-After", () => {
@@ -167,48 +204,112 @@ describe("local provider store", () => {
 });
 
 describe("checkpoint and resume", () => {
-  it("resumes CAPTURED using existing images without recapture", () => {
-    const initial = createRunState({
-      runId: "run-1",
-      inputHash: "hash",
-      urls: ["https://example.test/camera"]
+  it("CAPTURED resumes AI extraction using existing capture", () => {
+    const state = capturedState("run-captured");
+    const work = planResumeForItem(state.items[0]!);
+
+    expect(work.action).toBe("AI_EXTRACT");
+    expect(work.reuseCapture).toBe(true);
+    expect(work.captureManifestPath).toBe(
+      "spool/run-captured/0/capture_manifest.json"
+    );
+    expect(work.requestPayloadPath).toBe(
+      "spool/run-captured/0/request.json"
+    );
+  });
+
+  it("AI_IN_FLIGHT blocks automatic Gemini retry and preserves artifacts", () => {
+    let state = capturedState("run-inflight");
+
+    state = transitionRunItem(state, 0, "AI_IN_FLIGHT", {
+      providerProfileId: "primary",
+      errorClass: "UNKNOWN",
+      attempts: 1,
+      resultJsonPath: "spool/run-inflight/0/partial-result.json"
     });
 
-    const captured = transitionRunItem(
-      initial,
-      0,
-      "CAPTURED",
-      {
-        captureManifestPath: "spool/run-1/0/capture_manifest.json",
-        requestPayloadPath: "spool/run-1/0/request.json"
-      }
+    const before = JSON.stringify(state.items[0]);
+    const work = planResumeForItem(state.items[0]!);
+
+    expect(work.action).toBe("REVIEW_HOLD");
+    expect(work.action).not.toBe("AI_EXTRACT");
+    expect(work.reuseCapture).toBe(true);
+    expect(work.captureManifestPath).toBe(
+      "spool/run-inflight/0/capture_manifest.json"
+    );
+    expect(work.requestPayloadPath).toBe(
+      "spool/run-inflight/0/request.json"
+    );
+    expect(work.resultJsonPath).toBe(
+      "spool/run-inflight/0/partial-result.json"
     );
 
-    const work = planResumeForItem(captured.items[0]!);
-    expect(work.action).toBe("AI_EXTRACT");
+    expect(state.items[0]?.providerProfileId).toBe("primary");
+    expect(state.items[0]?.errorClass).toBe("UNKNOWN");
+    expect(JSON.stringify(state.items[0])).toBe(before);
+  });
+
+  it("EXTRACTED resumes validation and reuses capture/result", () => {
+    const state = extractedState("run-extracted");
+    const work = planResumeForItem(state.items[0]!);
+
+    expect(work.action).toBe("VALIDATE");
+    expect(work.reuseCapture).toBe(true);
+    expect(work.captureManifestPath).toBe(
+      "spool/run-extracted/0/capture_manifest.json"
+    );
+    expect(work.resultJsonPath).toBe(
+      "spool/run-extracted/0/result.json"
+    );
+  });
+
+  it("VALIDATED without workbook commit resumes COMMIT", () => {
+    let state = extractedState("run-validated");
+
+    state = transitionRunItem(state, 0, "VALIDATED");
+
+    const work = planResumeForItem(state.items[0]!);
+    expect(work.action).toBe("COMMIT");
     expect(work.reuseCapture).toBe(true);
   });
 
-  it("resumes VALIDATED at commit and never requests another AI call", () => {
-    let state = createRunState({
-      runId: "run-2",
-      inputHash: "hash",
-      urls: ["https://example.test/camera"]
+  it("VALIDATED with workbook commit skips duplicate row", () => {
+    let state = extractedState("run-validated-committed");
+
+    state = transitionRunItem(state, 0, "VALIDATED", {
+      workbookCommitted: true
     });
 
-    state = transitionRunItem(state, 0, "CAPTURED", {
-      captureManifestPath: "capture.json"
-    });
-    state = transitionRunItem(state, 0, "AI_IN_FLIGHT", {
-      providerProfileId: "primary",
-      attempts: 1
-    });
-    state = transitionRunItem(state, 0, "EXTRACTED", {
-      resultJsonPath: "result.json"
-    });
+    const work = planResumeForItem(state.items[0]!);
+    expect(work.action).toBe("SKIP_COMMITTED");
+    expect(work.action).not.toBe("AI_EXTRACT");
+  });
+
+  it("COMMITTED skips AI, recapture and duplicate workbook row", () => {
+    let state = extractedState("run-committed");
+
     state = transitionRunItem(state, 0, "VALIDATED");
+    state = transitionRunItem(state, 0, "COMMITTED");
 
-    expect(planResumeForItem(state.items[0]!).action).toBe("COMMIT");
+    const work = planResumeForItem(state.items[0]!);
+    expect(work.action).toBe("SKIP_COMMITTED");
+    expect(work.action).not.toBe("AI_EXTRACT");
+    expect(work.reuseCapture).toBe(true);
+    expect(state.items[0]?.workbookCommitted).toBe(true);
+  });
+
+  it("REVIEW remains on REVIEW_HOLD", () => {
+    let state = capturedState("run-review");
+
+    state = transitionRunItem(state, 0, "REVIEW", {
+      providerProfileId: "primary",
+      errorClass: "UNKNOWN"
+    });
+
+    const work = planResumeForItem(state.items[0]!);
+    expect(work.action).toBe("REVIEW_HOLD");
+    expect(work.action).not.toBe("AI_EXTRACT");
+    expect(work.reuseCapture).toBe(true);
   });
 
   it("writes state atomically and rejects incompatible schema versions", async () => {
@@ -217,13 +318,13 @@ describe("checkpoint and resume", () => {
     const store = new AtomicRunStateStore(filePath);
 
     const state = createRunState({
-      runId: "run-3",
+      runId: "run-atomic",
       inputHash: "hash",
       urls: ["https://example.test/camera"]
     });
 
     await store.save(state);
-    expect((await store.load()).runId).toBe("run-3");
+    expect((await store.load()).runId).toBe("run-atomic");
 
     const raw = JSON.parse(await readFile(filePath, "utf8"));
     raw.schemaVersion = 99;

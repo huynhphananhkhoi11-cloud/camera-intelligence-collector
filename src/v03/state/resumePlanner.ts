@@ -59,12 +59,23 @@ export function planResumeForItem(
       };
 
     case "CAPTURED":
-    case "AI_IN_FLIGHT":
       requireCapture(item);
       return {
         index: item.index,
         url: item.url,
         action: "AI_EXTRACT",
+        reuseCapture: true,
+        captureManifestPath: item.captureManifestPath,
+        resultJsonPath: item.resultJsonPath,
+        requestPayloadPath: item.requestPayloadPath
+      };
+
+    case "AI_IN_FLIGHT":
+      requireCapture(item);
+      return {
+        index: item.index,
+        url: item.url,
+        action: "REVIEW_HOLD",
         reuseCapture: true,
         captureManifestPath: item.captureManifestPath,
         resultJsonPath: item.resultJsonPath,
