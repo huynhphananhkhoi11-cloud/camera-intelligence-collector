@@ -2287,9 +2287,15 @@ function collectVisibleSemanticDetails(
    * Capture that bounded product-page text without treating unrelated cards
    * as primary-product evidence.
    */
-  scope.find(
-    "a,button,[role='tab'],span"
+  (
+    $("main").first().length >
+      0
+      ? $("main").first()
+      : $("body").first()
   )
+    .find(
+      "a,button,[role='tab'],span"
+    )
     .each(
       (
         index,
