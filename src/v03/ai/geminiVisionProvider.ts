@@ -145,90 +145,97 @@ extends Error {
 
 
 /*
- * Keep the wire schema shallow because Gemini Interactions may reject
- * deeply nested JSON schemas. AISemanticDecisionSchema remains the
- * canonical strict validator after model output is returned.
+ * C9 live hardening:
+ *
+ * The response schema must constrain nested semantic fields, not only the
+ * top-level object names. A shallow schema such as { entity: { type: "object" } }
+ * allows the model to legally emit shapes like { entity: {} } or alternate
+ * keys, which then fail the canonical Zod contract after a successful API call.
+ *
+ * Gemini structured outputs support nested object properties, required fields,
+ * enums, arrays, nullable types and numeric bounds. Reuse the canonical
+ * AISemanticDecision JSON schema so generation is constrained before parsing.
+ *
+ * Zod emits a few JSON-Schema annotation/validation keywords that are not
+ * needed by Gemini's supported subset. Strip only those non-essential keys;
+ * the canonical AISemanticDecisionSchema remains the final strict validator.
  */
-const VISION_RESPONSE_SCHEMA = {
-  type:
-    "object",
+function geminiWireSchema(
+  value:
+    unknown
+): unknown {
 
-  properties: {
-    entity:
-      { type: "object" },
+  if (
+    Array.isArray(
+      value
+    )
+  ) {
+    return value.map(
+      geminiWireSchema
+    );
+  }
 
-    productName:
-      { type: "object" },
 
-    currentPrice:
-      { type: ["object", "null"] },
+  if (
+    value ===
+      null ||
+    typeof value !==
+      "object"
+  ) {
+    return value;
+  }
 
-    oldPrice:
-      { type: ["object", "null"] },
 
-    giftValues:
-      { type: "array", items: { type: "object" } },
+  const output:
+    Record<
+      string,
+      unknown
+    > =
+      {};
 
-    savingValues:
-      { type: "array", items: { type: "object" } },
 
-    installmentAmounts:
-      { type: "array", items: { type: "object" } },
+  for (
+    const [
+      key,
+      child
+    ]
+    of Object.entries(
+      value
+    )
+  ) {
 
-    variants:
-      { type: "array", items: { type: "object" } },
+    if (
+      key ===
+        "$schema" ||
+      key ===
+        "minLength" ||
+      key ===
+        "maxLength"
+    ) {
+      continue;
+    }
 
-    condition:
-      { type: ["object", "null"] },
 
-    availableConditions:
-      { type: "array", items: { type: "object" } },
+    output[
+      key
+    ] =
+      geminiWireSchema(
+        child
+      );
+  }
 
-    stock:
-      { type: ["object", "null"] },
 
-    rating:
-      { type: ["object", "null"] },
+  return output;
+}
 
-    reviewCount:
-      { type: ["object", "null"] },
 
-    specs:
-      { type: "array", items: { type: "object" } },
-
-    conflicts:
-      { type: "array", items: { type: "string" } },
-
-    pageConfidence:
-      {
-        type: "number",
-        minimum: 0,
-        maximum: 1
-      }
-  },
-
-  required: [
-    "entity",
-    "productName",
-    "currentPrice",
-    "oldPrice",
-    "giftValues",
-    "savingValues",
-    "installmentAmounts",
-    "variants",
-    "condition",
-    "availableConditions",
-    "stock",
-    "rating",
-    "reviewCount",
-    "specs",
-    "conflicts",
-    "pageConfidence"
-  ],
-
-  additionalProperties:
-    false
-} as const;
+const VISION_RESPONSE_SCHEMA =
+  geminiWireSchema(
+    AI_SEMANTIC_JSON_SCHEMA
+  ) as Record<
+    string,
+    unknown
+  >;
 
 
 function modelOutputText(
