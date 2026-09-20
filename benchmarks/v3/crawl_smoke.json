@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0.0",
+  "capPerSite": 15,
+  "purpose": "Smoke + layout diversity only; not full-domain production crawl.",
+  "sites": [
+    {
+      "site": "zshop.vn",
+      "seeds": [
+        "https://zshop.vn/canon-eos-r50-vi.html",
+        "https://zshop.vn/canon-eos-r50-likenew.html"
+      ],
+      "scope": "camera product/category + variants",
+      "pass": [
+        "15 product URLs max",
+        "no duplicate selected variants",
+        "exact 13-column output",
+        "rental and kit mapping correct"
+      ]
+    },
+    {
+      "site": "vjshop.vn",
+      "seeds": [
+        "https://vjshop.vn/may-anh-mirrorless/canon-eos-r50-body",
+        "https://vjshop.vn/may-anh-mirrorless/sony-alpha-a7-mark-iv-body-only-chinh-hang"
+      ],
+      "scope": "mirrorless product pages",
+      "pass": [
+        "15 product URLs max",
+        "primary price/review/availability not contaminated by related cards"
+      ]
+    },
+    {
+      "site": "mayanhtop1.com",
+      "seeds": [
+        "https://mayanhtop1.com/may-anh-mirrorless"
+      ],
+      "scope": "mirrorless category",
+      "pass": [
+        "15 product URLs max",
+        "NEW/USED/stock/accessories correct",
+        "related products do not contaminate primary fields"
+      ]
+    }
+  ]
+}
