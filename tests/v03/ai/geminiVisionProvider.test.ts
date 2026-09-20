@@ -308,41 +308,15 @@ describe(
           body.response_format
             .schema
             .properties
-            .entity
+            .entity_type
         ).toMatchObject({
           type:
-            "object",
+            "string",
 
-          properties: {
-            type: {
-              enum: [
-                "CAMERA",
-                "NON_CAMERA",
-                "UNCERTAIN"
-              ]
-            },
-
-            subtype: {
-              type:
-                "string"
-            },
-
-            confidence: {
-              type:
-                "number"
-            },
-
-            evidenceIds: {
-              type:
-                "array"
-            }
-          },
-
-          required: [
-            "type",
-            "subtype",
-            "confidence",
-            "evidenceIds"
+          enum: [
+            "CAMERA",
+            "NON_CAMERA",
+            "UNCERTAIN"
           ]
         });
 
@@ -351,13 +325,31 @@ describe(
           body.response_format
             .schema
             .properties
-            .productName
-            .properties
-            .value
+            .product_name
             .type
         ).toBe(
           "string"
         );
+
+
+        expect(
+          body.response_format
+            .schema
+            .properties
+            .selected_variant_label
+            .type
+        ).toEqual([
+          "string",
+          "null"
+        ]);
+
+
+        expect(
+          body.response_format
+            .schema
+            .properties
+            .entity
+        ).toBeUndefined();
 
         expect(
           result.decision
@@ -372,6 +364,185 @@ describe(
             .thoughtTokens
         ).toBe(
           5
+        );
+      }
+    );
+
+
+    test(
+      "compact wire output normalizes into canonical AISemanticDecision",
+      async () => {
+
+        const wireDecision = {
+          entity_type:
+            "CAMERA",
+
+          entity_subtype:
+            "MIRRORLESS",
+
+          entity_confidence:
+            0.99,
+
+          entity_evidence_ids: [
+            "ev_name"
+          ],
+
+          product_name:
+            "Canon EOS R50",
+
+          product_name_confidence:
+            0.99,
+
+          product_name_evidence_ids: [
+            "ev_name"
+          ],
+
+          current_price_value:
+            null,
+
+          current_price_currency:
+            null,
+
+          current_price_confidence:
+            0.5,
+
+          current_price_evidence_ids:
+            [],
+
+          condition_value:
+            null,
+
+          condition_confidence:
+            0.5,
+
+          condition_evidence_ids:
+            [],
+
+          stock_state:
+            null,
+
+          stock_quantity:
+            null,
+
+          stock_confidence:
+            0.5,
+
+          stock_evidence_ids:
+            [],
+
+          selected_variant_label:
+            "Body",
+
+          selected_variant_condition:
+            null,
+
+          selected_variant_confidence:
+            0.95,
+
+          selected_variant_evidence_ids: [
+            "ev_variant"
+          ],
+
+          specs:
+            [],
+
+          conflicts:
+            [],
+
+          page_confidence:
+            0.95
+        };
+
+
+        const provider =
+          new GeminiVisionProvider({
+            apiKey:
+              "test-key",
+
+            fetchFn:
+              async () =>
+                new Response(
+                  JSON.stringify({
+                    status:
+                      "completed",
+
+                    model:
+                      GEMINI_VISION_MODEL,
+
+                    steps: [
+                      {
+                        type:
+                          "model_output",
+
+                        content: [
+                          {
+                            type:
+                              "text",
+
+                            text:
+                              JSON.stringify(
+                                wireDecision
+                              )
+                          }
+                        ]
+                      }
+                    ]
+                  }),
+                  {
+                    status:
+                      200,
+
+                    headers: {
+                      "content-type":
+                        "application/json"
+                    }
+                  }
+                )
+          });
+
+
+        const result =
+          await provider.analyze(
+            evidence()
+          );
+
+
+        expect(
+          result.decision.entity.type
+        ).toBe(
+          "CAMERA"
+        );
+
+
+        expect(
+          result.decision.productName.value
+        ).toBe(
+          "Canon EOS R50"
+        );
+
+
+        expect(
+          result.decision.variants
+        ).toHaveLength(
+          1
+        );
+
+
+        expect(
+          result.decision.variants[
+            0
+          ].label
+        ).toBe(
+          "Body"
+        );
+
+
+        expect(
+          result.decision.variants[
+            0
+          ].selected
+        ).toBe(
+          true
         );
       }
     );
