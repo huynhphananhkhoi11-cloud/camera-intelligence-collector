@@ -274,12 +274,67 @@ function stockLabel(
 }
 
 
+const BUSINESS_SPEC_KEYS =
+  new Set([
+    "RENTAL_PRICE_PER_DAY",
+    "RENTAL_TERMS",
+    "ACCESSORIES_INCLUDED",
+    "BUNDLE_INCLUDED"
+  ]);
+
+
+function businessSpec(
+  decision:
+    AISemanticDecision,
+  key:
+    string
+): string {
+
+  return decision.specs
+    .filter(
+      spec =>
+        spec.key
+          .trim()
+          .toUpperCase() ===
+        key
+    )
+    .map(
+      spec =>
+        spec.value.trim()
+    )
+    .filter(
+      (
+        value,
+        index,
+        values
+      ) =>
+        value.length >
+          0 &&
+        values.indexOf(
+          value
+        ) ===
+          index
+    )
+    .join(
+      " | "
+    );
+}
+
+
 function specSummary(
   decision:
     AISemanticDecision
 ): string {
 
   return decision.specs
+    .filter(
+      spec =>
+        !BUSINESS_SPEC_KEYS.has(
+          spec.key
+            .trim()
+            .toUpperCase()
+        )
+    )
     .map(
       spec =>
         spec.key +
@@ -297,21 +352,47 @@ function selectedCombo(
     AISemanticDecision
 ): string {
 
-  return decision.variants
-    .filter(
-      variant =>
-        variant.selected &&
-        /(?:kit|bundle|combo|kèm|kem|lens)/iu.test(
-          variant.label
+  const values =
+    [
+      ...decision.variants
+        .filter(
+          variant =>
+            variant.selected &&
+            /(?:kit|bundle|combo|kèm|kem|lens)/iu.test(
+              variant.label
+            )
         )
-    )
-    .map(
-      variant =>
-        variant.label
-    )
-    .join(
-      " | "
-    );
+        .map(
+          variant =>
+            variant.label
+        ),
+      businessSpec(
+        decision,
+        "BUNDLE_INCLUDED"
+      )
+    ]
+      .map(
+        value =>
+          value.trim()
+      )
+      .filter(
+        (
+          value,
+          index,
+          all
+        ) =>
+          value.length >
+            0 &&
+          all.indexOf(
+            value
+          ) ===
+            index
+      );
+
+
+  return values.join(
+    " | "
+  );
 }
 
 
@@ -722,17 +803,26 @@ export async function exportScaleWorkbookAtomic(
         ),
 
       /*
-       * Current semantic contract has no grounded rental/accessory text
-       * fields. Keep these cells blank rather than fabricating values.
+       * FAST/SLOW may encode directly grounded business facts using reserved
+       * spec keys. Missing evidence stays blank; nothing is inferred.
        */
       rentalPrice:
-        "",
+        businessSpec(
+          decision,
+          "RENTAL_PRICE_PER_DAY"
+        ),
 
       rentalTerms:
-        "",
+        businessSpec(
+          decision,
+          "RENTAL_TERMS"
+        ),
 
       accessories:
-        "",
+        businessSpec(
+          decision,
+          "ACCESSORIES_INCLUDED"
+        ),
 
       combo:
         selectedCombo(
