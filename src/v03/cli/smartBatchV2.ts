@@ -240,7 +240,8 @@ export async function executeSmartBatchV2(
         status:
           "SKIPPED_NON_CAMERA",
         reason:
-          preflight.reason
+          preflight.reason ??
+          undefined
       });
 
       write(
