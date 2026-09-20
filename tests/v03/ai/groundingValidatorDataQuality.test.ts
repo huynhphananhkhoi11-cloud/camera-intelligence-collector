@@ -613,5 +613,115 @@ describe(
         );
       }
     );
+
+    it(
+      "rejects stale structured review count when visible primary review text says 7",
+      () => {
+
+        const visible =
+          evidence({
+            id:
+              "ev_visible_reviews",
+
+            fieldHint:
+              "RATING_REVIEW_TEXT",
+
+            rawValue:
+              "Đánh giá (7)",
+
+            sourceKind:
+              "VISIBLE_TEXT",
+
+            sourceUrl:
+              "https://example.test/r50",
+
+            ownershipHint:
+              "PRIMARY_PRODUCT"
+          });
+
+
+        const structured =
+          evidence({
+            id:
+              "ev_structured_reviews",
+
+            fieldHint:
+              "REVIEW_COUNT",
+
+            rawValue:
+              "243",
+
+            normalizedValue:
+              243,
+
+            sourceKind:
+              "JSON_LD",
+
+            sourceUrl:
+              "https://example.test/r50",
+
+            ownershipHint:
+              "PRIMARY_PRODUCT"
+          });
+
+
+        const decision = {
+          ...baseDecision(),
+
+          reviewCount: {
+            value:
+              243,
+
+            evidenceIds: [
+              structured.id
+            ],
+
+            confidence:
+              0.99
+          }
+        } satisfies AISemanticDecision;
+
+
+        const result =
+          validateSemanticDecision(
+            packet(
+              [
+                visible,
+                structured
+              ],
+              {
+                reviews: [
+                  visible,
+                  structured
+                ]
+              }
+            ),
+            decision
+          );
+
+
+        expect(
+          result.status
+        ).toBe(
+          "NEEDS_REVIEW"
+        );
+
+
+        expect(
+          result.issues
+        ).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              code:
+                "CONFLICTING_REVIEW_COUNT_EVIDENCE",
+
+              field:
+                "reviewCount"
+            })
+          ])
+        );
+      }
+    );
+
   }
 );
