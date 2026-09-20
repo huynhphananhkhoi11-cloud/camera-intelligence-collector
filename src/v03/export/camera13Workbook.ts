@@ -109,12 +109,10 @@ function joined(
 function cameraRow(
   value:
     VisualExtraction
-): readonly unknown[] {
+): unknown[] {
 
   return [
-    value.website
-      ?.value ??
-      "",
+    value.website,
 
     value.productName
       ?.value ??
@@ -141,13 +139,19 @@ function cameraRow(
 
     value.accessoriesIncluded
       ? joined(
-          value.accessoriesIncluded.value
+          value.accessoriesIncluded.map(
+            item =>
+              item.value
+          )
         )
       : "",
 
     value.bundleIncluded
       ? joined(
-          value.bundleIncluded.value
+          value.bundleIncluded.map(
+            item =>
+              item.value
+          )
         )
       : "",
 
@@ -178,9 +182,6 @@ function evidencePayload(
 ): string {
 
   return JSON.stringify({
-    website:
-      value.website,
-
     productName:
       value.productName,
 
@@ -289,29 +290,18 @@ function verifyHeaders(
   }
 
 
-  const actual =
-    Array.from(
+  return CAMERA13_HEADERS.every(
+    (
+      header,
+      index
+    ) =>
       sheet.getRow(
         1
-      ).values as unknown[]
-    ).slice(
-      1
-    );
-
-
-  return (
-    actual.length ===
-      CAMERA13_HEADERS.length &&
-    CAMERA13_HEADERS.every(
-      (
-        header,
-        index
-      ) =>
-        actual[
-          index
-        ] ===
-        header
-    )
+      ).getCell(
+        index +
+        1
+      ).value ===
+      header
   );
 }
 
