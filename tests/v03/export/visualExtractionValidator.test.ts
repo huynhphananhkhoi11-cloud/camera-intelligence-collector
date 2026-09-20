@@ -20,14 +20,7 @@ function extraction(
 
   return {
     website:
-      {
-        value:
-          "zshop.vn",
-        rawText:
-          "zshop.vn",
-        shotId:
-          "context"
-      },
+      "zshop.vn",
 
     productName:
       {
@@ -132,7 +125,6 @@ const context = {
 
   shotIds:
     new Set([
-      "context",
       "hero-01",
       "specs-03",
       "reviews-04"
@@ -264,16 +256,16 @@ describe(
           validateVisualExtraction(
             extraction({
               accessoriesIncluded:
-                {
-                  value:
-                    [
-                      "Bảo hành 6 tháng"
-                    ],
-                  rawText:
-                    "Bảo hành 6 tháng",
-                  shotId:
-                    "commerce-02"
-                }
+                [
+                  {
+                    value:
+                      "Bảo hành 6 tháng",
+                    rawText:
+                      "Bảo hành 6 tháng",
+                    shotId:
+                      "commerce-02"
+                  }
+                ]
             }),
             {
               ...context,
@@ -314,16 +306,16 @@ describe(
           validateVisualExtraction(
             extraction({
               bundleIncluded:
-                {
-                  value:
-                    [
-                      "RF-S 18-45mm"
-                    ],
-                  rawText:
-                    "Khách thường mua thêm RF-S 18-45mm",
-                  shotId:
-                    "commerce-02"
-                }
+                [
+                  {
+                    value:
+                      "RF-S 18-45mm",
+                    rawText:
+                      "Khách thường mua thêm RF-S 18-45mm",
+                    shotId:
+                      "commerce-02"
+                  }
+                ]
             }),
             {
               ...context,
@@ -403,14 +395,7 @@ describe(
           validateVisualExtraction(
             extraction({
               website:
-                {
-                  value:
-                    "evil.example",
-                  rawText:
-                    "evil.example",
-                  shotId:
-                    "context"
-                },
+                "evil.example",
 
               salePrice:
                 {
