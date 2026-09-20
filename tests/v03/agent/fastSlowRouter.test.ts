@@ -915,5 +915,381 @@ describe(
         );
       }
     );
+
+    it(
+      "obstructed Canon EOS R50 NON_CAMERA escalates to SLOW exactly once",
+      async () => {
+
+        const base =
+          makeFastResult(
+            "VALIDATED",
+            "NON_CAMERA"
+          );
+
+        const decision = {
+          ...base.decision,
+          entity: {
+            ...base.decision.entity,
+            type:
+              "NON_CAMERA" as const,
+            evidenceIds: [
+              "ev_camera"
+            ]
+          }
+        } as AISemanticDecision;
+
+        const fastResult = {
+          ...base,
+          sourcePacket: {
+            allEvidence: [
+              {
+                id:
+                  "ev_camera",
+                fieldHint:
+                  "PRODUCT",
+                rawValue:
+                  "Canon EOS R50",
+                sourceKind:
+                  "VISIBLE_TEXT",
+                sourceUrl:
+                  TEST_URL,
+                ownershipHint:
+                  "PRIMARY_PRODUCT"
+              }
+            ]
+          } as FinalVisionSemanticResult[
+            "sourcePacket"
+          ],
+          visionPacket: {
+            productRegionScreenshot: {
+              fallback:
+                true
+            },
+            compactDomEvidence: [
+              {
+                id:
+                  "popup",
+                fieldHint:
+                  "TEXT",
+                rawValue:
+                  "Nhận ưu đãi",
+                sourceKind:
+                  "DOM",
+                locator:
+                  ".promo-popup",
+                ownershipHint:
+                  "PAGE_CHROME"
+              }
+            ],
+            selectedControls:
+              [],
+            structuredFacts:
+              []
+          } as FinalVisionSemanticResult[
+            "visionPacket"
+          ],
+          decision
+        };
+
+        const {
+          fastRunner,
+          slowRunner,
+          slowRun
+        } =
+          runnersForFastResult(
+            fastResult,
+            makeSlowResult(
+              "REVIEW",
+              {
+                reason:
+                  "OBSTRUCTION_REQUIRES_REVIEW"
+              }
+            )
+          );
+
+        const result =
+          await routeSmartUrl({
+            url:
+              TEST_URL,
+            fastRunner,
+            slowRunner
+          });
+
+
+        expect(
+          slowRun
+        ).toHaveBeenCalledTimes(
+          1
+        );
+
+        expect(
+          result
+        ).toMatchObject({
+          path:
+            "SLOW",
+          disposition:
+            "REVIEW"
+        });
+      }
+    );
+
+
+    it(
+      "clear Sony FE 50mm lens evidence remains FAST NON_CAMERA despite viewport fallback",
+      async () => {
+
+        const base =
+          makeFastResult(
+            "VALIDATED",
+            "NON_CAMERA"
+          );
+
+        const decision = {
+          ...base.decision,
+          entity: {
+            ...base.decision.entity,
+            type:
+              "NON_CAMERA" as const,
+            evidenceIds: [
+              "ev_lens"
+            ]
+          }
+        } as AISemanticDecision;
+
+        const fastResult = {
+          ...base,
+          sourcePacket: {
+            allEvidence: [
+              {
+                id:
+                  "ev_lens",
+                fieldHint:
+                  "PRODUCT",
+                rawValue:
+                  "Sony FE 50mm f/1.8",
+                sourceKind:
+                  "VISIBLE_TEXT",
+                sourceUrl:
+                  TEST_URL,
+                ownershipHint:
+                  "PRIMARY_PRODUCT"
+              }
+            ]
+          } as FinalVisionSemanticResult[
+            "sourcePacket"
+          ],
+          visionPacket: {
+            productRegionScreenshot: {
+              fallback:
+                true
+            },
+            compactDomEvidence:
+              [],
+            selectedControls:
+              [],
+            structuredFacts:
+              []
+          } as FinalVisionSemanticResult[
+            "visionPacket"
+          ],
+          decision
+        };
+
+        const {
+          fastRunner,
+          slowRunner,
+          slowRun
+        } =
+          runnersForFastResult(
+            fastResult
+          );
+
+        const result =
+          await routeSmartUrl({
+            url:
+              TEST_URL,
+            fastRunner,
+            slowRunner
+          });
+
+
+        expect(
+          result.disposition
+        ).toBe(
+          "NON_CAMERA"
+        );
+
+        expect(
+          result.path
+        ).toBe(
+          "FAST"
+        );
+
+        expect(
+          slowRun
+        ).toHaveBeenCalledTimes(
+          0
+        );
+      }
+    );
+
+
+    it(
+      "clear workshop/blog evidence remains FAST NON_CAMERA",
+      async () => {
+
+        const base =
+          makeFastResult(
+            "VALIDATED",
+            "NON_CAMERA"
+          );
+
+        const decision = {
+          ...base.decision,
+          entity: {
+            ...base.decision.entity,
+            type:
+              "NON_CAMERA" as const,
+            evidenceIds: [
+              "ev_blog"
+            ]
+          }
+        } as AISemanticDecision;
+
+        const fastResult = {
+          ...base,
+          sourcePacket: {
+            allEvidence: [
+              {
+                id:
+                  "ev_blog",
+                fieldHint:
+                  "PRODUCT",
+                rawValue:
+                  "Workshop: Kỹ thuật chụp ảnh đường phố",
+                sourceKind:
+                  "VISIBLE_TEXT",
+                sourceUrl:
+                  TEST_URL,
+                ownershipHint:
+                  "UNKNOWN"
+              }
+            ]
+          } as FinalVisionSemanticResult[
+            "sourcePacket"
+          ],
+          visionPacket: {
+            productRegionScreenshot: {
+              fallback:
+                true
+            },
+            compactDomEvidence:
+              [],
+            selectedControls:
+              [],
+            structuredFacts:
+              []
+          } as FinalVisionSemanticResult[
+            "visionPacket"
+          ],
+          decision
+        };
+
+        const {
+          fastRunner,
+          slowRunner,
+          slowRun
+        } =
+          runnersForFastResult(
+            fastResult
+          );
+
+        const result =
+          await routeSmartUrl({
+            url:
+              TEST_URL,
+            fastRunner,
+            slowRunner
+          });
+
+
+        expect(
+          result.disposition
+        ).toBe(
+          "NON_CAMERA"
+        );
+
+        expect(
+          slowRun
+        ).toHaveBeenCalledTimes(
+          0
+        );
+      }
+    );
+
+
+    it(
+      "unclear visual with UNCERTAIN entity still invokes SLOW exactly once",
+      async () => {
+
+        const base =
+          makeFastResult(
+            "VALIDATED",
+            "UNCERTAIN"
+          );
+
+        const fastResult = {
+          ...base,
+          visionPacket: {
+            productRegionScreenshot: {
+              fallback:
+                true
+            },
+            compactDomEvidence:
+              [],
+            selectedControls:
+              [],
+            structuredFacts:
+              []
+          } as FinalVisionSemanticResult[
+            "visionPacket"
+          ]
+        };
+
+        const {
+          fastRunner,
+          slowRunner,
+          slowRun
+        } =
+          runnersForFastResult(
+            fastResult,
+            makeSlowResult(
+              "REVIEW"
+            )
+          );
+
+        const result =
+          await routeSmartUrl({
+            url:
+              TEST_URL,
+            fastRunner,
+            slowRunner
+          });
+
+
+        expect(
+          slowRun
+        ).toHaveBeenCalledTimes(
+          1
+        );
+
+        expect(
+          result.disposition
+        ).toBe(
+          "REVIEW"
+        );
+      }
+    );
+
   }
 );
