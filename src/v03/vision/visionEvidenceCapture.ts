@@ -18,6 +18,11 @@ import type {
 } from "./visionEvidenceTypes.js";
 
 
+import {
+  detectProductRegion
+} from "./productRegionDetector.js";
+
+
 const MAX_COMPACT_DOM_EVIDENCE =
   24;
 
@@ -26,18 +31,6 @@ const MAX_SELECTED_CONTROLS =
 
 const MAX_STRUCTURED_FACTS =
   18;
-
-const PRODUCT_REGION_SELECTORS =
-  [
-    '[itemtype*="schema.org/Product"]',
-    '[data-testid*="product" i]',
-    "[data-product-id]",
-    "[data-product]",
-    'main [class*="product-detail" i]',
-    "main article",
-    "main",
-    "article"
-  ] as const;
 
 const SCREENSHOT_STYLE =
   [
@@ -51,24 +44,6 @@ const SCREENSHOT_STYLE =
 
 
 interface ViewportMetrics {
-  readonly x:
-    number;
-
-  readonly y:
-    number;
-
-  readonly width:
-    number;
-
-  readonly height:
-    number;
-}
-
-
-interface ProductRegion {
-  readonly selector:
-    string;
-
   readonly x:
     number;
 
@@ -360,119 +335,6 @@ async function viewportMetrics(
 }
 
 
-async function findProductRegion(
-  page:
-    Page,
-  viewport:
-    ViewportMetrics
-): Promise<
-  ProductRegion |
-  null
-> {
-
-  for (
-    const selector
-    of PRODUCT_REGION_SELECTORS
-  ) {
-
-    const locator =
-      page
-        .locator(
-          selector
-        )
-        .first();
-
-
-    if (
-      await locator.count() ===
-        0
-    ) {
-      continue;
-    }
-
-
-    const box =
-      await locator.boundingBox();
-
-
-    if (
-      !box
-    ) {
-      continue;
-    }
-
-
-    const visibleLeft =
-      Math.max(
-        0,
-        box.x
-      );
-
-    const visibleTop =
-      Math.max(
-        0,
-        box.y
-      );
-
-    const visibleRight =
-      Math.min(
-        viewport.width,
-        box.x +
-        box.width
-      );
-
-    const visibleBottom =
-      Math.min(
-        viewport.height,
-        box.y +
-        box.height
-      );
-
-    const width =
-      Math.floor(
-        visibleRight -
-        visibleLeft
-      );
-
-    const height =
-      Math.floor(
-        visibleBottom -
-        visibleTop
-      );
-
-
-    if (
-      width <
-        180 ||
-      height <
-        100
-    ) {
-      continue;
-    }
-
-
-    return {
-      selector,
-
-      x:
-        viewport.x +
-        visibleLeft,
-
-      y:
-        viewport.y +
-        visibleTop,
-
-      width,
-
-      height
-    };
-  }
-
-
-  return null;
-}
-
-
 function sha256(
   value:
     string |
@@ -493,7 +355,9 @@ function sha256(
 
 async function captureProductRegionScreenshot(
   page:
-    Page
+    Page,
+  sourcePacket:
+    EvidencePacket
 ): Promise<
   ProductRegionScreenshot
 > {
@@ -504,9 +368,9 @@ async function captureProductRegionScreenshot(
     );
 
   const region =
-    await findProductRegion(
+    await detectProductRegion(
       page,
-      viewport
+      sourcePacket
     );
 
 
@@ -531,27 +395,27 @@ async function captureProductRegionScreenshot(
         region
           ? {
               x:
-                region.x,
+                region.box.x,
 
               y:
-                region.y,
+                region.box.y,
 
               width:
-                region.width,
+                region.box.width,
 
               height:
-                region.height
+                region.box.height
             }
           : undefined
     });
 
 
   const width =
-    region?.width ??
+    region?.box.width ??
     viewport.width;
 
   const height =
-    region?.height ??
+    region?.box.height ??
     viewport.height;
 
 
@@ -682,7 +546,8 @@ export async function captureVisionEvidencePacket(
 
   const productRegionScreenshot =
     await captureProductRegionScreenshot(
-      page
+      page,
+      sourcePacket
     );
 
 

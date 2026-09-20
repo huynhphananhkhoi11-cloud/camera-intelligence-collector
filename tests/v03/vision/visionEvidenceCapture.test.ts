@@ -3,7 +3,8 @@ import {
   beforeAll,
   describe,
   expect,
-  it
+  it,
+  vi
 } from "vitest";
 
 import {
@@ -500,5 +501,197 @@ describe(
         );
       }
     );
+
+    it(
+      "preserves page state and uses no full-page screenshot",
+      async () => {
+
+        await page.setContent(
+          [
+            "<!doctype html>",
+            "<html><body style=\"margin:0\">",
+            '<div id="__camintel_agent_overlay" style="position:fixed;display:block">agent overlay</div>',
+            '<div style="height:200px">top spacer</div>',
+            '<section class="product-detail" style="width:850px;height:420px">',
+            "<h1>Canon EOS R50</h1>",
+            "<div>Body Only</div>",
+            "<div>15.990.000 VND</div>",
+            '<label>Color <select id="color"><option>Silver</option><option selected>Black</option></select></label>',
+            "</section>",
+            '<div style="height:1400px">bottom spacer</div>',
+            "</body></html>"
+          ].join(
+            ""
+          )
+        );
+
+        await page.evaluate(
+          "window.scrollTo(0, 120)"
+        );
+
+        const before = {
+          url:
+            page.url(),
+
+          scrollY:
+            await page.evaluate(
+              "window.scrollY"
+            ),
+
+          color:
+            await page
+              .locator(
+                "#color"
+              )
+              .inputValue(),
+
+          overlayExists:
+            await page
+              .locator(
+                "#__camintel_agent_overlay"
+              )
+              .count(),
+
+          overlayStyle:
+            await page
+              .locator(
+                "#__camintel_agent_overlay"
+              )
+              .getAttribute(
+                "style"
+              )
+        };
+
+        const screenshotSpy =
+          vi.spyOn(
+            page,
+            "screenshot"
+          );
+
+        await captureVisionEvidencePacket(
+          page,
+          packet()
+        );
+
+        expect(
+          screenshotSpy
+        ).toHaveBeenCalledTimes(
+          1
+        );
+
+        expect(
+          screenshotSpy.mock.calls[0]?.[0]?.fullPage
+        ).toBe(
+          false
+        );
+
+        expect(
+          page.url()
+        ).toBe(
+          before.url
+        );
+
+        expect(
+          await page.evaluate(
+            "window.scrollY"
+          )
+        ).toBe(
+          before.scrollY
+        );
+
+        expect(
+          await page
+            .locator(
+              "#color"
+            )
+            .inputValue()
+        ).toBe(
+          before.color
+        );
+
+        expect(
+          await page
+            .locator(
+              "#__camintel_agent_overlay"
+            )
+            .count()
+        ).toBe(
+          before.overlayExists
+        );
+
+        expect(
+          await page
+            .locator(
+              "#__camintel_agent_overlay"
+            )
+            .getAttribute(
+              "style"
+            )
+        ).toBe(
+          before.overlayStyle
+        );
+
+        screenshotSpy.mockRestore();
+      }
+    );
+
+
+    it(
+      "keeps packet and image IDs stable for identical deterministic inputs",
+      async () => {
+
+        await page.setContent(
+          [
+            "<!doctype html>",
+            "<html><body style=\"margin:0\">",
+            '<section class="product-detail" style="width:820px;height:420px">',
+            "<h1>Canon EOS R50</h1>",
+            "<div>Body Only</div>",
+            "<div>15.990.000 VND</div>",
+            "</section>",
+            "</body></html>"
+          ].join(
+            ""
+          )
+        );
+
+        const first =
+          await captureVisionEvidencePacket(
+            page,
+            packet()
+          );
+
+        const second =
+          await captureVisionEvidencePacket(
+            page,
+            packet()
+          );
+
+        expect(
+          first.productRegionScreenshot.fallback
+        ).toBe(
+          false
+        );
+
+        expect(
+          second.productRegionScreenshot.fallback
+        ).toBe(
+          false
+        );
+
+        expect(
+          first.packetId
+        ).toBe(
+          second.packetId
+        );
+
+        expect(
+          first.productRegionScreenshot.imageId
+        ).toBe(
+          second.productRegionScreenshot.imageId
+        );
+      }
+    );
+
   }
 );
