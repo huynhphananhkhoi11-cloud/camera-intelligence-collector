@@ -34,9 +34,24 @@ const MAX_STRUCTURED_FACTS =
 
 const SCREENSHOT_STYLE =
   [
-    "#__camintel_agent_overlay {",
+    "#__camintel_agent_overlay,",
+    "[id*=\"coupon\" i],",
+    "[class*=\"coupon\" i],",
+    "[id*=\"voucher\" i],",
+    "[class*=\"voucher\" i],",
+    "[id*=\"newsletter\" i],",
+    "[class*=\"newsletter\" i],",
+    "[id*=\"subscribe\" i],",
+    "[class*=\"subscribe\" i],",
+    "[id*=\"promo-popup\" i],",
+    "[class*=\"promo-popup\" i],",
+    "[id*=\"promotion-popup\" i],",
+    "[class*=\"promotion-popup\" i],",
+    "[id*=\"cookie-banner\" i],",
+    "[class*=\"cookie-banner\" i] {",
     "  visibility: hidden !important;",
     "  opacity: 0 !important;",
+    "  pointer-events: none !important;",
     "}"
   ].join(
     "\n"
