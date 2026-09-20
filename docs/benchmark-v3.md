@@ -127,3 +127,31 @@ Dev6 compared the current feature branches before Dev0 wiring:
 - Dev4 currently represents each of those fields as one evidence object whose `value` is a string array.
 
 These are integration-shape differences, not Dev6 production fixes. Dev0 should adapt/freeze the shared contract before wiring. Dev6 will benchmark the final integrated shape and should not modify either production module.
+
+
+## Windows execution harness
+
+Sentinel benchmark, after Dev0 adds `smart-batch:v2`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\benchmarks\v3\run_sentinel_benchmark.ps1
+```
+
+This performs:
+
+1. optional `npm.cmd run check`;
+2. Vision-First processing of `benchmarks/v3/sentinel_10_urls.txt`;
+3. XLSX export;
+4. exact 13-column comparison;
+5. evidence-backed Markdown + JSON report;
+6. non-zero exit if any sentinel fails.
+
+Three-site smoke, using any discovery/exported URL list:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\benchmarks\v3\run_crawl_smoke.ps1 -Site zshop.vn -InputFile .\path\to\zshop-discovered-urls.txt
+powershell -ExecutionPolicy Bypass -File .\benchmarks\v3\run_crawl_smoke.ps1 -Site vjshop.vn -InputFile .\path\to\vjshop-discovered-urls.txt
+powershell -ExecutionPolicy Bypass -File .\benchmarks\v3\run_crawl_smoke.ps1 -Site mayanhtop1.com -InputFile .\path\to\mayanhtop1-discovered-urls.txt
+```
+
+The harness filters to the requested host, removes exact duplicate URLs, preserves distinct query-state variants, caps the selected input at 15, runs `smart-batch:v2`, then validates the resulting workbook.
