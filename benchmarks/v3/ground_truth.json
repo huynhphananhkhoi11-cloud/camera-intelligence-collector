@@ -1,0 +1,218 @@
+{
+  "schemaVersion": "1.0.0",
+  "benchmarkId": "v3-vision-first-sentinel-10",
+  "baselineSha": "39b941813267ab2b05ebba3168c4aa5b29d298ac",
+  "capturedAt": "2026-09-20T22:35:00+07:00",
+  "rules": {
+    "authoritativeAtRun": "Refresh every case immediately before the live benchmark. Prices, stock and review counts are dynamic.",
+    "cameraGate": "10/10 disposition must match.",
+    "visibleCoreFields": [
+      "website",
+      "productName",
+      "condition",
+      "salePrice",
+      "url"
+    ],
+    "nullPolicy": "If not visible/explicit, expect null. Never infer.",
+    "contaminationGuards": [
+      "warranty/policy/VAT must not become accessoriesIncluded",
+      "customers also buy/related products must not become bundleIncluded",
+      "related-product prices/reviews must not become primary product data"
+    ]
+  },
+  "cases": [
+    {
+      "id": "S01",
+      "site": "zshop.vn",
+      "url": "https://zshop.vn/canon-eos-r50-vi.html",
+      "expectedDisposition": "CAMERA",
+      "stable": {
+        "productNameIncludes": "Canon EOS R50",
+        "condition": "NEW",
+        "selectedVariantIncludes": "Body Only"
+      },
+      "liveReference": {
+        "salePriceVnd": 15990000,
+        "rentalPricePerDayVnd": 400000,
+        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+      },
+      "guards": [
+        "KHÁCH THƯỜNG MUA THÊM is not bundle",
+        "VAT/warranty is not accessory"
+      ]
+    },
+    {
+      "id": "S02",
+      "site": "zshop.vn",
+      "url": "https://zshop.vn/canon-eos-r50-vi.html?variation_id=65130",
+      "expectedDisposition": "CAMERA",
+      "stable": {
+        "productNameIncludes": "Canon EOS R50",
+        "condition": "NEW",
+        "selectedVariantIncludes": "Kit Lens 18-45mm"
+      },
+      "liveReference": {
+        "salePriceVnd": null,
+        "rentalPricePerDayVnd": 400000,
+        "sourceStatus": "REFRESH_IN_BROWSER_BEFORE_RUN"
+      },
+      "guards": [
+        "preserve variation_id=65130 in final URL",
+        "selected variant price only"
+      ]
+    },
+    {
+      "id": "S03",
+      "site": "zshop.vn",
+      "url": "https://zshop.vn/canon-eos-r50-likenew.html",
+      "expectedDisposition": "CAMERA",
+      "stable": {
+        "productNameIncludes": "Canon EOS R50",
+        "condition": "USED"
+      },
+      "liveReference": {
+        "salePriceVnd": null,
+        "sourceStatus": "REFRESH_IN_BROWSER_BEFORE_RUN"
+      },
+      "guards": [
+        "Bảo hành 06 tháng is not accessory",
+        "Hàng Likenew normalizes to USED"
+      ]
+    },
+    {
+      "id": "S04",
+      "site": "zshop.vn",
+      "url": "https://zshop.vn/canon-eos-r50-vi.html?variation_id=70768",
+      "expectedDisposition": "CAMERA",
+      "stable": {
+        "productNameIncludes": "Canon EOS R50",
+        "condition": "NEW",
+        "selectedVariantIncludes": "Tamron 17-70mm f/2.8"
+      },
+      "liveReference": {
+        "salePriceVnd": 32480000,
+        "rentalPricePerDayVnd": 400000,
+        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+      },
+      "guards": [
+        "preserve variation_id=70768 in final URL",
+        "rental service remains rental, not sale price"
+      ]
+    },
+    {
+      "id": "S05",
+      "site": "zshop.vn",
+      "url": "https://zshop.vn/sony-fe-50mm-f-1.8.html",
+      "expectedDisposition": "NON_CAMERA_LENS",
+      "stable": {
+        "productNameIncludes": "Sony FE 50mm F/1.8"
+      },
+      "liveReference": {
+        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+      },
+      "guards": [
+        "must not create Camera Data row"
+      ]
+    },
+    {
+      "id": "S06",
+      "site": "zshop.vn",
+      "url": "https://zshop.vn/blogs/workshop-nhiep-anh-anh-sang-cam-xuc-28032026.html",
+      "expectedDisposition": "NON_PRODUCT",
+      "stable": {
+        "productNameIncludes": "Workshop Nhiếp Ảnh Ánh Sáng & Cảm Xúc"
+      },
+      "liveReference": {
+        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+      },
+      "guards": [
+        "must not create Camera Data row"
+      ]
+    },
+    {
+      "id": "S07",
+      "site": "vjshop.vn",
+      "url": "https://vjshop.vn/may-anh-mirrorless/sony-alpha-a7-mark-iv-body-only-chinh-hang",
+      "expectedDisposition": "CAMERA",
+      "stable": {
+        "productNameIncludes": "Sony Alpha A7 Mark IV",
+        "condition": "NEW",
+        "selectedVariantIncludes": "Body Only"
+      },
+      "liveReference": {
+        "salePriceVnd": 47490000,
+        "crossedOutOrListPriceVnd": 53990182,
+        "reviewCount": 7,
+        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+      },
+      "guards": [
+        "53,990,182 is list/crossed-out price, not current sale price",
+        "related-card price must not contaminate primary product"
+      ]
+    },
+    {
+      "id": "S08",
+      "site": "vjshop.vn",
+      "url": "https://vjshop.vn/may-anh-mirrorless/canon-eos-r50-body?xem=add-on-savings",
+      "expectedDisposition": "CAMERA",
+      "stable": {
+        "productNameIncludes": "Canon EOS R50",
+        "condition": "NEW",
+        "selectedVariantIncludes": "Body"
+      },
+      "liveReference": {
+        "salePriceVnd": null,
+        "sourceStatus": "REFRESH_IN_BROWSER_BEFORE_RUN"
+      },
+      "guards": [
+        "availability/store data only if visible for the selected product",
+        "related products excluded"
+      ]
+    },
+    {
+      "id": "S09",
+      "site": "vjshop.vn",
+      "url": "https://vjshop.vn/may-anh-mirrorless/canon-eos-r50-lens-rf-s-50mm-f18-stm",
+      "expectedDisposition": "CAMERA",
+      "stable": {
+        "productNameIncludes": "Canon EOS R50",
+        "selectedVariantIncludes": "Lens RF 50mm f/1.8 STM"
+      },
+      "liveReference": {
+        "salePriceVnd": 20290000,
+        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+      },
+      "guards": [
+        "camera + lens bundle must remain CAMERA",
+        "do not classify as lens-only"
+      ]
+    },
+    {
+      "id": "S10",
+      "site": "mayanhtop1.com",
+      "url": "https://mayanhtop1.com/canon-eos-r50-new",
+      "expectedDisposition": "CAMERA",
+      "stable": {
+        "productNameIncludes": "CANON EOS R50",
+        "condition": "NEW"
+      },
+      "liveReference": {
+        "salePriceVnd": 18000000,
+        "stockText": "Còn hàng",
+        "accessoriesIncluded": [
+          "Thân máy",
+          "Pin",
+          "Sạc",
+          "Dây đeo",
+          "Hộp",
+          "Sách"
+        ],
+        "sourceStatus": "WEB_VISIBLE_2026-09-20"
+      },
+      "guards": [
+        "accessories are explicit product contents",
+        "warranty remains policy, not accessory"
+      ]
+    }
+  ]
+}
