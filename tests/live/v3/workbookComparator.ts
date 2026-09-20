@@ -61,6 +61,7 @@ type CameraRow = {
   productName: string;
   condition: string;
   rentalPrice: string;
+  rentalTerms: string;
   accessories: string;
   bundle: string;
   rating: string | number;
@@ -147,6 +148,7 @@ export async function readCameraWorkbook(path: string): Promise<CameraRow[]> {
       productName: cellText(row.getCell(2).value),
       condition: cellText(row.getCell(3).value),
       rentalPrice: cellText(row.getCell(5).value),
+      rentalTerms: cellText(row.getCell(6).value),
       accessories: cellText(row.getCell(7).value),
       bundle: cellText(row.getCell(8).value),
       rating: row.getCell(9).value as string | number,
@@ -345,7 +347,7 @@ export function compareRows(
 
     const nullSurface: Record<string, string> = {
       rentalPricePerDay: row.rentalPrice,
-      rentalTerms: "",
+      rentalTerms: row.rentalTerms,
       accessoriesIncluded: row.accessories,
       bundleIncluded: row.bundle
     };
