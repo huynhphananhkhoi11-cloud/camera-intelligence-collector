@@ -8,7 +8,7 @@ const EXPECTED_HEADERS = [
   'Hàng cũ/Hàng mới',
   'Thông số mô tả',
   'Giá thuê/ngày',
-  'Điều kiện thuê',
+  'Điều kiện thuê riêng',
   'Phụ kiện đi kèm',
   'Combo/gói đi kèm',
   'Điểm đánh giá',
