@@ -31,6 +31,10 @@ import {
   type SmartRouteResult
 } from "../agent/fastSlowRouter.js";
 
+import {
+  deterministicSmartPreflight
+} from "../agent/smartPreflight.js";
+
 
 export interface ExecuteSmartReadInput {
   readonly url:
@@ -59,6 +63,9 @@ export async function executeSmartRead(
 > {
 
   const result =
+    deterministicSmartPreflight(
+      input.url
+    ) ??
     await routeSmartUrl({
       url:
         input.url,
