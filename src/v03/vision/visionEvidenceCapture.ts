@@ -34,21 +34,7 @@ const MAX_STRUCTURED_FACTS =
 
 const SCREENSHOT_STYLE =
   [
-    "#__camintel_agent_overlay,",
-    "[id*=\"coupon\" i],",
-    "[class*=\"coupon\" i],",
-    "[id*=\"voucher\" i],",
-    "[class*=\"voucher\" i],",
-    "[id*=\"newsletter\" i],",
-    "[class*=\"newsletter\" i],",
-    "[id*=\"subscribe\" i],",
-    "[class*=\"subscribe\" i],",
-    "[id*=\"promo-popup\" i],",
-    "[class*=\"promo-popup\" i],",
-    "[id*=\"promotion-popup\" i],",
-    "[class*=\"promotion-popup\" i],",
-    "[id*=\"cookie-banner\" i],",
-    "[class*=\"cookie-banner\" i] {",
+    "#__camintel_agent_overlay {",
     "  visibility: hidden !important;",
     "  opacity: 0 !important;",
     "  pointer-events: none !important;",
@@ -88,12 +74,14 @@ async function transientPromotionalOverlaySelectors(
     EvidencePacket
 ): Promise<string[]> {
 
-  const titleValues =
-    sourcePacket.titleCandidates
-      .map(
+  const identityValues =
+    [
+      sourcePacket.productIdentity,
+      ...sourcePacket.titleCandidates.map(
         item =>
           item.rawValue
       )
+    ]
       .filter(
         value =>
           value.trim()
@@ -102,7 +90,7 @@ async function transientPromotionalOverlaySelectors(
       )
       .slice(
         0,
-        4
+        5
       );
 
 
@@ -110,7 +98,7 @@ async function transientPromotionalOverlaySelectors(
     (
       input:
         {
-          readonly titles:
+          readonly identities:
             readonly string[];
         }
     ) => {
@@ -140,28 +128,35 @@ async function transientPromotionalOverlaySelectors(
             .toLowerCase();
 
 
-      const titleTokens =
-        new Set(
-          input.titles
-            .flatMap(
-              title =>
-                normalize(
-                  title
-                )
-                  .split(
-                    /[^a-z0-9]+/u
+      const identityTokenSets =
+        input.identities
+          .map(
+            identity =>
+              Array.from(
+                new Set(
+                  normalize(
+                    identity
                   )
-            )
-            .filter(
-              token =>
-                token.length >=
-                  2
-            )
-            .slice(
-              0,
-              16
-            )
-        );
+                    .split(
+                      /[^a-z0-9]+/u
+                    )
+                    .filter(
+                      token =>
+                        token.length >=
+                          2
+                    )
+                    .slice(
+                      0,
+                      12
+                    )
+                )
+              )
+          )
+          .filter(
+            tokens =>
+              tokens.length >
+                0
+          );
 
 
       const productMatch =
@@ -171,7 +166,7 @@ async function transientPromotionalOverlaySelectors(
         ): boolean => {
 
           if (
-            titleTokens.size ===
+            identityTokenSets.length ===
               0
           ) {
             return false;
@@ -184,33 +179,38 @@ async function transientPromotionalOverlaySelectors(
             );
 
 
-          let matches =
-            0;
+          return identityTokenSets.some(
+            tokens => {
+
+              let matches =
+                0;
 
 
-          for (
-            const token
-            of titleTokens
-          ) {
-            if (
-              normalized.includes(
-                token
-              )
-            ) {
-              matches +=
-                1;
+              for (
+                const token
+                of tokens
+              ) {
+                if (
+                  normalized.includes(
+                    token
+                  )
+                ) {
+                  matches +=
+                    1;
+                }
+              }
+
+
+              return matches >=
+                Math.max(
+                  2,
+                  Math.ceil(
+                    tokens.length *
+                    0.6
+                  )
+                );
             }
-          }
-
-
-          return matches >=
-            Math.max(
-              2,
-              Math.ceil(
-                titleTokens.size *
-                0.6
-              )
-            );
+          );
         };
 
 
@@ -315,8 +315,10 @@ async function transientPromotionalOverlaySelectors(
                 .toLowerCase();
 
 
-            const parent =
-              current.parentElement;
+            const parent:
+              Element |
+              null =
+                current.parentElement;
 
 
             if (
@@ -326,15 +328,22 @@ async function transientPromotionalOverlaySelectors(
             }
 
 
-            const sameTag =
-              Array.from(
-                parent.children
-              )
-                .filter(
-                  child =>
-                    child.tagName ===
-                      current?.tagName
-                );
+            const currentTagName =
+              current.tagName;
+
+            const sameTag:
+              Element[] =
+                Array.from(
+                  parent.children
+                )
+                  .filter(
+                    (
+                      child:
+                        Element
+                    ) =>
+                      child.tagName ===
+                        currentTagName
+                  );
 
 
             const index =
@@ -634,8 +643,8 @@ async function transientPromotionalOverlaySelectors(
         );
     },
     {
-      titles:
-        titleValues
+      identities:
+        identityValues
     }
   );
 }
