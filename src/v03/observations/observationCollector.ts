@@ -1069,7 +1069,7 @@ function collectVisibleSemanticDetails(
       );
 
     const currencyLike =
-      /\d{1,3}(?:[.,]\d{3})+\s*(?:đ|₫|vnd)\b/iu;
+      /\d{1,3}(?:[.,]\d{3})+\s*(?:đ|₫|vnd)(?:\s|$|[^\p{L}\p{N}])/iu;
 
 
     for (
