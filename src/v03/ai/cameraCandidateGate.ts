@@ -154,6 +154,43 @@ function matchedTerms(
 }
 
 
+function hasStandaloneLensSignature(
+  text:
+    string
+): boolean {
+
+  const normalized =
+    normalize(
+      text
+    );
+
+
+  const hasFocalLength =
+    /\b\d{1,3}(?:-\d{1,3})?\s*mm\b/iu.test(
+      normalized
+    );
+
+
+  const hasAperture =
+    /\bf\s*[-/]?\s*\d(?:[.,]\d+)?\b/iu.test(
+      normalized
+    );
+
+
+  const hasLensFamily =
+    /(?:\bfe\b|\brf(?:-s)?\b|\bef(?:-s)?\b|\bnikkor\b|\bxf\b|\bxc\b|\bdg\s*dn\b|\bdc\s*dn\b|\bsigma\b|\btamron\b|\btokina\b|\bsamyang\b|\bm\.zuiko\b|\blumix\s+[sg]\b)/iu.test(
+      normalized
+    );
+
+
+  return (
+    hasFocalLength &&
+    hasAperture &&
+    hasLensFamily
+  );
+}
+
+
 export function decideCameraCandidate(
   url:
     string,
@@ -271,6 +308,20 @@ export function decideCameraCandidate(
     2;
 
 
+  const standaloneLens =
+    hasStandaloneLensSignature(
+      text
+    );
+
+
+  if (
+    standaloneLens
+  ) {
+    nonCameraScore +=
+      6;
+  }
+
+
   const anchorCameraMatches =
     matchedTerms(
       anchorText,
@@ -332,6 +383,15 @@ export function decideCameraCandidate(
         .join(
           ", "
         )
+    );
+  }
+
+
+  if (
+    standaloneLens
+  ) {
+    reasons.push(
+      "standalone lens signature: focal length + aperture + lens family"
     );
   }
 
