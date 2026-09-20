@@ -155,3 +155,18 @@ powershell -ExecutionPolicy Bypass -File .\benchmarks\v3\run_crawl_smoke.ps1 -Si
 ```
 
 The harness filters to the requested host, removes exact duplicate URLs, preserves distinct query-state variants, caps the selected input at 15, runs `smart-batch:v2`, then validates the resulting workbook.
+
+
+### Freshness gate
+
+The sentinel harness intentionally refuses to run while any CAMERA case in `ground_truth.json` still carries a status such as:
+
+- `REFRESH_IN_BROWSER_BEFORE_RUN`
+- `STALE_...`
+- `WEB_OPEN_FAILED...`
+
+Immediately before a real benchmark, Dev6 must open each CAMERA sentinel in the benchmark browser, refresh the dynamic fields that are actually visible, and replace the provisional source status with a timestamped marker such as:
+
+`BROWSER_REFRESHED_2026-09-20T23:05:00+07:00`
+
+This prevents old search-index snapshots from becoming false release truth.
