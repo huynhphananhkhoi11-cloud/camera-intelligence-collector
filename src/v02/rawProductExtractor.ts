@@ -445,9 +445,21 @@ export function extractRawProductFactsFromHtml(
     let cursor =
       primaryHeading.parent();
 
+    let firstActionScope:
+      ReturnType<
+        typeof primaryHeading.parent
+      > |
+      null =
+        null;
+
+
+    const currencyLike =
+      /\d{1,3}(?:[.,]\d{3})+\s*(?:đ|₫|vnd)\b/iu;
+
+
     for (
       let depth = 0;
-      depth < 6 &&
+      depth < 8 &&
       cursor.length > 0;
       depth++
     ) {
@@ -459,10 +471,30 @@ export function extractRawProductFactsFromHtml(
         break;
       }
 
-      if (
+
+      const hasAction =
         cursor.find(
           structuralActionSelector
-        ).length > 0
+        ).length > 0;
+
+
+      if (
+        hasAction &&
+        firstActionScope ===
+          null
+      ) {
+        firstActionScope =
+          cursor;
+      }
+
+
+      if (
+        hasAction &&
+        currencyLike.test(
+          clean(
+            cursor.text()
+          )
+        )
       ) {
         primaryProductScope =
           cursor;
@@ -473,8 +505,22 @@ export function extractRawProductFactsFromHtml(
         break;
       }
 
+
       cursor =
         cursor.parent();
+    }
+
+
+    if (
+      !primaryProductScopeFound &&
+      firstActionScope !==
+        null
+    ) {
+      primaryProductScope =
+        firstActionScope;
+
+      primaryProductScopeFound =
+        true;
     }
   }
 
