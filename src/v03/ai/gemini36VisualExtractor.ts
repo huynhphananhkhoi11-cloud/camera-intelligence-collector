@@ -165,7 +165,10 @@ export class Gemini36VisualExtractor {
       "ALLOWED_SHOT_IDS: " +
         parsedRequest.shots.map(shot => shot.shotId).join(", "),
       "Copy WEBSITE and FINAL_URL exactly into website and url.",
+      "Product name should keep the model/kit identity but remove unrelated marketing noise.",
       "Condition must be NEW, USED, or null. Likenew/used/hang cu => USED; new/chinh hang/new 100% => NEW only when visible.",
+      "salePrice is the current selected primary-product price; never use old/list/crossed-out or related-product prices.",
+      "stock is only explicit availability or quantity; never infer stock from buy/cart controls.",
       "Rental price must be an explicit per-day rental amount, never installment/payment-plan amounts.",
       "If accessories or bundles are absent, use null. If present, return only items explicitly included with the primary product.",
       "Specs must describe the primary product only and should be concise.",
