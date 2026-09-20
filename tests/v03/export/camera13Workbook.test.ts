@@ -42,14 +42,7 @@ function sampleExtraction(): VisualExtraction {
 
   return {
     website:
-      {
-        value:
-          "zshop.vn",
-        rawText:
-          "zshop.vn",
-        shotId:
-          "context"
-      },
+      "zshop.vn",
 
     productName:
       {
@@ -90,18 +83,32 @@ function sampleExtraction(): VisualExtraction {
       null,
 
     accessoriesIncluded:
-      {
-        value:
-          [
+      [
+        {
+          value:
             "Thân máy",
+          rawText:
+            "Thân máy",
+          shotId:
+            "commerce-02"
+        },
+        {
+          value:
             "Pin",
-            "Sạc"
-          ],
-        rawText:
-          "Thân máy, Pin, Sạc",
-        shotId:
-          "commerce-02"
-      },
+          rawText:
+            "Pin",
+          shotId:
+            "commerce-02"
+        },
+        {
+          value:
+            "Sạc",
+          rawText:
+            "Sạc",
+          shotId:
+            "commerce-02"
+        }
+      ],
 
     bundleIncluded:
       null,
@@ -165,7 +172,6 @@ function context() {
 
     shotIds:
       new Set([
-        "context",
         "hero-01",
         "commerce-02",
         "specs-03",
@@ -267,18 +273,27 @@ describe(
         ).toBeDefined();
 
         const headers =
-          cameraData!
-            .getRow(
-              1
-            )
-            .values;
+          Array.from(
+            {
+              length:
+                13
+            },
+            (
+              _,
+              index
+            ) =>
+              cameraData!
+                .getRow(
+                  1
+                )
+                .getCell(
+                  index +
+                  1
+                ).value
+          );
 
         expect(
-          Array.from(
-            headers as unknown[]
-          ).slice(
-            1
-          )
+          headers
         ).toEqual([
           "Website",
           "Tên sản phẩm",
@@ -305,6 +320,16 @@ describe(
           cameraData!.getRow(
             2
           ).getCell(
+            1
+          ).value
+        ).toBe(
+          "zshop.vn"
+        );
+
+        expect(
+          cameraData!.getRow(
+            2
+          ).getCell(
             2
           ).value
         ).toBe(
@@ -319,6 +344,16 @@ describe(
           ).value
         ).toBe(
           "USED"
+        );
+
+        expect(
+          cameraData!.getRow(
+            2
+          ).getCell(
+            7
+          ).value
+        ).toBe(
+          "Thân máy | Pin | Sạc"
         );
       }
     );
