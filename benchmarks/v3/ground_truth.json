@@ -52,9 +52,9 @@
         "selectedVariantIncludes": "Kit Lens 18-45mm"
       },
       "liveReference": {
-        "salePriceVnd": null,
+        "salePriceVnd": 18490000,
         "rentalPricePerDayVnd": 400000,
-        "sourceStatus": "REFRESH_IN_BROWSER_BEFORE_RUN"
+        "sourceStatus": "WEB_VISIBLE_2026-09-20"
       },
       "guards": [
         "preserve variation_id=65130 in final URL",
@@ -71,8 +71,8 @@
         "condition": "USED"
       },
       "liveReference": {
-        "salePriceVnd": null,
-        "sourceStatus": "REFRESH_IN_BROWSER_BEFORE_RUN"
+        "salePriceVnd": 14990000,
+        "sourceStatus": "WEB_VISIBLE_2026-09-20"
       },
       "guards": [
         "Bảo hành 06 tháng is not accessory",
@@ -161,8 +161,9 @@
         "selectedVariantIncludes": "Body"
       },
       "liveReference": {
-        "salePriceVnd": null,
-        "sourceStatus": "REFRESH_IN_BROWSER_BEFORE_RUN"
+        "salePriceVnd": 15790000,
+        "sourceStatus": "WEB_VISIBLE_2026-09-20",
+        "stockText": "7 cửa hàng có sản phẩm"
       },
       "guards": [
         "availability/store data only if visible for the selected product",
