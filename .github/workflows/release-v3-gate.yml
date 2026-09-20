@@ -1,0 +1,98 @@
+name: V3 Vision-First Release Gate
+
+on:
+  push:
+    branches:
+      - integration/v3-vision-first
+      - release/v3-vision-first
+  pull_request:
+    branches:
+      - integration/v3-vision-first
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v3-release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-gate:
+    name: two-full-green-security-build
+    runs-on: windows-latest
+    timeout-minutes: 55
+
+    steps:
+      - name: Preserve repository line endings
+        shell: pwsh
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
+      - name: Record release gate identity
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/release-gate | Out-Null
+          @(
+            "workflow=${{ github.workflow }}"
+            "repository=${{ github.repository }}"
+            "ref=${{ github.ref }}"
+            "sha=${{ github.sha }}"
+            "run_id=${{ github.run_id }}"
+            "node=$(node --version)"
+            "npm=$(npm --version)"
+          ) | Set-Content -Encoding utf8 artifacts/release-gate/identity.txt
+
+      - name: TypeScript check
+        run: npm run check
+
+      - name: Full suite run 1
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Diff check
+        run: git diff --check
+
+      - name: Secret and forbidden-artifact scan
+        run: node scripts/release/verify-no-secrets.mjs --tracked
+
+      - name: Full suite run 2 (independent process)
+        run: npm test
+
+      - name: Verify clean tracked tree after gates
+        shell: pwsh
+        run: |
+          $dirty = git status --porcelain=v1 --untracked-files=no
+          if ($dirty) {
+            Write-Error "Tracked working tree changed during release gate:`n$dirty"
+            exit 1
+          }
+          "tracked_tree_clean=true" | Add-Content -Encoding utf8 artifacts/release-gate/identity.txt
+
+      - name: Upload release gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: v3-release-gate-${{ github.run_id }}
+          path: artifacts/release-gate/
+          if-no-files-found: error
+          retention-days: 14
