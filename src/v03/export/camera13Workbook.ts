@@ -10,6 +10,14 @@ import {
   dirname
 } from "node:path";
 
+import {
+  CAMERA13_HEADERS
+} from "../contracts/camera13.js";
+
+export {
+  CAMERA13_HEADERS
+} from "../contracts/camera13.js";
+
 import type {
   MoneyEvidenceValue,
   VisualExtraction,
@@ -23,21 +31,6 @@ export interface Camera13WorkbookOptions {
 }
 
 
-export const CAMERA13_HEADERS = [
-  "Website",
-  "Tên sản phẩm",
-  "Hàng cũ/Hàng mới",
-  "Thông số mô tả",
-  "Giá thuê/ngày",
-  "Điều kiện thuê riêng",
-  "Phụ kiện đi kèm",
-  "Combo/gói đi kèm",
-  "Điểm đánh giá",
-  "Số lượt đánh giá/review",
-  "Tồn kho",
-  "Giá bán",
-  "URL"
-] as const;
 
 
 function money(
