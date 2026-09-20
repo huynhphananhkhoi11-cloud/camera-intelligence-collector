@@ -36,6 +36,11 @@ import type {
   VisionEvidencePacket
 } from "../vision/visionEvidenceTypes.js";
 
+import {
+  applyVisualObstructionFailSafe,
+  filterVisualObstructionNoise
+} from "./visualObstructionPolicy.js";
+
 
 export interface VisionSemanticAnalyzer {
   analyze(
@@ -90,8 +95,10 @@ export function toGeminiVisionEvidenceInput(
     },
 
     compactDomEvidence:
-      visionPacket
-        .compactDomEvidence,
+      filterVisualObstructionNoise(
+        visionPacket
+          .compactDomEvidence
+      ),
 
     selectedControls:
       visionPacket
@@ -184,7 +191,7 @@ export async function analyzeFinalVisionEvidence(
     );
 
 
-  const validation =
+  const baseValidation =
     (
       input.validate ??
       validateSemanticDecision
@@ -192,6 +199,18 @@ export async function analyzeFinalVisionEvidence(
       input.sourcePacket,
       decision
     );
+
+
+  const validation =
+    applyVisualObstructionFailSafe({
+      sourcePacket:
+        input.sourcePacket,
+      visionPacket:
+        input.visionPacket,
+      decision,
+      validation:
+        baseValidation
+    });
 
 
   return {

@@ -328,5 +328,150 @@ describe(
           .toHaveBeenCalled();
       }
     );
+
+    it(
+      "downgrades obstructed Canon NON_CAMERA to NEEDS_REVIEW and removes popup DOM noise from the provider input",
+      async () => {
+
+        const golden =
+          C6_GOLDEN_CASES[0];
+
+        const promo = {
+          id:
+            "promo_popup",
+          fieldHint:
+            "TEXT",
+          rawValue:
+            "Nhận ưu đãi",
+          sourceKind:
+            "DOM" as const,
+          locator:
+            ".promo-popup",
+          context:
+            null,
+          ownershipHint:
+            "PAGE_CHROME" as const
+        };
+
+        const visionPacket = {
+          packetId:
+            "vision_packet_obstructed",
+          sourceEvidencePacketId:
+            golden.packet.packetId,
+          pageUrl:
+            golden.packet.pageUrl,
+          finalUrl:
+            golden.packet.finalUrl,
+          productIdentity:
+            golden.packet.productIdentity,
+          productRegionScreenshot: {
+            imageId:
+              "vision_image_obstructed",
+            mimeType:
+              "image/png" as const,
+            base64:
+              "ZmFrZS1wbmc=",
+            width:
+              640,
+            height:
+              480,
+            selectorUsed:
+              null,
+            fallback:
+              true
+          },
+          compactDomEvidence: [
+            promo
+          ],
+          selectedControls:
+            [],
+          structuredFacts:
+            []
+        } satisfies VisionEvidencePacket;
+
+        const obstructedDecision = {
+          ...golden.decision,
+          entity: {
+            ...golden.decision.entity,
+            type:
+              "NON_CAMERA" as const,
+            subtype:
+              "PROMO_POPUP"
+          }
+        };
+
+        const analyze =
+          vi.fn(
+            async () => ({
+              decision:
+                obstructedDecision,
+              model:
+                "gemini-3.5-flash-lite",
+              attempts:
+                1,
+              latencyMs:
+                10,
+              usage: {
+                inputTokens:
+                  100,
+                outputTokens:
+                  20,
+                thoughtTokens:
+                  0,
+                totalTokens:
+                  120
+              }
+            } satisfies GeminiVisionResult)
+          );
+
+        const result =
+          await analyzeFinalVisionEvidence({
+            sourcePacket:
+              golden.packet,
+            visionPacket,
+            provider: {
+              analyze
+            },
+            validate:
+              () => ({
+                status:
+                  "VALIDATED",
+                issues:
+                  []
+              })
+          });
+
+
+        expect(
+          analyze
+        ).toHaveBeenCalledTimes(
+          1
+        );
+
+        expect(
+          analyze.mock.calls[0]?.[0]
+            .compactDomEvidence
+        ).toEqual(
+          []
+        );
+
+        expect(
+          result.validation.status
+        ).toBe(
+          "NEEDS_REVIEW"
+        );
+
+        expect(
+          result.validation.issues
+            .map(
+              issue =>
+                issue.code
+            )
+        ).toContain(
+          "VISUAL_OBSTRUCTION_NON_CAMERA_GUARD"
+        );
+      }
+    );
+
   }
 );

@@ -13,6 +13,10 @@ import type {
   FinalVisionSemanticResult
 } from "./visionFastPath.js";
 
+import {
+  shouldEscalateVisualObstruction
+} from "./visualObstructionPolicy.js";
+
 
 export type SmartPath =
   | "FAST"
@@ -367,6 +371,25 @@ function needsSlowPath(
       .entity
       .type ===
         "UNCERTAIN"
+  ) {
+
+    return true;
+  }
+
+
+  if (
+    result.decision
+      .entity
+      .type ===
+        "NON_CAMERA" &&
+    shouldEscalateVisualObstruction({
+      sourcePacket:
+        result.sourcePacket,
+      visionPacket:
+        result.visionPacket,
+      decision:
+        result.decision
+    })
   ) {
 
     return true;
