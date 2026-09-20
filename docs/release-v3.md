@@ -40,7 +40,7 @@ This document is the Dev7 release/security handoff for `v3.0.0-rc1`.
 3. Hàng cũ/Hàng mới
 4. Thông số mô tả
 5. Giá thuê/ngày
-6. Điều kiện thuê
+6. Điều kiện thuê riêng
 7. Phụ kiện đi kèm
 8. Combo/gói đi kèm
 9. Điểm đánh giá
