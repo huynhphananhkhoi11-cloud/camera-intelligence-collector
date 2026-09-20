@@ -296,6 +296,69 @@ describe(
           "application/json"
         );
 
+
+        expect(
+          body.response_format
+            .schema
+            .$schema
+        ).toBeUndefined();
+
+
+        expect(
+          body.response_format
+            .schema
+            .properties
+            .entity
+        ).toMatchObject({
+          type:
+            "object",
+
+          properties: {
+            type: {
+              enum: [
+                "CAMERA",
+                "NON_CAMERA",
+                "UNCERTAIN"
+              ]
+            },
+
+            subtype: {
+              type:
+                "string"
+            },
+
+            confidence: {
+              type:
+                "number"
+            },
+
+            evidenceIds: {
+              type:
+                "array"
+            }
+          },
+
+          required: [
+            "type",
+            "subtype",
+            "confidence",
+            "evidenceIds"
+          ]
+        });
+
+
+        expect(
+          body.response_format
+            .schema
+            .properties
+            .productName
+            .properties
+            .value
+            .type
+        ).toBe(
+          "string"
+        );
+
         expect(
           result.decision
             .productName
