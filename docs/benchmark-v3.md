@@ -115,3 +115,15 @@ The final report must include, for every mismatch:
 - mayanhtop1.com — cap 15: NEW/USED/stock/accessories, no related-product contamination.
 
 This smoke is intentionally not a full-domain production crawl.
+
+
+## Pre-integration contract observation
+
+Dev6 compared the current feature branches before Dev0 wiring:
+
+- Dev2 `feat/v3-gemini36-visual-extractor @ 677e66a` currently defines `website` as a plain string in `VisualExtractionSchema`.
+- Dev4 `feat/v3-13col-validator-export` currently expects `website` as `EvidenceValue<string> | null`, including `rawText + shotId`.
+- Dev2 currently represents `accessoriesIncluded` and `bundleIncluded` as arrays of evidence objects.
+- Dev4 currently represents each of those fields as one evidence object whose `value` is a string array.
+
+These are integration-shape differences, not Dev6 production fixes. Dev0 should adapt/freeze the shared contract before wiring. Dev6 will benchmark the final integrated shape and should not modify either production module.
