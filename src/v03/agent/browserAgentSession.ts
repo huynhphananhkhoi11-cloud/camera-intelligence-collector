@@ -1823,11 +1823,87 @@ export class BrowserAgentSession {
                 );
 
 
-          /*
-           * Provider quota is an operational stop, not evidence loss.
-           * Preserve the browser state reached so far and finalize it.
-           */
+          const transient =
+            /GEMINI_BROWSER_PLANNER_HTTP_(?:502|503|504)/u
+              .test(
+                message
+              );
+
+
           if (
+            transient
+          ) {
+
+            await setOverlay(
+              page,
+              "CAMERA INTELLIGENCE AI",
+              "PROVIDER TRANSIENT\nRetrying planner once after 2s..."
+            );
+
+
+            /*
+             * One bounded retry only.
+             * Google classifies 5xx/503 as transient; do not loop forever.
+             */
+            await page.waitForTimeout(
+              2_000
+            );
+
+
+            try {
+
+              result =
+                await planner.plan(
+                  observation,
+                  {
+                    screenshotBase64:
+                      screenshot,
+
+                    previousInteractionId
+                  }
+                );
+            }
+            catch (
+              retryError
+            ) {
+
+              const retryMessage =
+                retryError instanceof Error
+                  ? retryError.message
+                  : String(
+                      retryError
+                    );
+
+
+              if (
+                retryMessage.startsWith(
+                  "GEMINI_BROWSER_PLANNER_HTTP_429"
+                ) ||
+                /GEMINI_BROWSER_PLANNER_HTTP_(?:502|503|504)/u
+                  .test(
+                    retryMessage
+                  )
+              ) {
+
+                await setOverlay(
+                  page,
+                  "CAMERA INTELLIGENCE AI",
+                  "PROVIDER STOP\nFinalizing current page evidence."
+                );
+
+
+                /*
+                 * We already have useful live evidence from completed actions.
+                 * Stop planner work and continue to final evidence + semantic LOW.
+                 */
+                break;
+              }
+
+
+              throw retryError;
+            }
+          }
+          else if (
             message.startsWith(
               "GEMINI_BROWSER_PLANNER_HTTP_429"
             )
@@ -1839,11 +1915,13 @@ export class BrowserAgentSession {
               "PROVIDER QUOTA STOP\nFinalizing current page evidence."
             );
 
+
             break;
           }
+          else {
 
-
-          throw error;
+            throw error;
+          }
         }
         finally {
 
