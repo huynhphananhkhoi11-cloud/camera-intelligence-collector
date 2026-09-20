@@ -27,3 +27,4 @@ data/runs/
 CameraIntelligence_AI.xlsx
 *.partial.xlsx
 artifacts/gemini-read/
+CameraIntelligence_AI_Test.xlsx
