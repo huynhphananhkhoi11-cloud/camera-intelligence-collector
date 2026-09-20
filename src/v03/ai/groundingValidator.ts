@@ -268,6 +268,46 @@ function validateMoney(
 }
 
 
+function isStrongPrimaryPriceEvidence(
+  item:
+    EvidenceItem
+): boolean {
+
+  if (
+    item.ownershipHint !==
+      "PRIMARY_PRODUCT"
+  ) {
+    return false;
+  }
+
+
+  if (
+    item.fieldHint !==
+      "PRICE"
+  ) {
+    return false;
+  }
+
+
+  const sourceKind =
+    String(
+      item.sourceKind
+    );
+
+
+  return [
+    "VISIBLE_TEXT",
+    "JSON_LD",
+    "MICRODATA",
+    "XHR",
+    "API",
+    "ATTRIBUTE"
+  ].includes(
+    sourceKind
+  );
+}
+
+
 function isStrongPrimaryStockEvidence(
   item:
     EvidenceItem
@@ -306,6 +346,231 @@ function isStrongPrimaryStockEvidence(
     "ATTRIBUTE"
   ].includes(
     sourceKind
+  );
+}
+
+
+function controlSearchText(
+  item:
+    EvidenceItem
+): string {
+
+  return [
+    item.fieldHint,
+    item.rawValue,
+    item.locator,
+    item.context
+  ]
+    .filter(
+      (
+        value
+      ): value is
+        string =>
+          typeof value ===
+            "string" &&
+          value.length >
+            0
+    )
+    .join(
+      " "
+    )
+    .toLowerCase();
+}
+
+
+function isSelectedVariantControlEvidence(
+  item:
+    EvidenceItem
+): boolean {
+
+  if (
+    item.fieldHint !==
+      "CONTROL"
+  ) {
+    return false;
+  }
+
+
+  return /(?:variant|kit|body|bundle|lens|color|colour|phiên\s*bản|màu|lựa\s*chọn)/iu.test(
+    controlSearchText(
+      item
+    )
+  );
+}
+
+
+function isStrongPrimaryConditionEvidence(
+  item:
+    EvidenceItem
+): boolean {
+
+  if (
+    item.ownershipHint !==
+      "PRIMARY_PRODUCT" ||
+    item.fieldHint !==
+      "CONDITION"
+  ) {
+    return false;
+  }
+
+
+  const sourceKind =
+    String(
+      item.sourceKind
+    );
+
+
+  return [
+    "VISIBLE_TEXT",
+    "JSON_LD",
+    "MICRODATA",
+    "XHR",
+    "API",
+    "ATTRIBUTE"
+  ].includes(
+    sourceKind
+  );
+}
+
+
+function isSelectedConditionControlEvidence(
+  item:
+    EvidenceItem
+): boolean {
+
+  if (
+    item.fieldHint !==
+      "CONTROL"
+  ) {
+    return false;
+  }
+
+
+  return /(?:condition|like\s*new|refurbished|used|brand\s*new|new|tình\s*trạng|đã\s*qua\s*sử\s*dụng|hàng\s*cũ|hàng\s*mới)/iu.test(
+    controlSearchText(
+      item
+    )
+  );
+}
+
+
+function isStrongPrimarySpecEvidence(
+  item:
+    EvidenceItem
+): boolean {
+
+  if (
+    item.ownershipHint !==
+      "PRIMARY_PRODUCT" ||
+    item.fieldHint !==
+      "SPECS"
+  ) {
+    return false;
+  }
+
+
+  const sourceKind =
+    String(
+      item.sourceKind
+    );
+
+
+  return [
+    "VISIBLE_TEXT",
+    "JSON_LD",
+    "MICRODATA",
+    "XHR",
+    "API",
+    "ATTRIBUTE"
+  ].includes(
+    sourceKind
+  );
+}
+
+
+function primaryStockPolarity(
+  item:
+    EvidenceItem
+):
+  | "IN_STOCK"
+  | "OUT_OF_STOCK"
+  | null {
+
+  if (
+    !isStrongPrimaryStockEvidence(
+      item
+    )
+  ) {
+    return null;
+  }
+
+
+  const value =
+    [
+      item.rawValue,
+      typeof item.normalizedValue ===
+        "string"
+          ? item.normalizedValue
+          : ""
+    ]
+      .join(
+        " "
+      )
+      .toLowerCase();
+
+
+  if (
+    /(?:out\s*of\s*stock|outofstock|sold\s*out|hết\s*hàng|tạm\s*hết)/iu.test(
+      value
+    )
+  ) {
+    return "OUT_OF_STOCK";
+  }
+
+
+  if (
+    /(?:^|[^a-z])in\s*stock(?:[^a-z]|$)|instock|còn\s*hàng|sẵn\s*hàng/iu.test(
+      value
+    )
+  ) {
+    return "IN_STOCK";
+  }
+
+
+  return null;
+}
+
+
+function hasConflictingPrimaryStockEvidence(
+  packet:
+    EvidencePacket
+): boolean {
+
+  const states =
+    new Set(
+      packet.stockCandidates
+        .map(
+          primaryStockPolarity
+        )
+        .filter(
+          (
+            state
+          ): state is
+            "IN_STOCK" |
+            "OUT_OF_STOCK" =>
+              state !==
+                null
+        )
+    );
+
+
+  return (
+    states.has(
+      "IN_STOCK"
+    ) &&
+    states.has(
+      "OUT_OF_STOCK"
+    )
   );
 }
 
@@ -587,8 +852,9 @@ export function validateSemanticDecision(
   if (
     decision.entity.type ===
       "CAMERA" &&
-    packet.moneyCandidates.length >
-      0 &&
+    packet.moneyCandidates.some(
+      isStrongPrimaryPriceEvidence
+    ) &&
     decision.currentPrice ===
       null
   ) {
@@ -600,7 +866,7 @@ export function validateSemanticDecision(
         "currentPrice",
 
       message:
-        "The page contains money evidence but AI did not resolve a current camera price."
+        "Strong primary-product price evidence exists but AI did not resolve a current camera price."
     });
   }
 
@@ -623,6 +889,101 @@ export function validateSemanticDecision(
 
       message:
         "Strong primary-product stock evidence exists but AI did not resolve stock."
+    });
+  }
+
+
+
+  if (
+    decision.entity.type ===
+      "CAMERA" &&
+    packet.selectedControls.some(
+      isSelectedVariantControlEvidence
+    ) &&
+    !decision.variants.some(
+      variant =>
+        variant.selected
+    )
+  ) {
+    issues.push({
+      code:
+        "SELECTED_VARIANT_UNRESOLVED",
+
+      field:
+        "variants",
+
+      message:
+        "A selected product-variant control exists but AI did not resolve any selected variant."
+    });
+  }
+
+
+  if (
+    decision.entity.type ===
+      "CAMERA" &&
+    decision.condition ===
+      null &&
+    (
+      packet.conditionCandidates.some(
+        isStrongPrimaryConditionEvidence
+      ) ||
+      packet.selectedControls.some(
+        isSelectedConditionControlEvidence
+      )
+    )
+  ) {
+    issues.push({
+      code:
+        "CONDITION_UNRESOLVED",
+
+      field:
+        "condition",
+
+      message:
+        "Strong primary-product condition evidence exists but AI did not resolve condition."
+    });
+  }
+
+
+
+  if (
+    decision.entity.type ===
+      "CAMERA" &&
+    decision.specs.length ===
+      0 &&
+    packet.specCandidates.some(
+      isStrongPrimarySpecEvidence
+    )
+  ) {
+    issues.push({
+      code:
+        "SPECS_UNRESOLVED",
+
+      field:
+        "specs",
+
+      message:
+        "Strong primary-product specification evidence exists but AI did not resolve any specs."
+    });
+  }
+
+
+  if (
+    decision.entity.type ===
+      "CAMERA" &&
+    hasConflictingPrimaryStockEvidence(
+      packet
+    )
+  ) {
+    issues.push({
+      code:
+        "CONFLICTING_PRIMARY_EVIDENCE",
+
+      field:
+        "stock",
+
+      message:
+        "Primary-product stock evidence contains both in-stock and out-of-stock signals."
     });
   }
 
