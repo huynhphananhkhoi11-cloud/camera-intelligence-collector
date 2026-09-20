@@ -174,6 +174,96 @@ function numericSupported(
 }
 
 
+function citedCandidateGroup(
+  evidenceIds:
+    readonly string[],
+  candidates:
+    readonly EvidenceItem[]
+): boolean {
+
+  const candidateIds =
+    new Set(
+      candidates.map(
+        item =>
+          item.id
+      )
+    );
+
+
+  return evidenceIds.some(
+    id =>
+      candidateIds.has(
+        id
+      )
+  );
+}
+
+
+function evidenceSearchText(
+  item:
+    EvidenceItem
+): string {
+
+  return [
+    item.fieldHint,
+    item.rawValue,
+    item.locator,
+    item.context
+  ]
+    .filter(
+      (
+        value
+      ): value is
+        string =>
+          typeof value ===
+            "string" &&
+          value.length >
+            0
+    )
+    .join(
+      " "
+    )
+    .toLowerCase();
+}
+
+
+function isOldPriceEvidence(
+  item:
+    EvidenceItem
+): boolean {
+
+  if (
+    item.fieldHint !==
+      "PRICE"
+  ) {
+    return false;
+  }
+
+
+  return /(?:old|list|strike|original|was|giá\s*cũ|gia\s*cu|niêm\s*yết|niem\s*yet)/iu.test(
+    evidenceSearchText(
+      item
+    )
+  );
+}
+
+
+function citesOldPriceEvidence(
+  packet:
+    EvidencePacket,
+  evidenceIds:
+    readonly string[]
+): boolean {
+
+  return citedEvidence(
+    packet,
+    evidenceIds
+  ).some(
+    isOldPriceEvidence
+  );
+}
+
+
 function validateEvidenceIds(
   packet:
     EvidencePacket,
@@ -619,6 +709,50 @@ export function validateSemanticDecision(
   );
 
 
+  if (
+    decision.oldPrice !==
+      null
+  ) {
+
+    if (
+      !citesOldPriceEvidence(
+        packet,
+        decision.oldPrice.evidenceIds
+      )
+    ) {
+      issues.push({
+        code:
+          "OLD_PRICE_EVIDENCE_MISMATCH",
+
+        field:
+          "oldPrice",
+
+        message:
+          "Old price must cite price evidence explicitly marked as old/list/original price."
+      });
+    }
+
+
+    if (
+      decision.currentPrice !==
+        null &&
+      decision.oldPrice.value <
+        decision.currentPrice.value
+    ) {
+      issues.push({
+        code:
+          "OLD_PRICE_BELOW_CURRENT",
+
+        field:
+          "oldPrice",
+
+        message:
+          "Old price is lower than the resolved current price."
+      });
+    }
+  }
+
+
   for (
     const [
       index,
@@ -777,35 +911,15 @@ export function validateSemanticDecision(
   }
 
 
-  for (
-    const [
-      field,
-      item
-    ]
-    of [
-      [
-        "rating",
-        decision.rating
-      ],
-      [
-        "reviewCount",
-        decision.reviewCount
-      ]
-    ] as const
+  if (
+    decision.rating !==
+      null
   ) {
-
-    if (
-      item ===
-        null
-    ) {
-      continue;
-    }
-
 
     validateEvidenceIds(
       packet,
-      field,
-      item.evidenceIds,
+      "rating",
+      decision.rating.evidenceIds,
       issues
     );
 
@@ -813,19 +927,128 @@ export function validateSemanticDecision(
     if (
       !numericSupported(
         packet,
-        item.value,
-        item.evidenceIds
+        decision.rating.value,
+        decision.rating.evidenceIds
       )
     ) {
       issues.push({
         code:
           "UNSUPPORTED_NUMERIC_VALUE",
 
-        field,
+        field:
+          "rating",
 
         message:
-          field +
-          " is not present in its cited evidence."
+          "rating is not present in its cited evidence."
+      });
+    }
+
+
+    if (
+      decision.rating.value <
+        0 ||
+      decision.rating.value >
+        5
+    ) {
+      issues.push({
+        code:
+          "RATING_OUT_OF_RANGE",
+
+        field:
+          "rating",
+
+        message:
+          "Rating must be between 0 and 5."
+      });
+    }
+
+
+    if (
+      !citedCandidateGroup(
+        decision.rating.evidenceIds,
+        packet.ratingCandidates
+      )
+    ) {
+      issues.push({
+        code:
+          "RATING_EVIDENCE_MISMATCH",
+
+        field:
+          "rating",
+
+        message:
+          "Rating must cite evidence captured specifically as a rating candidate."
+      });
+    }
+  }
+
+
+  if (
+    decision.reviewCount !==
+      null
+  ) {
+
+    validateEvidenceIds(
+      packet,
+      "reviewCount",
+      decision.reviewCount.evidenceIds,
+      issues
+    );
+
+
+    if (
+      !numericSupported(
+        packet,
+        decision.reviewCount.value,
+        decision.reviewCount.evidenceIds
+      )
+    ) {
+      issues.push({
+        code:
+          "UNSUPPORTED_NUMERIC_VALUE",
+
+        field:
+          "reviewCount",
+
+        message:
+          "reviewCount is not present in its cited evidence."
+      });
+    }
+
+
+    if (
+      !Number.isInteger(
+        decision.reviewCount.value
+      )
+    ) {
+      issues.push({
+        code:
+          "REVIEW_COUNT_NOT_INTEGER",
+
+        field:
+          "reviewCount",
+
+        message:
+          "Review count must be an integer."
+      });
+    }
+
+
+    if (
+      !citedCandidateGroup(
+        decision.reviewCount.evidenceIds,
+        packet.reviewCandidates
+      )
+    ) {
+      issues.push({
+        code:
+          "REVIEW_COUNT_EVIDENCE_MISMATCH",
+
+        field:
+          "reviewCount",
+
+        message:
+          "Review count must cite evidence captured specifically as a review-count candidate."
       });
     }
   }

@@ -318,6 +318,32 @@ const VISION_RESPONSE_SCHEMA = {
     stock_evidence_ids:
       EVIDENCE_IDS_SCHEMA,
 
+    rating_value: {
+      type: [
+        "number",
+        "null"
+      ]
+    },
+
+    rating_confidence:
+      CONFIDENCE_SCHEMA,
+
+    rating_evidence_ids:
+      EVIDENCE_IDS_SCHEMA,
+
+    review_count_value: {
+      type: [
+        "integer",
+        "null"
+      ]
+    },
+
+    review_count_confidence:
+      CONFIDENCE_SCHEMA,
+
+    review_count_evidence_ids:
+      EVIDENCE_IDS_SCHEMA,
+
     selected_variant_label: {
       type: [
         "string",
@@ -411,6 +437,12 @@ const VISION_RESPONSE_SCHEMA = {
     "stock_quantity",
     "stock_confidence",
     "stock_evidence_ids",
+    "rating_value",
+    "rating_confidence",
+    "rating_evidence_ids",
+    "review_count_value",
+    "review_count_confidence",
+    "review_count_evidence_ids",
     "selected_variant_label",
     "selected_variant_condition",
     "selected_variant_confidence",
@@ -577,6 +609,16 @@ function normalizeWireDecision(
       input.selected_variant_evidence_ids
     );
 
+  const ratingIds =
+    stringArray(
+      input.rating_evidence_ids
+    );
+
+  const reviewCountIds =
+    stringArray(
+      input.review_count_evidence_ids
+    );
+
 
   const condition =
     typeof input.condition_value ===
@@ -620,6 +662,52 @@ function normalizeWireDecision(
 
           confidence:
             input.stock_confidence
+        }
+      : null;
+
+
+  const rating =
+    typeof input.rating_value ===
+      "number" &&
+    Number.isFinite(
+      input.rating_value
+    ) &&
+    ratingIds.length >
+      0 &&
+    typeof input.rating_confidence ===
+      "number"
+      ? {
+          value:
+            input.rating_value,
+
+          evidenceIds:
+            ratingIds,
+
+          confidence:
+            input.rating_confidence
+        }
+      : null;
+
+
+  const reviewCount =
+    typeof input.review_count_value ===
+      "number" &&
+    Number.isFinite(
+      input.review_count_value
+    ) &&
+    reviewCountIds.length >
+      0 &&
+    typeof input.review_count_confidence ===
+      "number"
+      ? {
+          value:
+            input.review_count_value,
+
+          evidenceIds:
+            reviewCountIds,
+
+          confidence:
+            input.review_count_confidence
         }
       : null;
 
@@ -801,11 +889,9 @@ function normalizeWireDecision(
 
     stock,
 
-    rating:
-      null,
+    rating,
 
-    reviewCount:
-      null,
+    reviewCount,
 
     specs,
 
@@ -1023,6 +1109,10 @@ export class GeminiVisionProvider {
               "For a nullable claim with no supported value, return null and an empty evidence-id array.",
               "For any non-null claim, cite only evidence IDs that directly support that claim.",
               "selected_variant_label means the currently selected/default product variant only.",
+              "rating_value must be a product rating on a 0..5 scale and must cite rating-specific evidence only.",
+              "review_count_value must be the integer number of reviews/ratings and must cite review-count evidence only.",
+              "When directly supported by evidence, encode rental/accessory business facts in specs with exact keys RENTAL_PRICE_PER_DAY, RENTAL_TERMS, ACCESSORIES_INCLUDED, or BUNDLE_INCLUDED.",
+              "Do not infer rental price, rental terms, accessories, or bundles when the evidence does not explicitly support them.",
               "Use exact enum spellings defined by the response schema.",
               "",
               "DETERMINISTIC EVIDENCE:",
