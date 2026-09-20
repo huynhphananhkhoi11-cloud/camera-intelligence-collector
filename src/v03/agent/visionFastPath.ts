@@ -6,6 +6,10 @@ import {
   validateSemanticDecision
 } from "../ai/groundingValidator.js";
 
+import {
+  normalizeEntityConsistency
+} from "../ai/entityConsistency.js";
+
 import type {
   GeminiVisionEvidenceInput,
   GeminiVisionResult
@@ -174,13 +178,19 @@ export async function analyzeFinalVisionEvidence(
     );
 
 
+  const decision =
+    normalizeEntityConsistency(
+      providerResult.decision
+    );
+
+
   const validation =
     (
       input.validate ??
       validateSemanticDecision
     )(
       input.sourcePacket,
-      providerResult.decision
+      decision
     );
 
 
@@ -191,8 +201,7 @@ export async function analyzeFinalVisionEvidence(
     visionPacket:
       input.visionPacket,
 
-    decision:
-      providerResult.decision,
+    decision,
 
     validation,
 
