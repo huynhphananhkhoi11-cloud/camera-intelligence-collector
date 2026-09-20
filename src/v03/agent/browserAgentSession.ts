@@ -16,6 +16,7 @@ import {
 } from "../ai/evidencePacket.js";
 
 import type {
+  ControlSnapshot,
   EvidencePacket
 } from "../ai/evidenceTypes.js";
 
@@ -30,6 +31,311 @@ import type {
   BrowserAgentObservation
 } from "./browserAgentTypes.js";
 
+
+
+async function captureFinalControlSnapshots(
+  page:
+    Page
+): Promise<
+  ControlSnapshot[]
+> {
+
+  return page.evaluate(
+    () => {
+
+      const normalize =
+        (
+          value:
+            string |
+            null |
+            undefined
+        ): string =>
+          (
+            value ??
+            ""
+          )
+            .replace(
+              /\s+/gu,
+              " "
+            )
+            .trim()
+            .slice(
+              0,
+              180
+            );
+
+
+      const labelFor =
+        (
+          element:
+            Element
+        ): string => {
+
+          const aria =
+            normalize(
+              element.getAttribute(
+                "aria-label"
+              )
+            );
+
+
+          if (
+            aria
+          ) {
+            return aria;
+          }
+
+
+          if (
+            element instanceof
+              HTMLInputElement ||
+            element instanceof
+              HTMLSelectElement
+          ) {
+
+            const directLabel =
+              element.labels?.[0]
+                ?.textContent;
+
+
+            if (
+              directLabel
+            ) {
+              return normalize(
+                directLabel
+              );
+            }
+          }
+
+
+          const wrappingLabel =
+            element.closest(
+              "label"
+            )
+              ?.textContent;
+
+
+          if (
+            wrappingLabel
+          ) {
+            return normalize(
+              wrappingLabel
+            );
+          }
+
+
+          return normalize(
+            element.getAttribute(
+              "name"
+            ) ??
+            element.getAttribute(
+              "id"
+            ) ??
+            element.getAttribute(
+              "title"
+            ) ??
+            element.getAttribute(
+              "role"
+            ) ??
+            element.tagName
+          );
+        };
+
+
+      const controls:
+        ControlSnapshot[] =
+          [];
+
+
+      const seen =
+        new Set<
+          string
+        >();
+
+
+      const push =
+        (
+          control:
+            ControlSnapshot
+        ): void => {
+
+          if (
+            !control.value
+          ) {
+            return;
+          }
+
+
+          const key =
+            [
+              control.kind,
+              control.label,
+              control.value,
+              String(
+                control.selected
+              )
+            ]
+              .join(
+                "\u0000"
+              );
+
+
+          if (
+            seen.has(
+              key
+            )
+          ) {
+            return;
+          }
+
+
+          seen.add(
+            key
+          );
+
+
+          controls.push(
+            control
+          );
+        };
+
+
+      for (
+        const element
+        of document.querySelectorAll(
+          "select"
+        )
+      ) {
+
+        if (
+          !(
+            element instanceof
+              HTMLSelectElement
+          )
+        ) {
+          continue;
+        }
+
+
+        for (
+          const option
+          of Array.from(
+            element.selectedOptions
+          )
+        ) {
+
+          push({
+            kind:
+              "select",
+
+            label:
+              labelFor(
+                element
+              ),
+
+            value:
+              normalize(
+                option.textContent ??
+                option.value
+              ),
+
+            selected:
+              true
+          });
+        }
+      }
+
+
+      for (
+        const element
+        of document.querySelectorAll(
+          'input[type="radio"], input[type="checkbox"]'
+        )
+      ) {
+
+        if (
+          !(
+            element instanceof
+              HTMLInputElement
+          ) ||
+          !element.checked
+        ) {
+          continue;
+        }
+
+
+        push({
+          kind:
+            element.type,
+
+          label:
+            labelFor(
+              element
+            ),
+
+          value:
+            normalize(
+              element.value ||
+              element.getAttribute(
+                "aria-label"
+              ) ||
+              element.closest(
+                "label"
+              )
+                ?.textContent ||
+              "selected"
+            ),
+
+          selected:
+            true
+        });
+      }
+
+
+      for (
+        const element
+        of document.querySelectorAll(
+          '[aria-selected="true"], [aria-pressed="true"]'
+        )
+      ) {
+
+        push({
+          kind:
+            normalize(
+              element.getAttribute(
+                "role"
+              ) ??
+              element.tagName
+            )
+              .toLowerCase(),
+
+          label:
+            labelFor(
+              element
+            ),
+
+          value:
+            normalize(
+              element.textContent ??
+              element.getAttribute(
+                "aria-label"
+              ) ??
+              "selected"
+            ),
+
+          selected:
+            true
+        });
+      }
+
+
+      return controls.slice(
+        0,
+        60
+      );
+    }
+  );
+}
 
 
 export async function captureFinalEvidencePacket(
@@ -129,11 +435,31 @@ export async function captureFinalEvidencePacket(
     );
 
 
+  const capturedControls =
+    await captureFinalControlSnapshots(
+      page
+    );
+
+
   /*
-   * C3 vertical slice:
-   * DOM / structured / visible observations are grounded from the FINAL
-   * live page state. Selected-control snapshots are hardened separately
-   * in C5; never invent them here.
+   * Keep the C3 mock/unit contract backward-compatible: a mocked
+   * page.evaluate() may not yet know about the new third evaluate call.
+   * Production Playwright returns the serialized array produced by the
+   * page function; anything else is treated as no captured controls.
+   */
+  const controls =
+    Array.isArray(
+      capturedControls
+    )
+      ? capturedControls
+      : [];
+
+
+  /*
+   * C4 live-control hardening:
+   * preserve selected/default state from the FINAL live DOM.
+   * This is observation-only. The collector never clicks or mutates a
+   * variant while taking this snapshot.
    */
   return buildEvidencePacket({
     pageUrl:
@@ -146,8 +472,7 @@ export async function captureFinalEvidencePacket(
 
     primaryRegionText,
 
-    controls:
-      []
+    controls
   });
 }
 
