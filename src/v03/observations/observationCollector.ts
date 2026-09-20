@@ -1228,6 +1228,29 @@ function collectVisibleSemanticDetails(
           );
 
 
+        const fullText =
+          clean(
+            node.text()
+          );
+
+
+        const moneyMatches =
+          fullText.match(
+            /\d{1,3}(?:[.,]\d{3}){1,3}\s*(?:đ|₫|vnd)?/giu
+          ) ??
+          [];
+
+
+        const nestedSingleMoney =
+          node.children().length >
+            0 &&
+          moneyMatches.length ===
+            1
+            ? moneyMatches[0] ??
+              ""
+            : "";
+
+
         const raw =
           clean(
             node.attr(
@@ -1243,10 +1266,8 @@ function collectVisibleSemanticDetails(
           (
             node.children().length ===
               0
-              ? clean(
-                  node.text()
-                )
-              : ""
+              ? fullText
+              : nestedSingleMoney
           );
 
 
@@ -2213,6 +2234,88 @@ function collectVisibleSemanticDetails(
       );
     }
   );
+
+
+  /*
+   * Some commerce sites expose review counts only in a product tab label
+   * such as "Đánh giá (7)" rather than a review-count class/itemprop.
+   * Capture that bounded product-page text without treating unrelated cards
+   * as primary-product evidence.
+   */
+  scope.find(
+    "a,button,[role='tab'],span"
+  )
+    .each(
+      (
+        index,
+        element
+      ) => {
+
+        if (
+          isForeignRelatedNode(
+            element
+          )
+        ) {
+          return;
+        }
+
+
+        const raw =
+          clean(
+            $(element)
+              .text()
+          );
+
+
+        if (
+          !raw ||
+          raw.length >
+            100
+        ) {
+          return;
+        }
+
+
+        const match =
+          raw.match(
+            /(?:đánh\s*giá|danh\s*gia|reviews?|ratings?)\s*[(:\-]?\s*(\d{1,6})\s*\)?/iu
+          ) ??
+          raw.match(
+            /\((\d{1,6})\s*(?:đánh\s*giá|danh\s*gia|reviews?|ratings?)\)/iu
+          );
+
+
+        const value =
+          match?.[1];
+
+
+        if (
+          !value
+        ) {
+          return;
+        }
+
+
+        pushObservation(
+          output,
+          productIdentity,
+          "REVIEW_COUNT",
+          value,
+          "VISIBLE_TEXT",
+          sourceUrl,
+          "visible-review-count-tab[" +
+          index +
+          "]",
+          "Primary-product visible review tab count",
+          {
+            ownership:
+              "PRIMARY_PRODUCT",
+            contextKind:
+              "REVIEW"
+          }
+        );
+      }
+    );
 }
 
 

@@ -290,6 +290,25 @@ function evidenceRank(
   }
 
 
+  /*
+   * For ratings/review counts, a bounded visible product-page label is
+   * preferred over stale or cross-product structured metadata.
+   */
+  if (
+    family ===
+      "VISIBLE" &&
+    (
+      item.fieldHint ===
+        "RATING" ||
+      item.fieldHint ===
+        "REVIEW_COUNT"
+    )
+  ) {
+    score +=
+      25;
+  }
+
+
   if (
     typeof item.confidence ===
       "number"
