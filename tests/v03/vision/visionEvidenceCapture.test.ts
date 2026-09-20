@@ -693,5 +693,148 @@ describe(
       }
     );
 
+
+    it(
+      "hides a high-z promotional popup in screenshot styling without mutating page state",
+      async () => {
+
+        await page.setContent(
+          [
+            "<!doctype html>",
+            "<html><body style=\"margin:0\">",
+            '<main><section itemtype="https://schema.org/Product" style="width:900px;height:500px">',
+            "<h1>Canon EOS R50</h1>",
+            "<div>15.990.000 VND</div>",
+            "</section></main>",
+            '<div id="mystery-offer" style="position:fixed;inset:80px;z-index:9999;background:white">',
+            "<div>Bấm vào để nhận ưu đãi 10% ngay hôm nay</div>",
+            "<button>Nhận ưu đãi</button>",
+            "</div>",
+            "</body></html>"
+          ].join(
+            ""
+          )
+        );
+
+
+        const beforeText =
+          await page.locator(
+            "#mystery-offer"
+          ).innerText();
+
+
+        const screenshotSpy =
+          vi.spyOn(
+            page,
+            "screenshot"
+          );
+
+
+        await captureVisionEvidencePacket(
+          page,
+          packet()
+        );
+
+
+        const style =
+          String(
+            screenshotSpy.mock.calls[0]?.[0]?.style ??
+            ""
+          );
+
+
+        expect(
+          style
+        ).toContain(
+          "#mystery-offer"
+        );
+
+
+        expect(
+          await page.locator(
+            "#mystery-offer"
+          ).innerText()
+        ).toBe(
+          beforeText
+        );
+
+
+        expect(
+          await page.locator(
+            "#mystery-offer"
+          ).count()
+        ).toBe(
+          1
+        );
+
+
+        screenshotSpy.mockRestore();
+      }
+    );
+
+
+    it(
+      "does not hide a product dialog that contains the primary product identity",
+      async () => {
+
+        await page.setContent(
+          [
+            "<!doctype html>",
+            "<html><body style=\"margin:0\">",
+            '<main><section itemtype="https://schema.org/Product" style="width:900px;height:500px">',
+            "<h1>Canon EOS R50</h1>",
+            "<div>15.990.000 VND</div>",
+            "</section></main>",
+            '<div id="product-config" role="dialog" aria-modal="true" style="position:fixed;inset:100px;z-index:9999;background:white">',
+            "<h2>Canon EOS R50</h2>",
+            "<div>Ưu đãi cho Body Only / Kit 18-45mm</div>",
+            "</div>",
+            "</body></html>"
+          ].join(
+            ""
+          )
+        );
+
+
+        const screenshotSpy =
+          vi.spyOn(
+            page,
+            "screenshot"
+          );
+
+
+        await captureVisionEvidencePacket(
+          page,
+          packet()
+        );
+
+
+        const style =
+          String(
+            screenshotSpy.mock.calls[0]?.[0]?.style ??
+            ""
+          );
+
+
+        expect(
+          style
+        ).not.toContain(
+          "#product-config"
+        );
+
+
+        expect(
+          await page.locator(
+            "#product-config"
+          ).count()
+        ).toBe(
+          1
+        );
+
+
+        screenshotSpy.mockRestore();
+      }
+    );
+
   }
 );
