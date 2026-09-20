@@ -23,10 +23,16 @@ export interface MoneyEvidenceValue extends EvidenceValue<number> {
 }
 
 
+/**
+ * Structural mirror of the Dev2 visual extraction payload.
+ *
+ * Keep this local until Dev0 freezes the shared camera13 contract. The shape is
+ * intentionally assignment-compatible with src/v03/ai/visualExtractionSchema.ts:
+ * website is run context, while semantic facts carry rawText + shotId evidence.
+ */
 export interface VisualExtraction {
   website:
-    EvidenceValue<string> |
-    null;
+    string;
 
   productName:
     EvidenceValue<string> |
@@ -48,11 +54,11 @@ export interface VisualExtraction {
     null;
 
   accessoriesIncluded:
-    EvidenceValue<string[]> |
+    EvidenceValue<string>[] |
     null;
 
   bundleIncluded:
-    EvidenceValue<string[]> |
+    EvidenceValue<string>[] |
     null;
 
   rating:
@@ -132,6 +138,7 @@ function normalizedDomain(
   const trimmed =
     value.trim()
       .toLowerCase();
+
 
   if (
     trimmed.length ===
@@ -234,7 +241,7 @@ function validateEvidence<T>(
     addIssue(
       issues,
       "RAW_TEXT_MISSING",
-      "Non-null field must include visible rawText evidence.",
+      "Non-null semantic field must include visible rawText evidence.",
       field
     );
   }
@@ -249,7 +256,7 @@ function validateEvidence<T>(
     addIssue(
       issues,
       "SHOT_ID_MISSING",
-      "Non-null field must include a shotId.",
+      "Non-null semantic field must include a shotId.",
       field
     );
 
@@ -301,7 +308,7 @@ function normalizeCondition(
       .trim();
 
 
-  let value:
+  let normalized:
     "NEW" |
     "USED" |
     null = null;
@@ -312,7 +319,7 @@ function normalizeCondition(
       source
     )
   ) {
-    value =
+    normalized =
       "USED";
   }
   else if (
@@ -320,13 +327,13 @@ function normalizeCondition(
       source
     )
   ) {
-    value =
+    normalized =
       "NEW";
   }
 
 
   if (
-    value ===
+    normalized ===
       null
   ) {
     addIssue(
@@ -342,60 +349,77 @@ function normalizeCondition(
 
   return {
     ...condition,
-    value
+    value:
+      normalized
   };
 }
 
 
 function normalizeAccessories(
-  evidence:
-    EvidenceValue<string[]> |
+  items:
+    EvidenceValue<string>[] |
     null,
   issues:
     VisualExtractionValidationIssue[]
-): EvidenceValue<string[]> |
+): EvidenceValue<string>[] |
   null {
 
   if (
-    evidence ===
+    items ===
       null
   ) {
     return null;
   }
 
 
-  const clean =
-    evidence.value
-      .map(
-        value =>
-          value.trim()
+  const kept:
+    EvidenceValue<string>[] = [];
+
+  let contaminated =
+    false;
+
+
+  for (
+    const item
+    of items
+  ) {
+    const text =
+      (
+        item.value +
+        " " +
+        item.rawText
+      ).trim();
+
+
+    if (
+      ACCESSORY_POLICY_PATTERN.test(
+        text
       )
-      .filter(
-        value =>
-          value.length >
-            0
-      );
+    ) {
+      contaminated =
+        true;
+
+      continue;
+    }
 
 
-  const kept =
-    clean.filter(
-      value =>
-        !ACCESSORY_POLICY_PATTERN.test(
-          value
-        )
-    );
+    if (
+      item.value
+        .trim()
+        .length >
+        0
+    ) {
+      kept.push({
+        ...item,
+        value:
+          item.value.trim()
+      });
+    }
+  }
 
 
   if (
-    kept.length !==
-      clean.length ||
-    (
-      clean.length <=
-        1 &&
-      ACCESSORY_POLICY_PATTERN.test(
-        evidence.rawText
-      )
-    )
+    contaminated
   ) {
     addIssue(
       issues,
@@ -406,43 +430,78 @@ function normalizeAccessories(
   }
 
 
-  if (
-    kept.length ===
-      0
-  ) {
-    return null;
-  }
-
-
-  return {
-    ...evidence,
-    value:
-      kept
-  };
+  return kept.length >
+    0
+    ? kept
+    : null;
 }
 
 
 function normalizeBundle(
-  evidence:
-    EvidenceValue<string[]> |
+  items:
+    EvidenceValue<string>[] |
     null,
   issues:
     VisualExtractionValidationIssue[]
-): EvidenceValue<string[]> |
+): EvidenceValue<string>[] |
   null {
 
   if (
-    evidence ===
+    items ===
       null
   ) {
     return null;
   }
 
 
+  const kept:
+    EvidenceValue<string>[] = [];
+
+  let contaminated =
+    false;
+
+
+  for (
+    const item
+    of items
+  ) {
+    const text =
+      (
+        item.value +
+        " " +
+        item.rawText
+      ).trim();
+
+
+    if (
+      RELATED_BUNDLE_PATTERN.test(
+        text
+      )
+    ) {
+      contaminated =
+        true;
+
+      continue;
+    }
+
+
+    if (
+      item.value
+        .trim()
+        .length >
+        0
+    ) {
+      kept.push({
+        ...item,
+        value:
+          item.value.trim()
+      });
+    }
+  }
+
+
   if (
-    RELATED_BUNDLE_PATTERN.test(
-      evidence.rawText
-    )
+    contaminated
   ) {
     addIssue(
       issues,
@@ -450,31 +509,12 @@ function normalizeBundle(
       "Related/customers-also-buy content must not be exported as an included bundle.",
       "bundleIncluded"
     );
-
-    return null;
   }
 
 
-  const values =
-    evidence.value
-      .map(
-        value =>
-          value.trim()
-      )
-      .filter(
-        value =>
-          value.length >
-            0
-      );
-
-
-  return values.length >
+  return kept.length >
     0
-    ? {
-        ...evidence,
-        value:
-          values
-      }
+    ? kept
     : null;
 }
 
@@ -486,13 +526,6 @@ function cloneExtraction(
 
   return {
     ...extraction,
-
-    website:
-      extraction.website
-        ? {
-            ...extraction.website
-          }
-        : null,
 
     productName:
       extraction.productName
@@ -531,24 +564,20 @@ function cloneExtraction(
 
     accessoriesIncluded:
       extraction.accessoriesIncluded
-        ? {
-            ...extraction.accessoriesIncluded,
-            value:
-              [
-                ...extraction.accessoriesIncluded.value
-              ]
-          }
+        ? extraction.accessoriesIncluded.map(
+            item => ({
+              ...item
+            })
+          )
         : null,
 
     bundleIncluded:
       extraction.bundleIncluded
-        ? {
-            ...extraction.bundleIncluded,
-            value:
-              [
-                ...extraction.bundleIncluded.value
-              ]
-          }
+        ? extraction.bundleIncluded.map(
+            item => ({
+              ...item
+            })
+          )
         : null,
 
     rating:
@@ -598,32 +627,10 @@ export function validateVisualExtraction(
     );
 
 
-  value.condition =
-    normalizeCondition(
-      value.condition,
-      issues
-    );
-
-  value.accessoriesIncluded =
-    normalizeAccessories(
-      value.accessoriesIncluded,
-      issues
-    );
-
-  value.bundleIncluded =
-    normalizeBundle(
-      value.bundleIncluded,
-      issues
-    );
-
-
-  validateEvidence(
-    "website",
-    value.website,
-    context,
-    issues
-  );
-
+  /*
+   * Evidence integrity is checked before semantic cleanup so even a value that
+   * is later nulled as contamination cannot silently reference a missing shot.
+   */
   validateEvidence(
     "productName",
     value.productName,
@@ -669,19 +676,45 @@ export function validateVisualExtraction(
     issues
   );
 
-  validateEvidence(
-    "accessoriesIncluded",
-    value.accessoriesIncluded,
-    context,
-    issues
-  );
+  for (
+    const [
+      index,
+      accessory
+    ]
+    of (
+      value.accessoriesIncluded ??
+      []
+    ).entries()
+  ) {
+    validateEvidence(
+      "accessoriesIncluded[" +
+      index +
+      "]",
+      accessory,
+      context,
+      issues
+    );
+  }
 
-  validateEvidence(
-    "bundleIncluded",
-    value.bundleIncluded,
-    context,
-    issues
-  );
+  for (
+    const [
+      index,
+      bundleItem
+    ]
+    of (
+      value.bundleIncluded ??
+      []
+    ).entries()
+  ) {
+    validateEvidence(
+      "bundleIncluded[" +
+      index +
+      "]",
+      bundleItem,
+      context,
+      issues
+    );
+  }
 
   validateEvidence(
     "rating",
@@ -712,6 +745,25 @@ export function validateVisualExtraction(
   );
 
 
+  value.condition =
+    normalizeCondition(
+      value.condition,
+      issues
+    );
+
+  value.accessoriesIncluded =
+    normalizeAccessories(
+      value.accessoriesIncluded,
+      issues
+    );
+
+  value.bundleIncluded =
+    normalizeBundle(
+      value.bundleIncluded,
+      issues
+    );
+
+
   if (
     (
       context.disposition ??
@@ -720,9 +772,7 @@ export function validateVisualExtraction(
       "CAMERA"
   ) {
     if (
-      value.website ===
-        null ||
-      value.website.value
+      value.website
         .trim()
         .length ===
         0
@@ -761,11 +811,9 @@ export function validateVisualExtraction(
     );
 
   const actualDomain =
-    value.website
-      ? normalizedDomain(
-          value.website.value
-        )
-      : "";
+    normalizedDomain(
+      value.website
+    );
 
 
   if (
