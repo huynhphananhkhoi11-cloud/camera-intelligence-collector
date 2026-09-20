@@ -36,8 +36,16 @@ export type BenchmarkCase = {
     rentalPricePerDayVnd?: number | null;
     stockText?: string | null;
     accessoriesIncluded?: string[];
+    rating?: number | null;
+    reviewCount?: number | null;
     [key: string]: unknown;
   };
+  expectedNullFields?: Array<
+    "rentalPricePerDay" |
+    "rentalTerms" |
+    "accessoriesIncluded" |
+    "bundleIncluded"
+  >;
 };
 
 export type BenchmarkMismatch = {
@@ -77,6 +85,16 @@ function parseVnd(value: unknown): number | null {
   if (candidates.length !== 1) return null;
   const digits = candidates[0].replace(/\D/g, "");
   return digits ? Number(digits) : null;
+}
+
+function numeric(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+
+  const parsed = Number(text.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizedUrl(value: string): string {
@@ -212,6 +230,20 @@ export function compareRows(
       });
     }
 
+    if (item.stable.selectedVariantIncludes) {
+      const variantSurface = [row.productName, row.bundle].join(" ").toLowerCase();
+
+      if (!variantSurface.includes(item.stable.selectedVariantIncludes.toLowerCase())) {
+        mismatches.push({
+          id: item.id,
+          field: "selectedVariant",
+          expected: item.stable.selectedVariantIncludes,
+          actual: [row.productName, row.bundle].filter(Boolean).join(" | "),
+          message: "Selected variant/kit identity mismatch"
+        });
+      }
+    }
+
     if (
       typeof item.liveReference.salePriceVnd === "number" &&
       parseVnd(row.salePrice) !== item.liveReference.salePriceVnd
@@ -239,6 +271,32 @@ export function compareRows(
     }
 
     if (
+      typeof item.liveReference.rating === "number" &&
+      numeric(row.rating) !== item.liveReference.rating
+    ) {
+      mismatches.push({
+        id: item.id,
+        field: "rating",
+        expected: item.liveReference.rating,
+        actual: row.rating,
+        message: "Rating mismatch"
+      });
+    }
+
+    if (
+      typeof item.liveReference.reviewCount === "number" &&
+      numeric(row.reviewCount) !== item.liveReference.reviewCount
+    ) {
+      mismatches.push({
+        id: item.id,
+        field: "reviewCount",
+        expected: item.liveReference.reviewCount,
+        actual: row.reviewCount,
+        message: "Review count mismatch"
+      });
+    }
+
+    if (
       item.liveReference.stockText &&
       !row.stock.toLowerCase().includes(item.liveReference.stockText.toLowerCase())
     ) {
@@ -262,6 +320,46 @@ export function compareRows(
             message: "Expected explicit accessory is missing"
           });
         }
+      }
+    }
+
+    if (/(?:bảo\s*hành|bao\s*hanh|warranty|vat|chính\s*sách|chinh\s*sach)/iu.test(row.accessories)) {
+      mismatches.push({
+        id: item.id,
+        field: "accessoriesIncluded",
+        expected: "No warranty/VAT/policy contamination",
+        actual: row.accessories,
+        message: "Warranty/VAT/policy text leaked into accessories"
+      });
+    }
+
+    if (/(?:khách\s*thường\s*mua\s*thêm|khach\s*thuong\s*mua\s*them|customers?\s+also\s+buy|frequently\s+bought|related\s+products?)/iu.test(row.bundle)) {
+      mismatches.push({
+        id: item.id,
+        field: "bundleIncluded",
+        expected: "No related/customers-also-buy contamination",
+        actual: row.bundle,
+        message: "Related product content leaked into bundle"
+      });
+    }
+
+    const nullSurface: Record<string, string> = {
+      rentalPricePerDay: row.rentalPrice,
+      rentalTerms: "",
+      accessoriesIncluded: row.accessories,
+      bundleIncluded: row.bundle
+    };
+
+    for (const field of item.expectedNullFields ?? []) {
+      const actual = nullSurface[field] ?? "";
+      if (actual.trim().length > 0) {
+        mismatches.push({
+          id: item.id,
+          field,
+          expected: null,
+          actual,
+          message: "Field must remain null when no explicit evidence exists"
+        });
       }
     }
   }
