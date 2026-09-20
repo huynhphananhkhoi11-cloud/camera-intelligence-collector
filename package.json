@@ -23,7 +23,8 @@
     "vision-fast": "tsx src/v03/cli/visionFast.ts",
     "smart-read": "tsx src/v03/cli/smartRead.ts",
     "smart-batch": "tsx src/v03/cli/smartBatch.ts",
-    "smart-batch:v2": "tsx src/v03/cli/smartBatchV2.ts"
+    "smart-batch:v2": "tsx src/v03/cli/smartBatchV2.ts",
+    "provider-setup": "tsx src/v03/cli/providerSetup.ts"
   },
   "keywords": [],
   "author": "",

@@ -347,14 +347,14 @@ describe(
         expect(
           providerSource
         ).toContain(
-          "rate_limit_exceeded"
+          "RATE_LIMIT"
         );
 
 
         expect(
           providerSource
         ).toContain(
-          "quota_exceeded"
+          "DAILY_QUOTA"
         );
 
 
