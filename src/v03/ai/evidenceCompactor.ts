@@ -301,7 +301,9 @@ function evidenceRank(
       item.fieldHint ===
         "RATING" ||
       item.fieldHint ===
-        "REVIEW_COUNT"
+        "REVIEW_COUNT" ||
+      item.fieldHint ===
+        "RATING_REVIEW_TEXT"
     )
   ) {
     score +=

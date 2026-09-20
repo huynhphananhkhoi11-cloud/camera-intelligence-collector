@@ -329,6 +329,99 @@ function primaryVisibleNumericValues(
 }
 
 
+function explicitVisibleReviewCountValues(
+  candidates:
+    readonly EvidenceItem[]
+): number[] {
+
+  const values:
+    number[] =
+      [];
+
+
+  for (
+    const item
+    of candidates
+  ) {
+
+    if (
+      item.sourceKind !==
+        "VISIBLE_TEXT" ||
+      item.ownershipHint !==
+        "PRIMARY_PRODUCT"
+    ) {
+      continue;
+    }
+
+
+    if (
+      item.fieldHint ===
+        "REVIEW_COUNT"
+    ) {
+
+      const parsed =
+        extractNumericValues(
+          item.rawValue
+        );
+
+
+      if (
+        parsed.length >
+          0
+      ) {
+        values.push(
+          parsed[0]!
+        );
+      }
+
+
+      continue;
+    }
+
+
+    if (
+      item.fieldHint !==
+        "RATING_REVIEW_TEXT"
+    ) {
+      continue;
+    }
+
+
+    const raw =
+      item.rawValue;
+
+
+    const match =
+      raw.match(
+        /(?:đánh\s*giá|danh\s*gia|reviews?|ratings?)\s*[(:\-]?\s*(\d{1,6})\s*\)?/iu
+      ) ??
+      raw.match(
+        /(\d{1,6})\s*(?:đánh\s*giá|danh\s*gia|reviews?|ratings?)/iu
+      );
+
+
+    if (
+      match?.[1]
+    ) {
+      values.push(
+        Number(
+          match[1]
+        )
+      );
+    }
+  }
+
+
+  return [
+    ...new Set(
+      values.filter(
+        Number.isFinite
+      )
+    )
+  ];
+}
+
+
 function validateEvidenceIds(
   packet:
     EvidencePacket,
@@ -1159,12 +1252,8 @@ export function validateSemanticDecision(
   ) {
 
     const visibleReviewCounts =
-      primaryVisibleNumericValues(
-        packet.reviewCandidates.filter(
-          item =>
-            item.fieldHint ===
-              "REVIEW_COUNT"
-        )
+      explicitVisibleReviewCountValues(
+        packet.reviewCandidates
       );
 
 

@@ -35,6 +35,10 @@ import {
 } from "../agent/fastSlowRouter.js";
 
 import {
+  deterministicSmartPreflight
+} from "../agent/smartPreflight.js";
+
+import {
   runSemanticBatch
 } from "../bulk/semanticBatchRunner.js";
 
@@ -196,6 +200,9 @@ function createLiveProcessor(
   ) => {
 
     const result =
+      deterministicSmartPreflight(
+        url
+      ) ??
       await routeSmartUrl({
         url,
 
