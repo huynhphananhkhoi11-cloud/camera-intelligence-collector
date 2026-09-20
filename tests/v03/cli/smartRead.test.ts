@@ -531,5 +531,83 @@ describe(
         );
       }
     );
+
+    it(
+      "preflights standalone lens without invoking FAST or SLOW",
+      async () => {
+
+        const fastRun =
+          vi.fn(
+            async () =>
+              makeFastResult(
+                "VALIDATED",
+                "CAMERA"
+              )
+          );
+
+        const slowRun =
+          vi.fn(
+            async () =>
+              makeSlowReviewResult()
+          );
+
+        const output:
+          string[] =
+            [];
+
+
+        const result =
+          await executeSmartRead({
+            url:
+              "https://shop.example/sony-fe-50mm-f-1.8.html",
+
+            fastRunner: {
+              run:
+                fastRun
+            },
+
+            slowRunner: {
+              run:
+                slowRun
+            },
+
+            write:
+              line =>
+                output.push(
+                  line
+                )
+          });
+
+
+        expect(
+          result
+        ).toMatchObject({
+          path:
+            "NONE",
+
+          disposition:
+            "NON_CAMERA",
+
+          reason:
+            "DETERMINISTIC_CLEAR_NON_CAMERA",
+
+          attempts:
+            0,
+
+          haltBatch:
+            false
+        });
+
+
+        expect(
+          fastRun
+        ).not.toHaveBeenCalled();
+
+        expect(
+          slowRun
+        ).not.toHaveBeenCalled();
+      }
+    );
+
   }
 );
