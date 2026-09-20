@@ -1049,12 +1049,34 @@ function collectVisibleSemanticDetails(
     let cursor =
       primaryHeading.parent();
 
+    let firstActionScope =
+      primaryHeading.parent();
+
+    let firstActionScopeFound =
+      false;
+
+    const actionSelector =
+      [
+        "button",
+        "a.btn",
+        "a.button",
+        'input[type="submit"]',
+        'input[type="button"]',
+        'a[class*="btn"]',
+        '[role="button"]'
+      ].join(
+        ","
+      );
+
+    const currencyLike =
+      /\d{1,3}(?:[.,]\d{3})+\s*(?:đ|₫|vnd)\b/iu;
+
 
     for (
       let depth =
         0;
       depth <
-        6 &&
+        8 &&
       cursor.length >
         0;
       depth++
@@ -1069,21 +1091,32 @@ function collectVisibleSemanticDetails(
       }
 
 
-      if (
+      const hasAction =
         cursor.find(
-          [
-            "button",
-            "a.btn",
-            "a.button",
-            'input[type="submit"]',
-            'input[type="button"]',
-            'a[class*="btn"]',
-            '[role="button"]'
-          ].join(
-            ","
-          )
+          actionSelector
         ).length >
-          0
+          0;
+
+
+      if (
+        hasAction &&
+        !firstActionScopeFound
+      ) {
+        firstActionScope =
+          cursor;
+
+        firstActionScopeFound =
+          true;
+      }
+
+
+      if (
+        hasAction &&
+        currencyLike.test(
+          clean(
+            cursor.text()
+          )
+        )
       ) {
         scope =
           cursor;
@@ -1097,6 +1130,18 @@ function collectVisibleSemanticDetails(
 
       cursor =
         cursor.parent();
+    }
+
+
+    if (
+      !boundedScopeFound &&
+      firstActionScopeFound
+    ) {
+      scope =
+        firstActionScope;
+
+      boundedScopeFound =
+        true;
     }
   }
 
