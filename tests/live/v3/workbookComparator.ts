@@ -89,8 +89,18 @@ function normalizedUrl(value: string): string {
   }
 }
 
-function conditionLabel(condition: "NEW" | "USED"): string {
-  return condition === "NEW" ? "Hàng mới" : "Hàng cũ";
+function normalizedCondition(value: string): "NEW" | "USED" | null {
+  const normalized = value.trim().toUpperCase();
+
+  if (normalized === "NEW" || normalized === "HÀNG MỚI" || normalized === "HANG MOI") {
+    return "NEW";
+  }
+
+  if (normalized === "USED" || normalized === "HÀNG CŨ" || normalized === "HANG CU") {
+    return "USED";
+  }
+
+  return null;
 }
 
 export async function readCameraWorkbook(path: string): Promise<CameraRow[]> {
@@ -191,12 +201,12 @@ export function compareRows(
 
     if (
       item.stable.condition &&
-      row.condition.trim().toLowerCase() !== conditionLabel(item.stable.condition).toLowerCase()
+      normalizedCondition(row.condition) !== item.stable.condition
     ) {
       mismatches.push({
         id: item.id,
         field: "condition",
-        expected: conditionLabel(item.stable.condition),
+        expected: item.stable.condition,
         actual: row.condition,
         message: "Condition mismatch"
       });
