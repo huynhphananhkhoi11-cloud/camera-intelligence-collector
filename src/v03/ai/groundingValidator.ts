@@ -264,6 +264,71 @@ function citesOldPriceEvidence(
 }
 
 
+function primaryVisibleNumericValues(
+  candidates:
+    readonly EvidenceItem[]
+): number[] {
+
+  const values:
+    number[] =
+      [];
+
+
+  for (
+    const item
+    of candidates
+  ) {
+
+    if (
+      item.sourceKind !==
+        "VISIBLE_TEXT" ||
+      item.ownershipHint !==
+        "PRIMARY_PRODUCT"
+    ) {
+      continue;
+    }
+
+
+    if (
+      typeof item.normalizedValue ===
+        "number" &&
+      Number.isFinite(
+        item.normalizedValue
+      )
+    ) {
+      values.push(
+        item.normalizedValue
+      );
+
+      continue;
+    }
+
+
+    const parsed =
+      extractNumericValues(
+        item.rawValue
+      );
+
+
+    if (
+      parsed.length >
+        0
+    ) {
+      values.push(
+        parsed[0]!
+      );
+    }
+  }
+
+
+  return [
+    ...new Set(
+      values
+    )
+  ];
+}
+
+
 function validateEvidenceIds(
   packet:
     EvidencePacket,
@@ -984,6 +1049,40 @@ export function validateSemanticDecision(
 
 
   if (
+    decision.rating !==
+      null
+  ) {
+
+    const visibleRatings =
+      primaryVisibleNumericValues(
+        packet.ratingCandidates
+      );
+
+
+    if (
+      visibleRatings.length ===
+        1 &&
+      Math.abs(
+        visibleRatings[0]! -
+        decision.rating.value
+      ) >
+        0.001
+    ) {
+      issues.push({
+        code:
+          "CONFLICTING_RATING_EVIDENCE",
+
+        field:
+          "rating",
+
+        message:
+          "Resolved rating conflicts with the unique visible primary-product rating."
+      });
+    }
+  }
+
+
+  if (
     decision.reviewCount !==
       null
   ) {
@@ -1049,6 +1148,44 @@ export function validateSemanticDecision(
 
         message:
           "Review count must cite evidence captured specifically as a review-count candidate."
+      });
+    }
+  }
+
+
+  if (
+    decision.reviewCount !==
+      null
+  ) {
+
+    const visibleReviewCounts =
+      primaryVisibleNumericValues(
+        packet.reviewCandidates.filter(
+          item =>
+            item.fieldHint ===
+              "REVIEW_COUNT"
+        )
+      );
+
+
+    if (
+      visibleReviewCounts.length ===
+        1 &&
+      Math.abs(
+        visibleReviewCounts[0]! -
+        decision.reviewCount.value
+      ) >
+        0.001
+    ) {
+      issues.push({
+        code:
+          "CONFLICTING_REVIEW_COUNT_EVIDENCE",
+
+        field:
+          "reviewCount",
+
+        message:
+          "Resolved review count conflicts with the unique visible primary-product review count."
       });
     }
   }
