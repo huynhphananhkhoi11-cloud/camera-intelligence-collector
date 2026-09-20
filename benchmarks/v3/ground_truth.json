@@ -140,13 +140,12 @@
         "selectedVariantIncludes": "Body Only"
       },
       "liveReference": {
-        "salePriceVnd": 47490000,
-        "crossedOutOrListPriceVnd": 53990182,
+        "salePriceVnd": 53990182,
         "reviewCount": 7,
         "sourceStatus": "WEB_VISIBLE_2026-09-20"
       },
       "guards": [
-        "53,990,182 is list/crossed-out price, not current sale price",
+        "use the visible primary product price for the body-only page",
         "related-card price must not contaminate primary product"
       ]
     },
