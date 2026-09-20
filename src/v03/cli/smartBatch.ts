@@ -358,7 +358,23 @@ export async function runSmartBatchCli(
         const urls =
           raw.split(
             /\r?\n/
-          );
+          )
+            .filter(
+              line => {
+
+                const trimmed =
+                  line.trim();
+
+
+                return (
+                  trimmed.length >
+                    0 &&
+                  !trimmed.startsWith(
+                    "#"
+                  )
+                );
+              }
+            );
 
 
         const processor =
