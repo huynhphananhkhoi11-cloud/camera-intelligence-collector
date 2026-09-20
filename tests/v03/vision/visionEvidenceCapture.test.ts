@@ -693,5 +693,207 @@ describe(
       }
     );
 
+
+    it(
+      "hides a high-z promotional popup in screenshot styling without mutating page state",
+      async () => {
+
+        await page.setContent(
+          [
+            "<!doctype html>",
+            "<html><body style=\"margin:0\">",
+            '<div style="height:140px">top spacer</div>',
+            '<main><section itemtype="https://schema.org/Product" style="width:900px;height:500px">',
+            "<h1>Canon EOS R50</h1>",
+            "<div>15.990.000 VND</div>",
+            '<label>Variant <select id="variant"><option selected>Body Only</option><option>Kit 18-45mm</option></select></label>',
+            "</section></main>",
+            '<div id="mystery-offer" style="position:fixed;inset:80px;z-index:9999;background:white">',
+            "<div>Bấm vào để nhận ưu đãi 10% ngay hôm nay</div>",
+            '<button id="offer-action" onclick="window.__offerClicks=(window.__offerClicks||0)+1">Nhận ưu đãi</button>',
+            "</div>",
+            "</body></html>"
+          ].join(
+            ""
+          )
+        );
+
+        await page.evaluate(
+          "window.scrollTo(0, 120)"
+        );
+
+
+        const before = {
+          url:
+            page.url(),
+
+          scrollY:
+            await page.evaluate(
+              "window.scrollY"
+            ),
+
+          variant:
+            await page
+              .locator(
+                "#variant"
+              )
+              .inputValue(),
+
+          html:
+            await page.evaluate(
+              "document.documentElement.outerHTML"
+            ),
+
+          offerClicks:
+            await page.evaluate(
+              "window.__offerClicks || 0"
+            )
+        };
+
+
+        const screenshotSpy =
+          vi.spyOn(
+            page,
+            "screenshot"
+          );
+
+
+        await captureVisionEvidencePacket(
+          page,
+          packet()
+        );
+
+
+        const options =
+          screenshotSpy.mock.calls[0]?.[0];
+
+        const style =
+          String(
+            options?.style ??
+            ""
+          );
+
+
+        expect(
+          style
+        ).toContain(
+          "#mystery-offer"
+        );
+
+        expect(
+          options?.fullPage
+        ).toBe(
+          false
+        );
+
+        expect(
+          page.url()
+        ).toBe(
+          before.url
+        );
+
+        expect(
+          await page.evaluate(
+            "window.scrollY"
+          )
+        ).toBe(
+          before.scrollY
+        );
+
+        expect(
+          await page
+            .locator(
+              "#variant"
+            )
+            .inputValue()
+        ).toBe(
+          before.variant
+        );
+
+        expect(
+          await page.evaluate(
+            "window.__offerClicks || 0"
+          )
+        ).toBe(
+          before.offerClicks
+        );
+
+        expect(
+          await page.evaluate(
+            "document.documentElement.outerHTML"
+          )
+        ).toBe(
+          before.html
+        );
+
+
+        screenshotSpy.mockRestore();
+      }
+    );
+
+
+    it(
+      "does not hide a product dialog that contains the primary product identity",
+      async () => {
+
+        await page.setContent(
+          [
+            "<!doctype html>",
+            "<html><body style=\"margin:0\">",
+            '<main><section itemtype="https://schema.org/Product" style="width:900px;height:500px">',
+            "<h1>Canon EOS R50</h1>",
+            "<div>15.990.000 VND</div>",
+            "</section></main>",
+            '<div id="coupon-product-config" class="promo-popup" role="dialog" aria-modal="true" style="position:fixed;inset:100px;z-index:9999;background:white">',
+            "<h2>Canon EOS R50</h2>",
+            "<div>Ưu đãi cho Body Only / Kit 18-45mm</div>",
+            "</div>",
+            "</body></html>"
+          ].join(
+            ""
+          )
+        );
+
+
+        const screenshotSpy =
+          vi.spyOn(
+            page,
+            "screenshot"
+          );
+
+
+        await captureVisionEvidencePacket(
+          page,
+          packet()
+        );
+
+
+        const style =
+          String(
+            screenshotSpy.mock.calls[0]?.[0]?.style ??
+            ""
+          );
+
+
+        expect(
+          style
+        ).not.toContain(
+          "#coupon-product-config"
+        );
+
+
+        expect(
+          await page.locator(
+            "#coupon-product-config"
+          ).count()
+        ).toBe(
+          1
+        );
+
+
+        screenshotSpy.mockRestore();
+      }
+    );
+
   }
 );

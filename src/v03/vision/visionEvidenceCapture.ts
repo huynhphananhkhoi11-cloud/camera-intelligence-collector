@@ -34,21 +34,7 @@ const MAX_STRUCTURED_FACTS =
 
 const SCREENSHOT_STYLE =
   [
-    "#__camintel_agent_overlay,",
-    "[id*=\"coupon\" i],",
-    "[class*=\"coupon\" i],",
-    "[id*=\"voucher\" i],",
-    "[class*=\"voucher\" i],",
-    "[id*=\"newsletter\" i],",
-    "[class*=\"newsletter\" i],",
-    "[id*=\"subscribe\" i],",
-    "[class*=\"subscribe\" i],",
-    "[id*=\"promo-popup\" i],",
-    "[class*=\"promo-popup\" i],",
-    "[id*=\"promotion-popup\" i],",
-    "[class*=\"promotion-popup\" i],",
-    "[id*=\"cookie-banner\" i],",
-    "[class*=\"cookie-banner\" i] {",
+    "#__camintel_agent_overlay {",
     "  visibility: hidden !important;",
     "  opacity: 0 !important;",
     "  pointer-events: none !important;",
@@ -71,6 +57,635 @@ interface ViewportMetrics {
   readonly height:
     number;
 }
+
+interface OverlayShieldCandidate {
+  readonly selector:
+    string;
+
+  readonly text:
+    string;
+}
+
+
+async function transientPromotionalOverlaySelectors(
+  page:
+    Page,
+  sourcePacket:
+    EvidencePacket
+): Promise<string[]> {
+
+  const identityValues =
+    [
+      sourcePacket.productIdentity,
+      ...sourcePacket.titleCandidates.map(
+        item =>
+          item.rawValue
+      )
+    ]
+      .filter(
+        value =>
+          value.trim()
+            .length >
+            0
+      )
+      .slice(
+        0,
+        5
+      );
+
+
+  return page.evaluate(
+    (
+      input:
+        {
+          readonly identities:
+            readonly string[];
+        }
+    ) => {
+
+      const normalize =
+        (
+          value:
+            string
+        ): string =>
+          value
+            .normalize(
+              "NFD"
+            )
+            .replace(
+              /\p{M}+/gu,
+              ""
+            )
+            .replace(
+              /đ/giu,
+              "d"
+            )
+            .replace(
+              /\s+/gu,
+              " "
+            )
+            .trim()
+            .toLowerCase();
+
+
+      const identityTokenSets =
+        input.identities
+          .map(
+            identity =>
+              Array.from(
+                new Set(
+                  normalize(
+                    identity
+                  )
+                    .split(
+                      /[^a-z0-9]+/u
+                    )
+                    .filter(
+                      token =>
+                        token.length >=
+                          2
+                    )
+                    .slice(
+                      0,
+                      12
+                    )
+                )
+              )
+          )
+          .filter(
+            tokens =>
+              tokens.length >
+                0
+          );
+
+
+      const productMatch =
+        (
+          text:
+            string
+        ): boolean => {
+
+          if (
+            identityTokenSets.length ===
+              0
+          ) {
+            return false;
+          }
+
+
+          const normalized =
+            normalize(
+              text
+            );
+
+
+          return identityTokenSets.some(
+            tokens => {
+
+              let matches =
+                0;
+
+
+              for (
+                const token
+                of tokens
+              ) {
+                if (
+                  normalized.includes(
+                    token
+                  )
+                ) {
+                  matches +=
+                    1;
+                }
+              }
+
+
+              return matches >=
+                Math.max(
+                  2,
+                  Math.ceil(
+                    tokens.length *
+                    0.6
+                  )
+                );
+            }
+          );
+        };
+
+
+      const promotionPattern =
+        /(?:nhan\s*uu\s*dai|uu\s*dai|ma\s*giam|giam\s*gia|khuyen\s*mai|voucher|coupon|newsletter|subscribe|dang\s*ky|nhan\s*ngay|qua\s*tang|promotion|promo|cookie|cookies|privacy|thong\s*bao\s*cookie)/iu;
+
+
+      const structuralPattern =
+        /(?:modal|popup|pop-up|overlay|dialog|coupon|voucher|newsletter|subscribe|promo|promotion|cookie)/iu;
+
+
+      const viewportArea =
+        Math.max(
+          1,
+          window.innerWidth *
+          window.innerHeight
+        );
+
+
+      const visible =
+        (
+          element:
+            Element
+        ): boolean => {
+
+          const rect =
+            element.getBoundingClientRect();
+
+
+          if (
+            rect.width <=
+              0 ||
+            rect.height <=
+              0
+          ) {
+            return false;
+          }
+
+
+          const style =
+            getComputedStyle(
+              element
+            );
+
+
+          return (
+            style.display !==
+              "none" &&
+            style.visibility !==
+              "hidden" &&
+            Number(
+              style.opacity
+            ) >
+              0.02
+          );
+        };
+
+
+      const cssPath =
+        (
+          element:
+            Element
+        ): string => {
+
+          const html =
+            element as HTMLElement;
+
+
+          if (
+            html.id
+          ) {
+            return (
+              "#" +
+              CSS.escape(
+                html.id
+              )
+            );
+          }
+
+
+          const parts:
+            string[] =
+              [];
+
+
+          let current:
+            Element |
+            null =
+              element;
+
+
+          while (
+            current &&
+            current !==
+              document.body &&
+            parts.length <
+              7
+          ) {
+
+            const tag =
+              current.tagName
+                .toLowerCase();
+
+
+            const parent:
+              Element |
+              null =
+                current.parentElement;
+
+
+            if (
+              !parent
+            ) {
+              break;
+            }
+
+
+            const currentTagName =
+              current.tagName;
+
+            const sameTag:
+              Element[] =
+                Array.from(
+                  parent.children
+                )
+                  .filter(
+                    (
+                      child:
+                        Element
+                    ) =>
+                      child.tagName ===
+                        currentTagName
+                  );
+
+
+            const index =
+              sameTag.indexOf(
+                current
+              ) +
+              1;
+
+
+            parts.unshift(
+              tag +
+              ":nth-of-type(" +
+              String(
+                Math.max(
+                  1,
+                  index
+                )
+              ) +
+              ")"
+            );
+
+
+            current =
+              parent;
+          }
+
+
+          return (
+            "body > " +
+            parts.join(
+              " > "
+            )
+          );
+        };
+
+
+      const rawCandidates:
+        Element[] =
+          [];
+
+
+      for (
+        const element
+        of Array.from(
+          document.querySelectorAll(
+            "body *"
+          )
+        ).slice(
+          0,
+          4_000
+        )
+      ) {
+
+        if (
+          !visible(
+            element
+          )
+        ) {
+          continue;
+        }
+
+
+        const rect =
+          element.getBoundingClientRect();
+
+
+        const intersectWidth =
+          Math.max(
+            0,
+            Math.min(
+              rect.right,
+              window.innerWidth
+            ) -
+            Math.max(
+              rect.left,
+              0
+            )
+          );
+
+
+        const intersectHeight =
+          Math.max(
+            0,
+            Math.min(
+              rect.bottom,
+              window.innerHeight
+            ) -
+            Math.max(
+              rect.top,
+              0
+            )
+          );
+
+
+        const coverage =
+          (
+            intersectWidth *
+            intersectHeight
+          ) /
+          viewportArea;
+
+
+        if (
+          coverage <
+            0.04
+        ) {
+          continue;
+        }
+
+
+        const style =
+          getComputedStyle(
+            element
+          );
+
+
+        const zIndex =
+          Number.parseInt(
+            style.zIndex,
+            10
+          );
+
+
+        const structuralText =
+          [
+            element.id,
+            element.className,
+            element.getAttribute(
+              "role"
+            ),
+            element.getAttribute(
+              "aria-modal"
+            )
+          ]
+            .filter(
+              value =>
+                typeof value ===
+                  "string"
+            )
+            .join(
+              " "
+            );
+
+
+        const text =
+          (
+            (
+              element as
+                HTMLElement
+            ).innerText ??
+            element.textContent ??
+            ""
+          )
+            .replace(
+              /\s+/gu,
+              " "
+            )
+            .trim()
+            .slice(
+              0,
+              1_000
+            );
+
+
+        const modalLike =
+          structuralPattern.test(
+            structuralText
+          ) ||
+          element.getAttribute(
+            "role"
+          ) ===
+            "dialog" ||
+          element.getAttribute(
+            "aria-modal"
+          ) ===
+            "true" ||
+          (
+            (
+              style.position ===
+                "fixed" ||
+              style.position ===
+                "sticky"
+            ) &&
+            (
+              Number.isFinite(
+                zIndex
+              )
+                ? zIndex >=
+                  50
+                : coverage >=
+                  0.18
+            )
+          );
+
+
+        if (
+          !modalLike
+        ) {
+          continue;
+        }
+
+
+        const promotional =
+          promotionPattern.test(
+            normalize(
+              text +
+              " " +
+              structuralText
+            )
+          );
+
+
+        if (
+          !promotional
+        ) {
+          continue;
+        }
+
+
+        if (
+          productMatch(
+            text
+          )
+        ) {
+          continue;
+        }
+
+
+        rawCandidates.push(
+          element
+        );
+      }
+
+
+      const roots =
+        rawCandidates.filter(
+          element =>
+            !rawCandidates.some(
+              other =>
+                other !==
+                  element &&
+                other.contains(
+                  element
+                )
+            )
+        );
+
+
+      return roots
+        .map(
+          element => ({
+            selector:
+              cssPath(
+                element
+              ),
+
+            text:
+              (
+                (
+                  element as
+                    HTMLElement
+                ).innerText ??
+                ""
+              )
+                .replace(
+                  /\s+/gu,
+                  " "
+                )
+                .trim()
+                .slice(
+                  0,
+                  180
+                )
+          } satisfies
+            OverlayShieldCandidate)
+        )
+        .map(
+          candidate =>
+            candidate.selector
+        )
+        .filter(
+          (
+            selector,
+            index,
+            all
+          ) =>
+            selector.length >
+              0 &&
+            all.indexOf(
+              selector
+            ) ===
+              index
+        )
+        .slice(
+          0,
+          12
+        );
+    },
+    {
+      identities:
+        identityValues
+    }
+  );
+}
+
+
+function screenshotStyle(
+  transientSelectors:
+    readonly string[]
+): string {
+
+  const dynamic =
+    transientSelectors.length >
+      0
+      ? [
+          transientSelectors.join(
+            ",\n"
+          ),
+          "{",
+          "  visibility: hidden !important;",
+          "  opacity: 0 !important;",
+          "  pointer-events: none !important;",
+          "}"
+        ].join(
+          "\n"
+        )
+      : "";
+
+
+  return [
+    SCREENSHOT_STYLE,
+    dynamic
+  ]
+    .filter(
+      Boolean
+    )
+    .join(
+      "\n"
+    );
+}
+
+
 
 
 function clipText(
@@ -389,6 +1004,13 @@ async function captureProductRegionScreenshot(
     );
 
 
+  const transientSelectors =
+    await transientPromotionalOverlaySelectors(
+      page,
+      sourcePacket
+    );
+
+
   const screenshot =
     await page.screenshot({
       type:
@@ -404,7 +1026,9 @@ async function captureProductRegionScreenshot(
         "hide",
 
       style:
-        SCREENSHOT_STYLE,
+        screenshotStyle(
+          transientSelectors
+        ),
 
       clip:
         region
