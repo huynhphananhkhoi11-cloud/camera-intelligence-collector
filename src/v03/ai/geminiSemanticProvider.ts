@@ -610,7 +610,10 @@ export class GeminiSemanticProvider {
       "minimal" |
       "low" |
       "medium" |
-      "high"
+      "high",
+
+    promptPayloadOverride?:
+      string
   ):
     Promise<
       GeminiAnalyzeResult
@@ -633,6 +636,7 @@ export class GeminiSemanticProvider {
 
 
     const compactEvidence =
+      promptPayloadOverride ??
       serializeEvidencePacketForPrompt(
         compactPacket
       );

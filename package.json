@@ -17,7 +17,9 @@
     "camintel:v2": "tsx src/v02/cli/camintel.ts",
     "ai-read": "tsx src/v03/cli/aiRead.ts",
     "ai-scale": "tsx src/v03/cli/aiScale.ts",
-    "gemini-read": "tsx src/v03/cli/geminiRead.ts"
+    "gemini-read": "tsx src/v03/cli/geminiRead.ts",
+    "page-benchmark": "tsx src/v03/cli/pageBenchmark.ts",
+    "agent-browse": "tsx src/v03/cli/agentBrowse.ts"
   },
   "keywords": [],
   "author": "",
