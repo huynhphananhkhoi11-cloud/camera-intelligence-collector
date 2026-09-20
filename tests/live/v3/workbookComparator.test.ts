@@ -136,3 +136,54 @@ describe("Dev6 workbook comparator", () => {
     );
   });
 });
+
+
+describe("Dev6 commerce contamination and visible review gates", () => {
+  it("flags related-products-as-bundle and validates visible review count", async () => {
+    const path = await writeWorkbook([
+      [
+        "vjshop.vn",
+        "Sony Alpha A7 Mark IV (Body Only)",
+        "NEW",
+        "",
+        "",
+        "",
+        "",
+        "Khách thường mua thêm: thẻ nhớ",
+        5,
+        4,
+        "",
+        "53.990.182 VND",
+        "https://vjshop.vn/a7-iv"
+      ]
+    ]);
+
+    const rows = await readCameraWorkbook(path);
+    const cases: BenchmarkCase[] = [
+      {
+        id: "S07",
+        site: "vjshop.vn",
+        url: "https://vjshop.vn/a7-iv",
+        expectedDisposition: "CAMERA",
+        stable: {
+          productNameIncludes: "Sony Alpha A7 Mark IV",
+          condition: "NEW",
+          selectedVariantIncludes: "Body Only"
+        },
+        liveReference: {
+          salePriceVnd: 53_990_182,
+          reviewCount: 7
+        }
+      }
+    ];
+
+    const mismatches = compareRows(cases, rows);
+
+    expect(mismatches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "reviewCount" }),
+        expect.objectContaining({ field: "bundleIncluded" })
+      ])
+    );
+  });
+});
