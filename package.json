@@ -19,7 +19,8 @@
     "ai-scale": "tsx src/v03/cli/aiScale.ts",
     "gemini-read": "tsx src/v03/cli/geminiRead.ts",
     "page-benchmark": "tsx src/v03/cli/pageBenchmark.ts",
-    "agent-browse": "tsx src/v03/cli/agentBrowse.ts"
+    "agent-browse": "tsx src/v03/cli/agentBrowse.ts",
+    "vision-fast": "tsx src/v03/cli/visionFast.ts"
   },
   "keywords": [],
   "author": "",
