@@ -64,11 +64,11 @@ describe("Dev6 live benchmark ground-truth contract", () => {
     expect(byId.get("S06")?.expectedDisposition).toBe("NON_PRODUCT");
   });
 
-  it("records the current-price vs list-price distinction for the A7 IV sentinel", () => {
+  it("records the refreshed visible primary price for the A7 IV body sentinel", () => {
     const truth = loadGroundTruth();
     const a7 = truth.cases.find((item) => item.id === "S07");
 
-    expect(a7?.liveReference.salePriceVnd).toBe(47_490_000);
-    expect(a7?.liveReference.crossedOutOrListPriceVnd).toBe(53_990_182);
+    expect(a7?.liveReference.salePriceVnd).toBe(53_990_182);
+    expect(a7?.liveReference.reviewCount).toBe(7);
   });
 });
