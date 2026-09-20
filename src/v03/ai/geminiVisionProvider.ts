@@ -1,6 +1,5 @@
 import {
   AISemanticDecisionSchema,
-  AI_SEMANTIC_JSON_SCHEMA,
   type AISemanticDecision
 } from "./semanticContracts.js";
 
@@ -145,97 +144,690 @@ extends Error {
 
 
 /*
- * C9 live hardening:
+ * C9 live hardening v2:
  *
- * The response schema must constrain nested semantic fields, not only the
- * top-level object names. A shallow schema such as { entity: { type: "object" } }
- * allows the model to legally emit shapes like { entity: {} } or alternate
- * keys, which then fail the canonical Zod contract after a successful API call.
+ * Gemini structured outputs support nested schemas, but Google documents that
+ * very large or deeply nested schemas may be rejected. AISemanticDecision is
+ * intentionally rich and is too large to use as the wire schema for this
+ * latency-sensitive one-shot path.
  *
- * Gemini structured outputs support nested object properties, required fields,
- * enums, arrays, nullable types and numeric bounds. Reuse the canonical
- * AISemanticDecision JSON schema so generation is constrained before parsing.
- *
- * Zod emits a few JSON-Schema annotation/validation keywords that are not
- * needed by Gemini's supported subset. Strip only those non-essential keys;
- * the canonical AISemanticDecisionSchema remains the final strict validator.
+ * Keep the API wire contract compact and shallow, then deterministically map
+ * it into the canonical AISemanticDecision and validate that canonical object
+ * with AISemanticDecisionSchema + the existing grounding validator.
  */
-function geminiWireSchema(
+const EVIDENCE_IDS_SCHEMA = {
+  type:
+    "array",
+
+  items: {
+    type:
+      "string"
+  },
+
+  maxItems:
+    12
+} as const;
+
+
+const CONFIDENCE_SCHEMA = {
+  type:
+    "number",
+
+  minimum:
+    0,
+
+  maximum:
+    1
+} as const;
+
+
+const NULLABLE_CONDITION_SCHEMA = {
+  anyOf: [
+    {
+      type:
+        "string",
+
+      enum: [
+        "NEW",
+        "USED",
+        "REFURBISHED",
+        "UNKNOWN"
+      ]
+    },
+
+    {
+      type:
+        "null"
+    }
+  ]
+} as const;
+
+
+const NULLABLE_STOCK_SCHEMA = {
+  anyOf: [
+    {
+      type:
+        "string",
+
+      enum: [
+        "IN_STOCK",
+        "OUT_OF_STOCK",
+        "PREORDER",
+        "BACKORDER",
+        "LIMITED",
+        "UNKNOWN"
+      ]
+    },
+
+    {
+      type:
+        "null"
+    }
+  ]
+} as const;
+
+
+const VISION_RESPONSE_SCHEMA = {
+  type:
+    "object",
+
+  properties: {
+    entity_type: {
+      type:
+        "string",
+
+      enum: [
+        "CAMERA",
+        "NON_CAMERA",
+        "UNCERTAIN"
+      ]
+    },
+
+    entity_subtype: {
+      type:
+        "string"
+    },
+
+    entity_confidence:
+      CONFIDENCE_SCHEMA,
+
+    entity_evidence_ids: {
+      ...EVIDENCE_IDS_SCHEMA,
+
+      minItems:
+        1
+    },
+
+    product_name: {
+      type:
+        "string"
+    },
+
+    product_name_confidence:
+      CONFIDENCE_SCHEMA,
+
+    product_name_evidence_ids: {
+      ...EVIDENCE_IDS_SCHEMA,
+
+      minItems:
+        1
+    },
+
+    current_price_value: {
+      type: [
+        "number",
+        "null"
+      ]
+    },
+
+    current_price_currency: {
+      type: [
+        "string",
+        "null"
+      ]
+    },
+
+    current_price_confidence:
+      CONFIDENCE_SCHEMA,
+
+    current_price_evidence_ids:
+      EVIDENCE_IDS_SCHEMA,
+
+    condition_value:
+      NULLABLE_CONDITION_SCHEMA,
+
+    condition_confidence:
+      CONFIDENCE_SCHEMA,
+
+    condition_evidence_ids:
+      EVIDENCE_IDS_SCHEMA,
+
+    stock_state:
+      NULLABLE_STOCK_SCHEMA,
+
+    stock_quantity: {
+      type: [
+        "integer",
+        "null"
+      ]
+    },
+
+    stock_confidence:
+      CONFIDENCE_SCHEMA,
+
+    stock_evidence_ids:
+      EVIDENCE_IDS_SCHEMA,
+
+    selected_variant_label: {
+      type: [
+        "string",
+        "null"
+      ]
+    },
+
+    selected_variant_condition:
+      NULLABLE_CONDITION_SCHEMA,
+
+    selected_variant_confidence:
+      CONFIDENCE_SCHEMA,
+
+    selected_variant_evidence_ids:
+      EVIDENCE_IDS_SCHEMA,
+
+    specs: {
+      type:
+        "array",
+
+      maxItems:
+        12,
+
+      items: {
+        type:
+          "object",
+
+        properties: {
+          key: {
+            type:
+              "string"
+          },
+
+          value: {
+            type:
+              "string"
+          },
+
+          confidence:
+            CONFIDENCE_SCHEMA,
+
+          evidence_ids:
+            EVIDENCE_IDS_SCHEMA
+        },
+
+        required: [
+          "key",
+          "value",
+          "confidence",
+          "evidence_ids"
+        ],
+
+        additionalProperties:
+          false
+      }
+    },
+
+    conflicts: {
+      type:
+        "array",
+
+      maxItems:
+        8,
+
+      items: {
+        type:
+          "string"
+      }
+    },
+
+    page_confidence:
+      CONFIDENCE_SCHEMA
+  },
+
+  required: [
+    "entity_type",
+    "entity_subtype",
+    "entity_confidence",
+    "entity_evidence_ids",
+    "product_name",
+    "product_name_confidence",
+    "product_name_evidence_ids",
+    "current_price_value",
+    "current_price_currency",
+    "current_price_confidence",
+    "current_price_evidence_ids",
+    "condition_value",
+    "condition_confidence",
+    "condition_evidence_ids",
+    "stock_state",
+    "stock_quantity",
+    "stock_confidence",
+    "stock_evidence_ids",
+    "selected_variant_label",
+    "selected_variant_condition",
+    "selected_variant_confidence",
+    "selected_variant_evidence_ids",
+    "specs",
+    "conflicts",
+    "page_confidence"
+  ],
+
+  additionalProperties:
+    false
+} as const;
+
+
+function stringArray(
+  value:
+    unknown
+): string[] {
+
+  if (
+    !Array.isArray(
+      value
+    )
+  ) {
+    return [];
+  }
+
+
+  return value
+    .filter(
+      (
+        item
+      ): item is
+        string =>
+          typeof item ===
+            "string" &&
+          item.trim()
+            .length >
+            0
+    )
+    .map(
+      item =>
+        item.trim()
+    )
+    .slice(
+      0,
+      32
+    );
+}
+
+
+function nullableMoney(
+  value:
+    unknown,
+  currency:
+    unknown,
+  evidenceIds:
+    unknown,
+  confidence:
+    unknown
+) {
+
+  const ids =
+    stringArray(
+      evidenceIds
+    );
+
+
+  if (
+    typeof value !==
+      "number" ||
+    !Number.isFinite(
+      value
+    ) ||
+    value <
+      0 ||
+    ids.length ===
+      0 ||
+    typeof confidence !==
+      "number"
+  ) {
+    return null;
+  }
+
+
+  return {
+    value,
+
+    currency:
+      typeof currency ===
+        "string"
+        ? currency
+        : null,
+
+    evidenceIds:
+      ids,
+
+    confidence
+  };
+}
+
+
+function normalizeWireDecision(
   value:
     unknown
 ): unknown {
 
   if (
-    Array.isArray(
-      value
-    )
-  ) {
-    return value.map(
-      geminiWireSchema
-    );
-  }
-
-
-  if (
     value ===
       null ||
     typeof value !==
-      "object"
+      "object" ||
+    Array.isArray(
+      value
+    )
   ) {
     return value;
   }
 
 
-  const output:
-    Record<
+  const input =
+    value as Record<
       string,
       unknown
-    > =
-      {};
+    >;
 
 
-  for (
-    const [
-      key,
-      child
-    ]
-    of Object.entries(
-      value
-    )
+  /*
+   * Backward compatibility for deterministic unit fixtures that already
+   * provide a canonical AISemanticDecision object.
+   */
+  if (
+    "entity" in
+      input &&
+    "productName" in
+      input
   ) {
-
-    if (
-      key ===
-        "$schema" ||
-      key ===
-        "minLength" ||
-      key ===
-        "maxLength"
-    ) {
-      continue;
-    }
-
-
-    output[
-      key
-    ] =
-      geminiWireSchema(
-        child
-      );
+    return value;
   }
 
 
-  return output;
+  const entityIds =
+    stringArray(
+      input.entity_evidence_ids
+    );
+
+  const productNameIds =
+    stringArray(
+      input.product_name_evidence_ids
+    );
+
+  const conditionIds =
+    stringArray(
+      input.condition_evidence_ids
+    );
+
+  const stockIds =
+    stringArray(
+      input.stock_evidence_ids
+    );
+
+  const variantIds =
+    stringArray(
+      input.selected_variant_evidence_ids
+    );
+
+
+  const condition =
+    typeof input.condition_value ===
+      "string" &&
+    conditionIds.length >
+      0 &&
+    typeof input.condition_confidence ===
+      "number"
+      ? {
+          value:
+            input.condition_value,
+
+          evidenceIds:
+            conditionIds,
+
+          confidence:
+            input.condition_confidence
+        }
+      : null;
+
+
+  const stock =
+    typeof input.stock_state ===
+      "string" &&
+    stockIds.length >
+      0 &&
+    typeof input.stock_confidence ===
+      "number"
+      ? {
+          state:
+            input.stock_state,
+
+          quantity:
+            typeof input.stock_quantity ===
+              "number"
+              ? input.stock_quantity
+              : null,
+
+          evidenceIds:
+            stockIds,
+
+          confidence:
+            input.stock_confidence
+        }
+      : null;
+
+
+  const variants =
+    typeof input.selected_variant_label ===
+      "string" &&
+    input.selected_variant_label
+      .trim()
+      .length >
+      0 &&
+    variantIds.length >
+      0 &&
+    typeof input.selected_variant_confidence ===
+      "number"
+      ? [
+          {
+            label:
+              input.selected_variant_label
+                .trim(),
+
+            selected:
+              true,
+
+            condition:
+              typeof input.selected_variant_condition ===
+                "string"
+                ? input.selected_variant_condition
+                : null,
+
+            price:
+              null,
+
+            priceDelta:
+              null,
+
+            evidenceIds:
+              variantIds,
+
+            confidence:
+              input.selected_variant_confidence
+          }
+        ]
+      : [];
+
+
+  const specs =
+    Array.isArray(
+      input.specs
+    )
+      ? input.specs
+          .map(
+            item => {
+
+              if (
+                item ===
+                  null ||
+                typeof item !==
+                  "object" ||
+                Array.isArray(
+                  item
+                )
+              ) {
+                return null;
+              }
+
+
+              const spec =
+                item as Record<
+                  string,
+                  unknown
+                >;
+
+              const evidenceIds =
+                stringArray(
+                  spec.evidence_ids
+                );
+
+
+              if (
+                typeof spec.key !==
+                  "string" ||
+                !spec.key.trim() ||
+                typeof spec.value !==
+                  "string" ||
+                !spec.value.trim() ||
+                typeof spec.confidence !==
+                  "number" ||
+                evidenceIds.length ===
+                  0
+              ) {
+                return null;
+              }
+
+
+              return {
+                key:
+                  spec.key.trim(),
+
+                value:
+                  spec.value.trim(),
+
+                evidenceIds,
+
+                confidence:
+                  spec.confidence
+              };
+            }
+          )
+          .filter(
+            (
+              item
+            ): item is
+              NonNullable<
+                typeof item
+              > =>
+                item !==
+                  null
+          )
+      : [];
+
+
+  return {
+    entity: {
+      type:
+        input.entity_type,
+
+      subtype:
+        input.entity_subtype,
+
+      confidence:
+        input.entity_confidence,
+
+      evidenceIds:
+        entityIds
+    },
+
+    productName: {
+      value:
+        input.product_name,
+
+      evidenceIds:
+        productNameIds,
+
+      confidence:
+        input.product_name_confidence
+    },
+
+    currentPrice:
+      nullableMoney(
+        input.current_price_value,
+        input.current_price_currency,
+        input.current_price_evidence_ids,
+        input.current_price_confidence
+      ),
+
+    oldPrice:
+      null,
+
+    giftValues:
+      [],
+
+    savingValues:
+      [],
+
+    installmentAmounts:
+      [],
+
+    variants,
+
+    condition,
+
+    availableConditions:
+      condition
+        ? [
+            condition
+          ]
+        : [],
+
+    stock,
+
+    rating:
+      null,
+
+    reviewCount:
+      null,
+
+    specs,
+
+    conflicts:
+      Array.isArray(
+        input.conflicts
+      )
+        ? input.conflicts
+            .filter(
+              (
+                item
+              ): item is
+                string =>
+                  typeof item ===
+                    "string"
+            )
+        : [],
+
+    pageConfidence:
+      input.page_confidence
+  };
 }
-
-
-const VISION_RESPONSE_SCHEMA =
-  geminiWireSchema(
-    AI_SEMANTIC_JSON_SCHEMA
-  ) as Record<
-    string,
-    unknown
-  >;
 
 
 function modelOutputText(
@@ -410,12 +1002,6 @@ export class GeminiVisionProvider {
     }
 
 
-    const canonicalSchema =
-      JSON.stringify(
-        AI_SEMANTIC_JSON_SCHEMA
-      );
-
-
     const requestBody = {
       model:
         GEMINI_VISION_MODEL,
@@ -432,12 +1018,12 @@ export class GeminiVisionProvider {
               "Use ONLY the screenshot, compact DOM evidence, selected controls, and structured facts supplied here.",
               "Do not invent missing values.",
               "Visual hierarchy may determine which visible price or control belongs to the primary product.",
-              "Every grounded semantic claim must use evidence IDs supplied by the evidence packet.",
-              "Return every canonical field, including explicit null values and empty arrays.",
-              "Use exact enum spellings and exact canonical keys.",
-              "",
-              "CANONICAL AISemanticDecision SCHEMA:",
-              canonicalSchema,
+              "Every grounded semantic claim must use evidence IDs from compactDomEvidence, selectedControls, or structuredFacts.",
+              "Do NOT cite the screenshot imageId as a semantic evidence ID; the screenshot is visual context only.",
+              "For a nullable claim with no supported value, return null and an empty evidence-id array.",
+              "For any non-null claim, cite only evidence IDs that directly support that claim.",
+              "selected_variant_label means the currently selected/default product variant only.",
+              "Use exact enum spellings defined by the response schema.",
               "",
               "DETERMINISTIC EVIDENCE:",
               compactEvidenceJson(
@@ -754,9 +1340,15 @@ export class GeminiVisionProvider {
         }
 
 
+        const normalized =
+          normalizeWireDecision(
+            parsed
+          );
+
+
         const canonical =
           AISemanticDecisionSchema.safeParse(
-            parsed
+            normalized
           );
 
 
