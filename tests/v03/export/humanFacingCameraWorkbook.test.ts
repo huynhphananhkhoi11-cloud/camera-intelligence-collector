@@ -297,6 +297,62 @@ function decision():
 
         confidence:
           0.99
+      },
+      {
+        key:
+          "RENTAL_PRICE_PER_DAY",
+
+        value:
+          "500.000 VND/ngày",
+
+        evidenceIds: [
+          "ev_rental_price"
+        ],
+
+        confidence:
+          0.99
+      },
+      {
+        key:
+          "RENTAL_TERMS",
+
+        value:
+          "Đặt cọc giấy tờ tùy thân",
+
+        evidenceIds: [
+          "ev_rental_terms"
+        ],
+
+        confidence:
+          0.99
+      },
+      {
+        key:
+          "ACCESSORIES_INCLUDED",
+
+        value:
+          "Pin + sạc",
+
+        evidenceIds: [
+          "ev_accessories"
+        ],
+
+        confidence:
+          0.99
+      },
+      {
+        key:
+          "BUNDLE_INCLUDED",
+
+        value:
+          "Kèm Kit Lens 18-45mm",
+
+        evidenceIds: [
+          "ev_bundle"
+        ],
+
+        confidence:
+          0.99
       }
     ],
 
@@ -490,21 +546,27 @@ describe(
           row.getCell(
             5
           ).value
-        ).toBeNull();
+        ).toBe(
+          "500.000 VND/ngày"
+        );
 
 
         expect(
           row.getCell(
             6
           ).value
-        ).toBeNull();
+        ).toBe(
+          "Đặt cọc giấy tờ tùy thân"
+        );
 
 
         expect(
           row.getCell(
             7
           ).value
-        ).toBeNull();
+        ).toBe(
+          "Pin + sạc"
+        );
 
 
         expect(
