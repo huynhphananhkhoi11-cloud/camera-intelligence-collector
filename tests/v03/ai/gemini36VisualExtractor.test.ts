@@ -43,7 +43,6 @@ const shots = [
 
 function extraction(overrides: Record<string, unknown> = {}) {
   return {
-    disposition: "CAMERA",
     website: "wrong.example",
     productName: {
       value: "Canon EOS R50",
