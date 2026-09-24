@@ -24,6 +24,7 @@
     "smart-read": "tsx src/v03/cli/smartRead.ts",
     "smart-batch": "tsx src/v03/cli/smartBatch.ts",
     "smart-batch:v2": "tsx src/v03/cli/smartBatchV2.ts",
+    "smart-batch:minimal": "tsx src/v04/cli/smartBatchMinimal.ts",
     "provider-setup": "tsx src/v03/cli/providerSetup.ts"
   },
   "keywords": [],
