@@ -1,0 +1,534 @@
+{
+  "probeVersion": 5,
+  "generatedAt": "2026-09-24T16:34:58.223Z",
+  "productionSourceModified": false,
+  "prompt": "FIX12 current prompt + D generic arbitration rule",
+  "arbitrationRule": "When multiple visible values could map to the same field, choose the value presented by the page as the dedicated factual state for that field rather than promotional, persuasive, urgency, or descriptive copy.",
+  "model": "gemini-3.5-flash-lite",
+  "settings": {
+    "thinkingLevel": "medium",
+    "temperature": 0.1,
+    "maxOutputTokens": 4096,
+    "viewport": "1440x1200",
+    "authoritativeHeroResolution": "ultra_high",
+    "otherImageResolution": "high"
+  },
+  "benchmark10": {
+    "ids": [
+      "S01",
+      "S02",
+      "S03",
+      "S04",
+      "S05",
+      "S06",
+      "S07",
+      "S08",
+      "S09",
+      "S10"
+    ],
+    "expectedCameraCount": 8,
+    "expectedNonCameraCount": 2,
+    "actualCameraCount": 8,
+    "actualNonCameraCount": 2,
+    "reviewCount": 0,
+    "countPass": true,
+    "dispositionMismatchCount": 0,
+    "dispositionMismatches": [],
+    "comparatorMismatchCount": 0,
+    "comparatorMismatches": [],
+    "pass": true,
+    "results": [
+      {
+        "id": "S01",
+        "url": "https://zshop.vn/canon-eos-r50-vi.html",
+        "expectedDisposition": "CAMERA",
+        "expectedClassification": "CAMERA_PRODUCT",
+        "actualClassification": "CAMERA_PRODUCT",
+        "dispositionPass": true,
+        "geminiAttempts": 1,
+        "finalUrl": "https://zshop.vn/canon-eos-r50-vi.html",
+        "captureTimestamp": "2026-09-24T16:23:58.398Z",
+        "screenshotCount": 7,
+        "decisionPath": "C:\\Users\\admin\\Downloads\\V15_D10_PLUS1_20260924-232329\\benchmark10\\S01.decision.json",
+        "decision": {
+          "classification": "CAMERA_PRODUCT",
+          "row": {
+            "website": "zshop.vn",
+            "productName": "Canon EOS R50 (Body Only, Black, Hàng Mới Chính Hãng)",
+            "condition": "NEW",
+            "specs": [
+              "Cảm biến ảnh APS-C CMOS 24.2MP",
+              "Chip xử lý hình ảnh DIGIC X",
+              "Quay video 4K30p UHD",
+              "Lấy nét Dual Pixel CMOS AF II với 651 vùng",
+              "EVF OLED 2.36M điểm",
+              "Màn hình cảm ứng 3\" 1.62M điểm, xoay lật",
+              "Chụp liên tiếp màn trập điện 15 fps",
+              "Chế độ Close-Up Demos",
+              "Chế độ quay phim chiều dọc",
+              "Ngàm đa năng, Wi-Fi & Bluetooth",
+              "Trọng lượng: 328g"
+            ],
+            "rentalPricePerDay": {
+              "value": 400000,
+              "currency": "đ"
+            },
+            "rentalTerms": "Thuê 3 Ngày (+800,000 đ)",
+            "accessoriesIncluded": [
+              "Thẻ nhớ Kioxia 64GB",
+              "Túi xách",
+              "Khóa học nhiếp ảnh cơ bản",
+              "Miếng dán màn hình"
+            ],
+            "bundleIncluded": [],
+            "rating": null,
+            "reviewCount": null,
+            "stock": null,
+            "salePrice": {
+              "value": 15990000,
+              "currency": "đ"
+            },
+            "url": "https://zshop.vn/canon-eos-r50-vi.html"
+          }
+        }
+      },
+      {
+        "id": "S02",
+        "url": "https://zshop.vn/canon-eos-r50-vi.html?variation_id=65130",
+        "expectedDisposition": "CAMERA",
+        "expectedClassification": "CAMERA_PRODUCT",
+        "actualClassification": "CAMERA_PRODUCT",
+        "dispositionPass": true,
+        "geminiAttempts": 1,
+        "finalUrl": "https://zshop.vn/canon-eos-r50-vi.html?variation_id=65130",
+        "captureTimestamp": "2026-09-24T16:25:00.368Z",
+        "screenshotCount": 5,
+        "decisionPath": "C:\\Users\\admin\\Downloads\\V15_D10_PLUS1_20260924-232329\\benchmark10\\S02.decision.json",
+        "decision": {
+          "classification": "CAMERA_PRODUCT",
+          "row": {
+            "website": "zshop.vn",
+            "productName": "Canon EOS R50 (Kèm Kit Lens 18-45mm, White, Hàng Mới Chính Hãng)",
+            "condition": "NEW",
+            "specs": [
+              "Cảm biến ảnh APS-C CMOS 24.2MP",
+              "Chip xử lý hình ảnh DIGIC X",
+              "Quay video 4K30p UHD",
+              "Lấy nét Dual Pixel CMOS AF II với 651 vùng",
+              "EVF OLED 2.36M điểm",
+              "Màn hình cảm ứng 3\" 1.62M điểm, xoay lật",
+              "Chụp liên tiếp màn trập điện 15 fps",
+              "Trọng lượng: 328g"
+            ],
+            "rentalPricePerDay": {
+              "value": 400000,
+              "currency": "đ"
+            },
+            "rentalTerms": "Thuê 3 Ngày (+800,000 đ)",
+            "accessoriesIncluded": [
+              "Thẻ nhớ Kioxia 64GB",
+              "Túi đựng máy ảnh",
+              "Đầu đọc thẻ",
+              "Miếng dán màn hình",
+              "Thẻ khóa học nhiếp ảnh cơ bản"
+            ],
+            "bundleIncluded": [
+              "Kit Lens 18-45mm"
+            ],
+            "rating": null,
+            "reviewCount": null,
+            "stock": null,
+            "salePrice": {
+              "value": 18490000,
+              "currency": "đ"
+            },
+            "url": "https://zshop.vn/canon-eos-r50-vi.html?variation_id=65130"
+          }
+        }
+      },
+      {
+        "id": "S03",
+        "url": "https://zshop.vn/canon-eos-r50-likenew.html",
+        "expectedDisposition": "CAMERA",
+        "expectedClassification": "CAMERA_PRODUCT",
+        "actualClassification": "CAMERA_PRODUCT",
+        "dispositionPass": true,
+        "geminiAttempts": 1,
+        "finalUrl": "https://zshop.vn/canon-eos-r50-likenew.html",
+        "captureTimestamp": "2026-09-24T16:26:25.029Z",
+        "screenshotCount": 4,
+        "decisionPath": "C:\\Users\\admin\\Downloads\\V15_D10_PLUS1_20260924-232329\\benchmark10\\S03.decision.json",
+        "decision": {
+          "classification": "CAMERA_PRODUCT",
+          "row": {
+            "website": "zshop.vn",
+            "productName": "Canon EOS R50 - Likenew (Body Only, Black)",
+            "condition": "USED",
+            "specs": [
+              "Cảm biến ảnh APS-C CMOS 24.2MP",
+              "Chip xử lý hình ảnh DIGIC X",
+              "Quay video 4K30p UHD",
+              "Lấy nét Dual Pixel CMOS AF II với 651 vùng",
+              "EVF OLED 2.36M điểm",
+              "Màn hình cảm ứng 3\" 1.62M điểm, xoay lật",
+              "Chụp liên tiếp màn trập điện 15 fps",
+              "Chế độ Close-Up Demos",
+              "Chế độ quay phim chiều dọc",
+              "Ngàm đa năng, Wi-Fi & Bluetooth",
+              "Trọng lượng: 328g"
+            ],
+            "rentalPricePerDay": null,
+            "rentalTerms": null,
+            "accessoriesIncluded": [],
+            "bundleIncluded": [],
+            "rating": null,
+            "reviewCount": null,
+            "stock": null,
+            "salePrice": {
+              "value": 14990000,
+              "currency": "đ"
+            },
+            "url": "https://zshop.vn/canon-eos-r50-likenew.html"
+          }
+        }
+      },
+      {
+        "id": "S04",
+        "url": "https://zshop.vn/canon-eos-r50-vi.html?variation_id=70768",
+        "expectedDisposition": "CAMERA",
+        "expectedClassification": "CAMERA_PRODUCT",
+        "actualClassification": "CAMERA_PRODUCT",
+        "dispositionPass": true,
+        "geminiAttempts": 1,
+        "finalUrl": "https://zshop.vn/canon-eos-r50-vi.html?variation_id=70768",
+        "captureTimestamp": "2026-09-24T16:27:09.916Z",
+        "screenshotCount": 4,
+        "decisionPath": "C:\\Users\\admin\\Downloads\\V15_D10_PLUS1_20260924-232329\\benchmark10\\S04.decision.json",
+        "decision": {
+          "classification": "CAMERA_PRODUCT",
+          "row": {
+            "website": "zshop.vn",
+            "productName": "Canon EOS R50 (Kèm Lens Tamron 17-70mm f/2.8 III, Black, Hàng Mới Chính Hãng)",
+            "condition": "NEW",
+            "specs": [
+              "Cảm biến ảnh APS-C CMOS 24.2MP",
+              "Chip xử lý hình ảnh DIGIC X",
+              "Quay video 4K30p UHD",
+              "Lấy nét Dual Pixel CMOS AF II với 651 vùng",
+              "EVF OLED 2.36M điểm",
+              "Màn hình cảm ứng 3\" 1.62M điểm, xoay lật",
+              "Chụp liên tiếp màn trập điện 15 fps",
+              "Chế độ Close-Up Demos",
+              "Chế độ quay phim chiều dọc",
+              "Ngàm đa năng, Wi-Fi & Bluetooth",
+              "Trọng lượng: 328g"
+            ],
+            "rentalPricePerDay": {
+              "value": 400000,
+              "currency": "đ"
+            },
+            "rentalTerms": "Thuê 3 Ngày (+800,000 đ), Thuê 7 Ngày (+1,800,000 đ)",
+            "accessoriesIncluded": [
+              "Túi đựng",
+              "Thẻ nhớ Kioxia 64GB",
+              "Dán màn hình",
+              "Phiếu học tập nhiếp ảnh cơ bản"
+            ],
+            "bundleIncluded": [
+              "Tamron 17-70mm f/2.8 III Lens"
+            ],
+            "rating": null,
+            "reviewCount": null,
+            "stock": null,
+            "salePrice": {
+              "value": 32480000,
+              "currency": "đ"
+            },
+            "url": "https://zshop.vn/canon-eos-r50-vi.html?variation_id=70768"
+          }
+        }
+      },
+      {
+        "id": "S05",
+        "url": "https://zshop.vn/sony-fe-50mm-f-1.8.html",
+        "expectedDisposition": "NON_CAMERA_LENS",
+        "expectedClassification": "NON_CAMERA",
+        "actualClassification": "NON_CAMERA",
+        "dispositionPass": true,
+        "geminiAttempts": 1,
+        "finalUrl": "https://zshop.vn/sony-fe-50mm-f-1.8.html",
+        "captureTimestamp": "2026-09-24T16:28:32.895Z",
+        "screenshotCount": 4,
+        "decisionPath": "C:\\Users\\admin\\Downloads\\V15_D10_PLUS1_20260924-232329\\benchmark10\\S05.decision.json",
+        "decision": {
+          "classification": "NON_CAMERA",
+          "row": null
+        }
+      },
+      {
+        "id": "S06",
+        "url": "https://zshop.vn/blogs/workshop-nhiep-anh-anh-sang-cam-xuc-28032026.html",
+        "expectedDisposition": "NON_PRODUCT",
+        "expectedClassification": "NON_CAMERA",
+        "actualClassification": "NON_CAMERA",
+        "dispositionPass": true,
+        "geminiAttempts": 1,
+        "finalUrl": "https://zshop.vn/blogs/workshop-nhiep-anh-anh-sang-cam-xuc-28032026.html",
+        "captureTimestamp": "2026-09-24T16:29:15.775Z",
+        "screenshotCount": 6,
+        "decisionPath": "C:\\Users\\admin\\Downloads\\V15_D10_PLUS1_20260924-232329\\benchmark10\\S06.decision.json",
+        "decision": {
+          "classification": "NON_CAMERA",
+          "row": null
+        }
+      },
+      {
+        "id": "S07",
+        "url": "https://vjshop.vn/may-anh-mirrorless/sony-alpha-a7-mark-iv-body-only-chinh-hang",
+        "expectedDisposition": "CAMERA",
+        "expectedClassification": "CAMERA_PRODUCT",
+        "actualClassification": "CAMERA_PRODUCT",
+        "dispositionPass": true,
+        "geminiAttempts": 1,
+        "finalUrl": "https://vjshop.vn/may-anh-mirrorless/sony-alpha-a7-mark-iv-body-only-chinh-hang",
+        "captureTimestamp": "2026-09-24T16:29:58.321Z",
+        "screenshotCount": 4,
+        "decisionPath": "C:\\Users\\admin\\Downloads\\V15_D10_PLUS1_20260924-232329\\benchmark10\\S07.decision.json",
+        "decision": {
+          "classification": "CAMERA_PRODUCT",
+          "row": {
+            "website": "vjshop.vn",
+            "productName": "Máy ảnh Sony Alpha A7 Mark IV (Body Only)",
+            "condition": "NEW",
+            "specs": [
+              "759 điểm lấy nét theo pha và 425 điểm lấy nét tương phản",
+              "Bộ xử lý hình ảnh BIONZ XR",
+              "Cảm biến CMOS Exmor R 33MP",
+              "Chụp lên đến 10 khung hình / giây, ISO 100-51200"
+            ],
+            "rentalPricePerDay": null,
+            "rentalTerms": null,
+            "accessoriesIncluded": [
+              "Pin Lithium-Ion Sony NP-FZ100 (2280mAh)",
+              "Bộ đổi nguồn AC và dây nguồn",
+              "Nắp thân Sony ALC-B1EM cho máy ảnh E-mount",
+              "Dây đeo vai",
+              "Accessory Shoe Cap",
+              "Eyepiece Cup",
+              "Cáp USB Type-C sang Type-A"
+            ],
+            "bundleIncluded": [],
+            "rating": 5,
+            "reviewCount": 7,
+            "stock": "Có 6 cửa hàng có sản phẩm",
+            "salePrice": {
+              "value": 53990182,
+              "currency": "đ"
+            },
+            "url": "https://vjshop.vn/may-anh-mirrorless/sony-alpha-a7-mark-iv-body-only-chinh-hang"
+          }
+        }
+      },
+      {
+        "id": "S08",
+        "url": "https://vjshop.vn/may-anh-mirrorless/canon-eos-r50-body?xem=add-on-savings",
+        "expectedDisposition": "CAMERA",
+        "expectedClassification": "CAMERA_PRODUCT",
+        "actualClassification": "CAMERA_PRODUCT",
+        "dispositionPass": true,
+        "geminiAttempts": 1,
+        "finalUrl": "https://vjshop.vn/may-anh-mirrorless/canon-eos-r50-body?xem=add-on-savings",
+        "captureTimestamp": "2026-09-24T16:31:14.061Z",
+        "screenshotCount": 2,
+        "decisionPath": "C:\\Users\\admin\\Downloads\\V15_D10_PLUS1_20260924-232329\\benchmark10\\S08.decision.json",
+        "decision": {
+          "classification": "CAMERA_PRODUCT",
+          "row": {
+            "website": "vjshop.vn",
+            "productName": "Máy Ảnh Canon EOS R50 (Black, Body Only) | Chính Hãng",
+            "condition": "NEW",
+            "specs": [
+              "Bộ xử lý hình ảnh DIGIC X",
+              "Chế độ quay phim dọc",
+              "Cảm biến APS-C CMOS 24.2MP",
+              "Dual Pixel CMOS AF II với 651 vùng"
+            ],
+            "rentalPricePerDay": null,
+            "rentalTerms": null,
+            "accessoriesIncluded": null,
+            "bundleIncluded": [],
+            "rating": null,
+            "reviewCount": null,
+            "stock": "Có 7 cửa hàng có sản phẩm",
+            "salePrice": {
+              "value": 15490000,
+              "currency": "đ"
+            },
+            "url": "https://vjshop.vn/may-anh-mirrorless/canon-eos-r50-body?xem=add-on-savings"
+          }
+        }
+      },
+      {
+        "id": "S09",
+        "url": "https://vjshop.vn/may-anh-mirrorless/canon-eos-r50-lens-rf-s-50mm-f18-stm",
+        "expectedDisposition": "CAMERA",
+        "expectedClassification": "CAMERA_PRODUCT",
+        "actualClassification": "CAMERA_PRODUCT",
+        "dispositionPass": true,
+        "geminiAttempts": 1,
+        "finalUrl": "https://vjshop.vn/may-anh-mirrorless/canon-eos-r50-lens-rf-s-50mm-f18-stm",
+        "captureTimestamp": "2026-09-24T16:31:51.247Z",
+        "screenshotCount": 4,
+        "decisionPath": "C:\\Users\\admin\\Downloads\\V15_D10_PLUS1_20260924-232329\\benchmark10\\S09.decision.json",
+        "decision": {
+          "classification": "CAMERA_PRODUCT",
+          "row": {
+            "website": "vjshop.vn",
+            "productName": "Máy ảnh Canon EOS R50 (Black) + Lens RF 50mm f/1.8 STM",
+            "condition": "NEW",
+            "specs": [
+              "Bộ xử lý hình ảnh DIGIC X",
+              "Chế độ quay phim dọc",
+              "Cảm biến APS-C CMOS 24.2MP",
+              "Dual Pixel CMOS AF II với 651 zones"
+            ],
+            "rentalPricePerDay": null,
+            "rentalTerms": null,
+            "accessoriesIncluded": null,
+            "bundleIncluded": [
+              "Lens RF 50mm f/1.8 STM"
+            ],
+            "rating": null,
+            "reviewCount": null,
+            "stock": "Vui lòng liên hệ chi nhánh",
+            "salePrice": {
+              "value": 20290000,
+              "currency": "đ"
+            },
+            "url": "https://vjshop.vn/may-anh-mirrorless/canon-eos-r50-lens-rf-s-50mm-f18-stm"
+          }
+        }
+      },
+      {
+        "id": "S10",
+        "url": "https://mayanhtop1.com/canon-eos-r50-new",
+        "expectedDisposition": "CAMERA",
+        "expectedClassification": "CAMERA_PRODUCT",
+        "actualClassification": "CAMERA_PRODUCT",
+        "dispositionPass": true,
+        "geminiAttempts": 1,
+        "finalUrl": "https://mayanhtop1.com/canon-eos-r50-new",
+        "captureTimestamp": "2026-09-24T16:32:59.450Z",
+        "screenshotCount": 5,
+        "decisionPath": "C:\\Users\\admin\\Downloads\\V15_D10_PLUS1_20260924-232329\\benchmark10\\S10.decision.json",
+        "decision": {
+          "classification": "CAMERA_PRODUCT",
+          "row": {
+            "website": "mayanhtop1.com",
+            "productName": "CANON EOS R50 (NEW 100%)",
+            "condition": "NEW",
+            "specs": [
+              "Định dạng: Canon RF APS-C",
+              "Cảm biến CMOS 24.2MP, vi xử lý DIGIC X",
+              "Chip Dual Pixel CMOS AF II với 651 điểm",
+              "Video: UHD 4K (3840 * 2160); 1920 * 1080",
+              "Chế độ quay phim dọc",
+              "Hệ số Crop: 1.6x",
+              "Giới hạn Video: 30 phút",
+              "Chụp liên tục: 15 khung hình/giây",
+              "Chống rung kỹ thuật số 5 trục (chỉ áp dụng cho Video)",
+              "Tốc độ màn trập: 1/4000 - 30 giây",
+              "ISO: 100 - 32.000 (Mở rộng: 50 - 51.200)",
+              "Điểm lấy nét tự động: Photo 4503, Video 3713",
+              "Màn hình LCD xoay lật cảm ứng 3 inch, độ phân giải 1,062,000 Dot"
+            ],
+            "rentalPricePerDay": null,
+            "rentalTerms": null,
+            "accessoriesIncluded": [
+              "Thân máy",
+              "Pin",
+              "Sạc",
+              "Dây đeo",
+              "Hộp",
+              "Sách",
+              "Thẻ nhớ 32GB",
+              "Túi Mini"
+            ],
+            "bundleIncluded": [
+              "Kèm ống kính RF-S18-45mm f/4.3-6.3 IS STM"
+            ],
+            "rating": null,
+            "reviewCount": null,
+            "stock": "Còn hàng",
+            "salePrice": {
+              "value": 18000000,
+              "currency": "đ"
+            },
+            "url": "https://mayanhtop1.com/canon-eos-r50-new"
+          }
+        }
+      }
+    ]
+  },
+  "unseenPageGate": {
+    "ran": true,
+    "skippedReason": null,
+    "chosenUrl": "https://kyma.vn/may-anh-canon-eos-r6-mark-ii.html",
+    "result": {
+      "url": "https://kyma.vn/may-anh-canon-eos-r6-mark-ii.html",
+      "finalUrl": "https://kyma.vn/may-anh-canon-eos-r6-mark-ii.html#view-all-cat",
+      "captureTimestamp": "2026-09-24T16:34:11.546Z",
+      "screenshotCount": 4,
+      "geminiAttempts": 1,
+      "checks": {
+        "cameraProduct": true,
+        "rowPresent": true,
+        "productNamePresent": true,
+        "salePricePresent": true,
+        "authoritativeUrl": true,
+        "websitePresent": true
+      },
+      "structuralPass": true,
+      "decisionPath": "C:\\Users\\admin\\Downloads\\V15_D10_PLUS1_20260924-232329\\new-page\\NEW01.decision.json",
+      "decision": {
+        "classification": "CAMERA_PRODUCT",
+        "row": {
+          "website": "kyma.vn",
+          "productName": "Máy ảnh Canon EOS R6 Mark II Body",
+          "condition": "NEW",
+          "specs": [
+            "Cảm biến CMOS full-frame 24,2MP",
+            "Bộ xử lý hình ảnh DIGIC X",
+            "Quay video 10 bit 4K60p, C-Log 3",
+            "Hệ thống Dual Pixel CMOS AF II tiên tiến",
+            "Chụp liên tiếp 40 khung hình/giây ở chế độ màn trập điện tử",
+            "Màn hình LCD cảm ứng xoay lật 3 \" 1,62 triệu điểm ảnh",
+            "Kính ngắm điện tử 3,67 triệu điểm",
+            "Chống rung thân máy lên tới 8 điểm dừng"
+          ],
+          "rentalPricePerDay": null,
+          "rentalTerms": null,
+          "accessoriesIncluded": [
+            "Máy ảnh Canon EOS R6 Mark II Body",
+            "Pin Canon LP-E6NH",
+            "Bộ sạc Canon LC-E6",
+            "Nắp body",
+            "Dây đeo máy ảnh"
+          ],
+          "bundleIncluded": [
+            "Túi máy ảnh K&F Concept Sling Bag KF13.179V1",
+            "Thẻ nhớ SDXC Kodak UHS-I U3 V30 A1 64GB"
+          ],
+          "rating": 4.7,
+          "reviewCount": 10,
+          "stock": null,
+          "salePrice": {
+            "value": 40490000,
+            "currency": "VNĐ"
+          },
+          "url": "https://kyma.vn/may-anh-canon-eos-r6-mark-ii.html#view-all-cat"
+        }
+      }
+    }
+  }
+}

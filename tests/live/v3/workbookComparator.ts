@@ -122,6 +122,35 @@ function normalizedCondition(value: string): "NEW" | "USED" | null {
   return null;
 }
 
+const STOCK_COMPARATOR_FILLER_TOKENS = new Set(["có", "sẵn"]);
+
+function stockComparatorTokens(value: unknown): string[] {
+  return String(value ?? "")
+    .normalize("NFC")
+    .toLocaleLowerCase("vi-VN")
+    .replace(/\d+/gu, " ")
+    .replace(/[^\p{L}\s]/gu, " ")
+    .split(/\s+/u)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .filter((token) => !STOCK_COMPARATOR_FILLER_TOKENS.has(token));
+}
+
+export function stockComparatorMatches(expected: unknown, actual: unknown): boolean {
+  const expectedTokens = stockComparatorTokens(expected);
+  const actualTokens = stockComparatorTokens(actual);
+
+  if (expectedTokens.length === 0 || actualTokens.length === 0) return false;
+
+  let cursor = 0;
+  for (const token of actualTokens) {
+    if (token === expectedTokens[cursor]) cursor += 1;
+    if (cursor === expectedTokens.length) return true;
+  }
+
+  return false;
+}
+
 export async function readCameraWorkbook(path: string): Promise<CameraRow[]> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(path);
@@ -300,7 +329,7 @@ export function compareRows(
 
     if (
       item.liveReference.stockText &&
-      !row.stock.toLowerCase().includes(item.liveReference.stockText.toLowerCase())
+      !stockComparatorMatches(item.liveReference.stockText, row.stock)
     ) {
       mismatches.push({
         id: item.id,

@@ -1,15 +1,26 @@
 import {
-  GEMINI_36_FLASH_MODEL,
-  VISUAL_EXTRACTION_JSON_SCHEMA,
+  buildSimpleSemantic13Prompt
+} from "./simpleSemantic13Prompt.js";
+import {
   VisualExtractionRequestSchema,
-  VisualExtractionSchema,
   type VisualExtraction,
   type VisualExtractionRequest,
   type VisualShot
 } from "./visualExtractionSchema.js";
 
+import {
+  validateSemanticDecision,
+  type SemanticDecisionValidationResult,
+  type SemanticEvidenceMap,
+  type SemanticRow
+} from "./semanticDecisionSchema.js";
+
+export const DEFAULT_GEMINI_VISUAL_MODEL =
+  "gemini-3.5-flash-lite" as const;
+
 export interface Gemini36VisualExtractorOptions {
   readonly apiKey: string;
+  readonly model?: string;
   readonly baseUrl?: string;
   readonly timeoutMs?: number;
   readonly maxOutputTokens?: number;
@@ -26,6 +37,12 @@ export interface Gemini36VisualTelemetry {
 }
 
 export interface Gemini36VisualExtractionResult {
+  readonly decision: SemanticDecisionValidationResult;
+  /*
+   * Compatibility representation for existing non-durable V3 callers.
+   * Production smart-batch:v2 uses `decision` directly.
+   * This adapter performs no semantic remapping.
+   */
   readonly extraction: VisualExtraction;
   readonly telemetry: Gemini36VisualTelemetry;
 }
@@ -35,8 +52,17 @@ export class GeminiVisualExtractionHttpError extends Error {
   readonly responseBody: string;
   readonly retryAfter: string | null;
 
-  constructor(status: number, responseBody: string, retryAfter: string | null) {
-    super("GEMINI_VISUAL_HTTP_ERROR " + status + ": " + responseBody.slice(0, 500));
+  constructor(
+    status: number,
+    responseBody: string,
+    retryAfter: string | null
+  ) {
+    super(
+      "GEMINI_VISUAL_HTTP_ERROR " +
+      status +
+      ": " +
+      responseBody.slice(0, 500)
+    );
     this.name = "GeminiVisualExtractionHttpError";
     this.status = status;
     this.responseBody = responseBody;
@@ -48,7 +74,11 @@ export class GeminiVisualExtractionTimeoutError extends Error {
   readonly timeoutMs: number;
 
   constructor(timeoutMs: number) {
-    super("GEMINI_VISUAL_TIMEOUT after " + timeoutMs + "ms");
+    super(
+      "GEMINI_VISUAL_TIMEOUT after " +
+      timeoutMs +
+      "ms"
+    );
     this.name = "GeminiVisualExtractionTimeoutError";
     this.timeoutMs = timeoutMs;
   }
@@ -62,23 +92,29 @@ export class GeminiVisualExtractionContractError extends Error {
 }
 
 const SYSTEM_PROMPT = [
-  "You read screenshots of ONE ecommerce product page.",
-  "Use only facts visible in the supplied screenshots plus the supplied URL/domain context.",
-  "Return null when a fact is not visible or not explicit. Never use outside product knowledge.",
-  "Do not treat warranty, VAT, purchase policy, or generic service policy as accessories.",
-  "Do not treat customers-also-buy, related products, or recommended products as bundles.",
-  "Do not copy prices, ratings, review counts, or stock from related products.",
-  "For every non-null semantic fact, preserve the exact visible evidence in rawText and cite its shotId."
+  "You are the semantic decision engine for a camera-commerce workbook.",
+  "Inspect all supplied screenshots before finalizing.",
+  "Use only visible screenshot evidence plus the supplied URL/domain context.",
+  "You own semantic placement: decide which visible facts belong to which workbook field.",
+  "Never fabricate, infer unsupported facts, or duplicate one fact into unrelated semantic fields.",
+  "Related products, generic policies, warranty copy, VAT copy, and service marketing are not facts about the selected primary product unless the screenshot explicitly makes them part of the selected offer.",
+  "Every populated semantic field except authoritative website/url must cite screenshot evidence with shotId and rawText."
 ].join("\n");
 
 function modelOutputText(body: {
   output_text?: string;
   steps?: Array<{
     type?: string;
-    content?: Array<{ type?: string; text?: string }>;
+    content?: Array<{
+      type?: string;
+      text?: string;
+    }>;
   }>;
 }): string {
-  if (typeof body.output_text === "string" && body.output_text.trim()) {
+  if (
+    typeof body.output_text === "string" &&
+    body.output_text.trim()
+  ) {
     return body.output_text.trim();
   }
 
@@ -91,233 +127,822 @@ function modelOutputText(body: {
     .trim();
 }
 
+function plainJsonObjectText(
+  outputText: string
+): string {
+  const trimmed = outputText.trim();
+
+  const fenced =
+    /^```(?:json)?\s*([\s\S]*?)\s*```$/iu
+      .exec(trimmed);
+
+  return (
+    fenced?.[1] ??
+    trimmed
+  ).trim();
+}
+
 function contextHost(url: string): string {
-  return new URL(url).hostname.toLowerCase();
+  return new URL(url)
+    .hostname
+    .toLowerCase()
+    .replace(/^www\./u, "");
 }
 
-function markerForShot(shot: VisualShot, index: number): string {
-  const label = shot.sectionLabel ? " | section=" + shot.sectionLabel : "";
-  return "SHOT " + (index + 1) + ": shotId=" + shot.shotId + label;
+function markerForShot(
+  shot: VisualShot,
+  index: number
+): string {
+  const label =
+    shot.sectionLabel
+      ? " | section=" + shot.sectionLabel
+      : "";
+
+  return (
+    "SHOT " +
+    (index + 1) +
+    ": shotId=" +
+    shot.shotId +
+    label
+  );
 }
 
-function collectShotIds(value: unknown, output: string[] = []): string[] {
-  if (Array.isArray(value)) {
-    for (const item of value) collectShotIds(item, output);
-    return output;
-  }
-
-  if (value !== null && typeof value === "object") {
-    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
-      if (key === "shotId" && typeof item === "string") output.push(item);
-      else collectShotIds(item, output);
-    }
-  }
-
-  return output;
+function firstEvidence(
+  evidence: SemanticEvidenceMap,
+  field: keyof SemanticEvidenceMap
+) {
+  return evidence[field][0] ?? null;
 }
 
-function validateEvidenceShotIds(
-  extraction: VisualExtraction,
-  shots: readonly VisualShot[]
-): void {
-  const allowed = new Set(shots.map(shot => shot.shotId));
-  const invalid = [...new Set(collectShotIds(extraction))]
-    .filter(shotId => !allowed.has(shotId));
+function evidenceAt(
+  evidence: SemanticEvidenceMap,
+  field: keyof SemanticEvidenceMap,
+  index: number
+) {
+  return (
+    evidence[field][index] ??
+    evidence[field][0] ??
+    null
+  );
+}
 
-  if (invalid.length > 0) {
-    throw new GeminiVisualExtractionContractError(
-      "GEMINI_VISUAL_UNKNOWN_SHOT_ID: " + invalid.join(", ")
+function emptyCompatibilityExtraction(
+  website: string,
+  url: string
+): VisualExtraction {
+  return {
+    website,
+    productName: null,
+    condition: null,
+    specs: [],
+    rentalPricePerDay: null,
+    rentalTerms: null,
+    accessoriesIncluded: null,
+    bundleIncluded: null,
+    rating: null,
+    reviewCount: null,
+    stock: null,
+    salePrice: null,
+    url
+  };
+}
+
+function compatibilityExtraction(
+  validation: SemanticDecisionValidationResult,
+  website: string,
+  url: string
+): VisualExtraction {
+  const row = validation.value;
+
+  if (
+    validation.status !== "VALIDATED" ||
+    row === null
+  ) {
+    return emptyCompatibilityExtraction(
+      website,
+      url
     );
   }
+
+  const evidence =
+    validation.decision.evidence;
+
+  const productEvidence =
+    firstEvidence(
+      evidence,
+      "productName"
+    );
+
+  const conditionEvidence =
+    firstEvidence(
+      evidence,
+      "condition"
+    );
+
+  const rentalEvidence =
+    firstEvidence(
+      evidence,
+      "rentalPricePerDay"
+    );
+
+  const rentalTermsEvidence =
+    firstEvidence(
+      evidence,
+      "rentalTerms"
+    );
+
+  const ratingEvidence =
+    firstEvidence(
+      evidence,
+      "rating"
+    );
+
+  const reviewEvidence =
+    firstEvidence(
+      evidence,
+      "reviewCount"
+    );
+
+  const stockEvidence =
+    firstEvidence(
+      evidence,
+      "stock"
+    );
+
+  const saleEvidence =
+    firstEvidence(
+      evidence,
+      "salePrice"
+    );
+
+  return {
+    website,
+    productName:
+      row.productName && productEvidence
+        ? {
+            value: row.productName,
+            rawText: productEvidence.rawText,
+            shotId: productEvidence.shotId
+          }
+        : null,
+
+    condition:
+      row.condition && conditionEvidence
+        ? {
+            value: row.condition,
+            rawText: conditionEvidence.rawText,
+            shotId: conditionEvidence.shotId
+          }
+        : null,
+
+    specs:
+      row.specs.map(
+        (value, index) => {
+          const item =
+            evidenceAt(
+              evidence,
+              "specs",
+              index
+            );
+
+          return {
+            value,
+            rawText:
+              item?.rawText ??
+              value,
+            shotId:
+              item?.shotId ??
+              ""
+          };
+        }
+      ),
+
+    rentalPricePerDay:
+      row.rentalPricePerDay && rentalEvidence
+        ? {
+            value:
+              row.rentalPricePerDay.value,
+            currency:
+              row.rentalPricePerDay.currency,
+            rawText:
+              rentalEvidence.rawText,
+            shotId:
+              rentalEvidence.shotId
+          }
+        : null,
+
+    rentalTerms:
+      row.rentalTerms && rentalTermsEvidence
+        ? {
+            value: row.rentalTerms,
+            rawText:
+              rentalTermsEvidence.rawText,
+            shotId:
+              rentalTermsEvidence.shotId
+          }
+        : null,
+
+    accessoriesIncluded:
+      row.accessoriesIncluded
+        ? row.accessoriesIncluded.map(
+            (value, index) => {
+              const item =
+                evidenceAt(
+                  evidence,
+                  "accessoriesIncluded",
+                  index
+                );
+
+              return {
+                value,
+                rawText:
+                  item?.rawText ??
+                  value,
+                shotId:
+                  item?.shotId ??
+                  ""
+              };
+            }
+          )
+        : null,
+
+    bundleIncluded:
+      row.bundleIncluded
+        ? row.bundleIncluded.map(
+            (value, index) => {
+              const item =
+                evidenceAt(
+                  evidence,
+                  "bundleIncluded",
+                  index
+                );
+
+              return {
+                value,
+                rawText:
+                  item?.rawText ??
+                  value,
+                shotId:
+                  item?.shotId ??
+                  ""
+              };
+            }
+          )
+        : null,
+
+    rating:
+      row.rating !== null && ratingEvidence
+        ? {
+            value: row.rating,
+            rawText:
+              ratingEvidence.rawText,
+            shotId:
+              ratingEvidence.shotId
+          }
+        : null,
+
+    reviewCount:
+      row.reviewCount !== null && reviewEvidence
+        ? {
+            value: row.reviewCount,
+            rawText:
+              reviewEvidence.rawText,
+            shotId:
+              reviewEvidence.shotId
+          }
+        : null,
+
+    stock:
+      row.stock && stockEvidence
+        ? {
+            value: row.stock,
+            rawText:
+              stockEvidence.rawText,
+            shotId:
+              stockEvidence.shotId
+          }
+        : null,
+
+    salePrice:
+      row.salePrice && saleEvidence
+        ? {
+            value:
+              row.salePrice.value,
+            currency:
+              row.salePrice.currency,
+            rawText:
+              saleEvidence.rawText,
+            shotId:
+              saleEvidence.shotId
+          }
+        : null,
+
+    url
+  };
+}
+
+function promptText(
+  pageUrl: string,
+  finalUrl: string,
+  website: string,
+  shots: readonly VisualShot[]
+): string {
+  return buildSimpleSemantic13Prompt({
+    pageUrl,
+    finalUrl,
+    website,
+    shots
+  });
+}
+
+
+function isSemanticRecord(
+  value: unknown
+): value is Record<string, unknown> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  );
+}
+
+const BEST_EFFORT_EVIDENCE_KEYS = [
+  "classification",
+  "productName",
+  "condition",
+  "specs",
+  "rentalPricePerDay",
+  "rentalTerms",
+  "accessoriesIncluded",
+  "bundleIncluded",
+  "rating",
+  "reviewCount",
+  "stock",
+  "salePrice"
+] as const;
+
+const BEST_EFFORT_NULLABLE_ROW_KEYS = [
+  "condition",
+  "rentalPricePerDay",
+  "rentalTerms",
+  "accessoriesIncluded",
+  "bundleIncluded",
+  "rating",
+  "reviewCount",
+  "stock",
+  "salePrice"
+] as const;
+
+function normalizeEvidenceArray(
+  value: unknown
+): unknown[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (
+    isSemanticRecord(value) &&
+    typeof value.shotId === "string" &&
+    typeof value.rawText === "string"
+  ) {
+    return [value];
+  }
+
+  return [];
+}
+
+function normalizeStringArrayOrNull(
+  value: unknown
+): unknown {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (
+    typeof value === "string" &&
+    value.trim()
+  ) {
+    return [value];
+  }
+
+  return null;
+}
+
+function normalizeBestEffortSemanticDecisionCandidate(
+  raw: unknown
+): unknown {
+  if (!isSemanticRecord(raw)) {
+    return raw;
+  }
+
+  const normalized:
+    Record<string, unknown> = {
+      ...raw
+    };
+
+  if (
+    normalized.reviewReason ===
+    undefined
+  ) {
+    normalized.reviewReason = null;
+  }
+
+  if (
+    normalized.classification ===
+      "CAMERA_PRODUCT" &&
+    isSemanticRecord(
+      normalized.row
+    )
+  ) {
+    const row:
+      Record<string, unknown> = {
+        ...normalized.row
+      };
+
+    for (
+      const key of
+      BEST_EFFORT_NULLABLE_ROW_KEYS
+    ) {
+      if (row[key] === undefined) {
+        row[key] = null;
+      }
+    }
+
+    if (
+      row.specs === null ||
+      row.specs === undefined
+    ) {
+      row.specs = [];
+    }
+    else if (
+      typeof row.specs === "string"
+    ) {
+      row.specs =
+        row.specs.trim()
+          ? [row.specs]
+          : [];
+    }
+    else if (
+      !Array.isArray(
+        row.specs
+      )
+    ) {
+      row.specs = [];
+    }
+
+    row.accessoriesIncluded =
+      normalizeStringArrayOrNull(
+        row.accessoriesIncluded
+      );
+
+    row.bundleIncluded =
+      normalizeStringArrayOrNull(
+        row.bundleIncluded
+      );
+
+    normalized.row =
+      row;
+  }
+
+  const evidence:
+    Record<string, unknown> =
+    isSemanticRecord(
+      normalized.evidence
+    )
+      ? {
+          ...normalized.evidence
+        }
+      : {};
+
+  for (
+    const key of
+    BEST_EFFORT_EVIDENCE_KEYS
+  ) {
+    evidence[key] =
+      normalizeEvidenceArray(
+        evidence[key]
+      );
+  }
+
+  normalized.evidence =
+    evidence;
+
+  return normalized;
 }
 
 export class Gemini36VisualExtractor {
   private readonly apiKey: string;
+  private readonly model: string;
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
   private readonly maxOutputTokens: number;
   private readonly fetchFn: typeof fetch;
 
-  constructor(options: Gemini36VisualExtractorOptions) {
+  constructor(
+    options: Gemini36VisualExtractorOptions
+  ) {
     this.apiKey = options.apiKey.trim();
-    if (!this.apiKey) throw new Error("GEMINI_API_KEY is empty.");
 
-    this.baseUrl = (options.baseUrl ??
-      "https://generativelanguage.googleapis.com/v1beta")
-      .replace(/\/+$/u, "");
-    this.timeoutMs = options.timeoutMs ?? 90_000;
-    this.maxOutputTokens = options.maxOutputTokens ?? 4_096;
-    this.fetchFn = options.fetchFn ?? fetch;
+    if (!this.apiKey) {
+      throw new Error(
+        "GEMINI_API_KEY is empty."
+      );
+    }
+
+    this.model =
+      options.model?.trim() ||
+      DEFAULT_GEMINI_VISUAL_MODEL;
+
+    this.baseUrl =
+      (
+        options.baseUrl ??
+        "https://generativelanguage.googleapis.com/v1beta"
+      ).replace(/\/+$/u, "");
+
+    this.timeoutMs =
+      options.timeoutMs ??
+      90_000;
+
+    this.maxOutputTokens =
+      options.maxOutputTokens ??
+      4_096;
+
+    this.fetchFn =
+      options.fetchFn ??
+      fetch;
   }
 
   async extract(
     request: VisualExtractionRequest
   ): Promise<Gemini36VisualExtractionResult> {
-    const parsedRequest = VisualExtractionRequestSchema.parse(request);
-    const finalUrl = parsedRequest.finalUrl ?? parsedRequest.pageUrl;
-    const website = contextHost(finalUrl);
+    const parsedRequest =
+      VisualExtractionRequestSchema.parse(
+        request
+      );
 
-    const prompt = [
-      "Extract the requested camera commerce facts from these screenshots.",
-      "PAGE_URL: " + parsedRequest.pageUrl,
-      "FINAL_URL: " + finalUrl,
-      "WEBSITE: " + website,
-      "ALLOWED_SHOT_IDS: " +
-        parsedRequest.shots.map(shot => shot.shotId).join(", "),
-      "Copy WEBSITE and FINAL_URL exactly into website and url.",
-      "Product name should keep the model/kit identity but remove unrelated marketing noise.",
-      "Condition must be NEW, USED, or null. Likenew/used/hang cu => USED; new/chinh hang/new 100% => NEW only when visible.",
-      "salePrice is the current selected primary-product price; never use old/list/crossed-out or related-product prices.",
-      "stock is only explicit availability or quantity; never infer stock from buy/cart controls.",
-      "Rental price must be an explicit per-day rental amount, never installment/payment-plan amounts.",
-      "If accessories or bundles are absent, use null. If present, return only items explicitly included with the primary product.",
-      "Specs must describe the primary product only and should be concise.",
-      "Return JSON matching the provided schema."
-    ].join("\n");
+    const finalUrl =
+      parsedRequest.finalUrl ??
+      parsedRequest.pageUrl;
 
-    const input: Array<Record<string, unknown>> = [
-      { type: "text", text: prompt }
-    ];
+    const website =
+      contextHost(finalUrl);
 
-    parsedRequest.shots.forEach((shot, index) => {
-      input.push({ type: "text", text: markerForShot(shot, index) });
-      input.push({
-        type: "image",
-        data: shot.base64,
-        mime_type: shot.mimeType,
-        resolution: shot.resolution
-      });
-    });
+    const input:
+      Array<Record<string, unknown>> = [
+        {
+          type: "text",
+          text: promptText(
+            parsedRequest.pageUrl,
+            finalUrl,
+            website,
+            parsedRequest.shots
+          )
+        }
+      ];
+
+    parsedRequest.shots.forEach(
+      (shot, index) => {
+        input.push({
+          type: "text",
+          text:
+            markerForShot(
+              shot,
+              index
+            )
+        });
+
+        input.push({
+          type: "image",
+          data: shot.base64,
+          mime_type: shot.mimeType,
+          resolution: shot.resolution
+        });
+      }
+    );
 
     const requestBody = {
-      model: GEMINI_36_FLASH_MODEL,
+      model: this.model,
       input,
       system_instruction: SYSTEM_PROMPT,
-      response_format: {
-        type: "text",
-        mime_type: "application/json",
-        schema: VISUAL_EXTRACTION_JSON_SCHEMA
-      },
       generation_config: {
         thinking_level: "low",
         temperature: 0.1,
-        max_output_tokens: this.maxOutputTokens
+        max_output_tokens:
+          this.maxOutputTokens
       },
       store: false
     };
 
-    const startedAt = Date.now();
-    const controller = new AbortController();
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, this.timeoutMs);
+    const startedAt =
+      Date.now();
 
-    try {
-      const response = await this.fetchFn(
-        this.baseUrl + "/interactions",
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-goog-api-key": this.apiKey
-          },
-          signal: controller.signal,
-          body: JSON.stringify(requestBody)
-        }
+    const controller =
+      new AbortController();
+
+    let timedOut =
+      false;
+
+    const timer =
+      setTimeout(
+        () => {
+          timedOut = true;
+          controller.abort();
+        },
+        this.timeoutMs
       );
 
+    try {
+      const response =
+        await this.fetchFn(
+          this.baseUrl +
+          "/interactions",
+          {
+            method: "POST",
+            headers: {
+              "content-type":
+                "application/json",
+              "x-goog-api-key":
+                this.apiKey
+            },
+            signal:
+              controller.signal,
+            body:
+              JSON.stringify(
+                requestBody
+              )
+          }
+        );
+
       if (!response.ok) {
-        const responseBody = await response.text();
+        const responseBody =
+          await response.text();
+
         throw new GeminiVisualExtractionHttpError(
           response.status,
           responseBody,
-          response.headers.get("retry-after")
+          response.headers.get(
+            "retry-after"
+          )
         );
       }
 
-      const body = await response.json() as {
-        status?: string;
-        model?: string;
-        output_text?: string;
-        steps?: Array<{
-          type?: string;
-          content?: Array<{ type?: string; text?: string }>;
-        }>;
-        usage?: {
-          total_input_tokens?: number;
-          total_output_tokens?: number;
-          total_thought_tokens?: number;
-          total_tokens?: number;
+      const body =
+        await response.json() as {
+          status?: string;
+          errors?: Array<{
+            code?: string;
+            message?: string;
+          }>;
+          model?: string;
+          output_text?: string;
+          steps?: Array<{
+            type?: string;
+            content?: Array<{
+              type?: string;
+              text?: string;
+            }>;
+          }>;
+          usage?: {
+            total_input_tokens?: number;
+            total_output_tokens?: number;
+            total_thought_tokens?: number;
+            total_tokens?: number;
+          };
         };
-      };
 
-      if (body.status && body.status !== "completed") {
+      if (
+        body.status &&
+        body.status !== "completed"
+      ) {
         throw new GeminiVisualExtractionContractError(
-          "GEMINI_VISUAL_INTERACTION_STATUS: " + body.status
+          "GEMINI_VISUAL_INTERACTION_DIAGNOSTIC: " +
+          JSON.stringify({
+            status:
+              body.status,
+            errors:
+              body.errors ?? [],
+            usage:
+              body.usage ?? null
+          })
         );
       }
 
-      const outputText = modelOutputText(body);
+      const outputText =
+        modelOutputText(body);
+
+      let raw:
+        unknown;
+
       if (!outputText) {
-        throw new GeminiVisualExtractionContractError(
-          "GEMINI_VISUAL_EMPTY_OUTPUT"
+        raw = {
+          classification: "REVIEW",
+          reviewReason:
+            "GEMINI_VISUAL_EMPTY_OUTPUT",
+          row: null,
+          evidence: {}
+        };
+      }
+      else {
+        try {
+          raw =
+            JSON.parse(
+              plainJsonObjectText(
+                outputText
+              )
+            );
+        }
+        catch {
+          raw = {
+            classification: "REVIEW",
+            reviewReason:
+              "GEMINI_VISUAL_INVALID_JSON",
+            row: null,
+            evidence: {}
+          };
+        }
+      }
+
+      const decision =
+        validateSemanticDecision(
+          normalizeBestEffortSemanticDecisionCandidate(raw),
+          {
+            website,
+            url: finalUrl,
+            shotIds:
+              new Set(
+                parsedRequest.shots.map(
+                  shot =>
+                    shot.shotId
+                )
+              )
+          }
         );
-      }
 
-      let raw: unknown;
-      try {
-        raw = JSON.parse(outputText);
-      } catch {
-        throw new GeminiVisualExtractionContractError(
-          "GEMINI_VISUAL_INVALID_JSON"
-        );
-      }
-
-      if (raw !== null && typeof raw === "object" && !Array.isArray(raw)) {
-        const object = raw as Record<string, unknown>;
-        object.website = website;
-        object.url = finalUrl;
-      }
-
-      const parsed = VisualExtractionSchema.safeParse(raw);
-      if (!parsed.success) {
-        const issues = parsed.error.issues.slice(0, 10).map(issue => ({
-          path: issue.path,
-          code: issue.code,
-          message: issue.message
-        }));
-
-        throw new GeminiVisualExtractionContractError(
-          "GEMINI_VISUAL_SCHEMA_MISMATCH: " + JSON.stringify(issues)
-        );
-      }
-
-      validateEvidenceShotIds(parsed.data, parsedRequest.shots);
-
-      const numberOrNull = (value: unknown): number | null =>
-        typeof value === "number" && Number.isFinite(value)
-          ? value
-          : null;
+      const numberOrNull =
+        (
+          value:
+            unknown
+        ): number | null =>
+          typeof value === "number" &&
+          Number.isFinite(value)
+            ? value
+            : null;
 
       return {
-        extraction: parsed.data,
+        decision,
+        extraction:
+          compatibilityExtraction(
+            decision,
+            website,
+            finalUrl
+          ),
         telemetry: {
-          model: body.model ?? GEMINI_36_FLASH_MODEL,
-          latencyMs: Date.now() - startedAt,
-          inputTokens: numberOrNull(body.usage?.total_input_tokens),
-          outputTokens: numberOrNull(body.usage?.total_output_tokens),
-          thoughtTokens: numberOrNull(body.usage?.total_thought_tokens),
-          totalTokens: numberOrNull(body.usage?.total_tokens)
+          model:
+            body.model ??
+            this.model,
+          latencyMs:
+            Date.now() -
+            startedAt,
+          inputTokens:
+            numberOrNull(
+              body.usage
+                ?.total_input_tokens
+            ),
+          outputTokens:
+            numberOrNull(
+              body.usage
+                ?.total_output_tokens
+            ),
+          thoughtTokens:
+            numberOrNull(
+              body.usage
+                ?.total_thought_tokens
+            ),
+          totalTokens:
+            numberOrNull(
+              body.usage
+                ?.total_tokens
+            )
         }
       };
-    } catch (error) {
+    }
+    catch (error) {
       if (timedOut) {
-        throw new GeminiVisualExtractionTimeoutError(this.timeoutMs);
+        throw new GeminiVisualExtractionTimeoutError(
+          this.timeoutMs
+        );
       }
+
       throw error;
-    } finally {
+    }
+    finally {
       clearTimeout(timer);
     }
   }

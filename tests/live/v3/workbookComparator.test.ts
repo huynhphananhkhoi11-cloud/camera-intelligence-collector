@@ -8,6 +8,7 @@ import {
   CAMERA_DATA_HEADERS,
   compareRows,
   readCameraWorkbook,
+  stockComparatorMatches,
   type BenchmarkCase
 } from "./workbookComparator.js";
 
@@ -39,6 +40,24 @@ async function writeWorkbook(
   await workbook.xlsx.writeFile(path);
   return path;
 }
+
+describe("V15 live stock comparator normalization", () => {
+  it("accepts a live availability phrase with a volatile branch count and filler wording", () => {
+    expect(
+      stockComparatorMatches(
+        "cửa hàng có sản phẩm",
+        "Có 4 cửa hàng có sẵn sản phẩm"
+      )
+    ).toBe(true);
+
+    expect(
+      stockComparatorMatches(
+        "cửa hàng có sản phẩm",
+        "Bảo hành 24 tháng chính hãng"
+      )
+    ).toBe(false);
+  });
+});
 
 describe("Dev6 workbook comparator", () => {
   it("accepts exact 13-column Camera Data and compares stable/live fields", async () => {
