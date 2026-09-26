@@ -1,0 +1,98 @@
+import {
+  readFileSync
+} from "node:fs";
+
+import {
+  join
+} from "node:path";
+
+import {
+  describe,
+  expect,
+  test
+} from "vitest";
+
+describe(
+  "Camera Intelligence no-lock realtime UI",
+  () => {
+
+    test(
+      "observes sidecar checkpoints without reading mutable atomic state",
+      () => {
+
+        const launcher =
+          readFileSync(
+            join(
+              process.cwd(),
+              "RUN_CAMERA_INTELLIGENCE.ps1"
+            ),
+            "utf8"
+          );
+
+        expect(
+          launcher,
+          "RUN_STATE_OBSERVER_FORBIDDEN"
+        ).not.toContain(
+          "run-state.json"
+        );
+
+        expect(
+          launcher
+        ).toContain(
+          "capture_manifest.json"
+        );
+
+        expect(
+          launcher
+        ).toContain(
+          "v15-requests"
+        );
+
+        expect(
+          launcher
+        ).toContain(
+          "v15-decisions"
+        );
+
+        expect(
+          launcher
+        ).toContain(
+          "v15-results"
+        );
+
+        expect(
+          launcher
+        ).toContain(
+          "VISIBLE / REALTIME / FULL SPEED"
+        );
+
+        /*
+         * Observer must not own the semantic architecture.
+         */
+        expect(
+          launcher
+        ).not.toContain(
+          "gemini-3.5-flash-lite"
+        );
+
+        expect(
+          launcher
+        ).not.toContain(
+          "captureConcurrency"
+        );
+
+        expect(
+          launcher
+        ).not.toContain(
+          "semanticConcurrency"
+        );
+
+        expect(
+          launcher
+        ).not.toContain(
+          "queueCapacity"
+        );
+      }
+    );
+  }
+);

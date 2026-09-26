@@ -1,0 +1,39 @@
+{
+  "repository": "huynhphananhkhoi11-cloud/camera-intelligence-collector",
+  "sourceRef": "integration/v3-vision-first",
+  "note": "Available remote baseline when DEV7 packet was built. DEV0 should replace/refreeze hashes if the canonical V15/FIX13 release commit differs.",
+  "files": [
+    {
+      "path": "src/v03/ai/gemini36VisualExtractor.ts",
+      "blobSha": "9cc796bdc6f56026d225065eb8f85d31fa972769"
+    },
+    {
+      "path": "src/v03/ai/geminiVisionProvider.ts",
+      "blobSha": "b3f389a1d82b3ae342881acdfda163d27fddf32f"
+    },
+    {
+      "path": "src/v03/ai/geminiSemanticProvider.ts",
+      "blobSha": "d0a64f805329567892db68ccc0e3f32ff2912fa5"
+    },
+    {
+      "path": "src/v03/ai/ollamaSemanticProvider.ts",
+      "blobSha": "564d3a56186eea828b6ae314608134729d13a6ee"
+    },
+    {
+      "path": "src/v03/ai/visualExtractionSchema.ts",
+      "blobSha": "40af657caa5874fbddb3cb5c5a945eefa34a0c20"
+    },
+    {
+      "path": "src/v03/ai/semanticContracts.ts",
+      "blobSha": "b0cffa68d7c16e7a49879bdd07ff18c8deefcebb"
+    },
+    {
+      "path": "src/v03/contracts/camera13.ts",
+      "blobSha": "73e75ab456b5eef78ca238db11e84b2256f90af0"
+    },
+    {
+      "path": "src/v03/validation/visualExtractionValidator.ts",
+      "blobSha": "547c5d78c76c63985e492c94628ab7d02a7ede10"
+    }
+  ]
+}

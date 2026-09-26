@@ -1,0 +1,65 @@
+import {
+  readFileSync
+} from "node:fs";
+
+import {
+  join
+} from "node:path";
+
+import {
+  describe,
+  expect,
+  test
+} from "vitest";
+
+describe(
+  "Camera Intelligence launcher exit status",
+  () => {
+
+    test(
+      "does not treat an unavailable child exit code as failure",
+      () => {
+
+        const source =
+          readFileSync(
+            join(
+              process.cwd(),
+              "RUN_CAMERA_INTELLIGENCE.ps1"
+            ),
+            "utf8"
+          );
+
+        expect(
+          source,
+          "NULL_EXIT_CODE_FALSE_FAILURE"
+        ).not.toContain(
+          "if ($Process.ExitCode -ne 0)"
+        );
+
+        expect(
+          source
+        ).toContain(
+          "PROCESS_EXIT_UNKNOWN_REPORT_FALLBACK"
+        );
+
+        expect(
+          source
+        ).toContain(
+          "$CollectorExitCode = $null"
+        );
+
+        expect(
+          source
+        ).toContain(
+          "$null -ne $CollectorExitCode"
+        );
+
+        expect(
+          source
+        ).toContain(
+          "$null -eq $CollectorExitCode"
+        );
+      }
+    );
+  }
+);

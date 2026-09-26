@@ -1,0 +1,47 @@
+import {
+  readFileSync
+} from "node:fs";
+
+import {
+  join
+} from "node:path";
+
+import {
+  describe,
+  expect,
+  test
+} from "vitest";
+
+describe(
+  "Camera Intelligence launcher report binding",
+  () => {
+
+    test(
+      "uses the declared report variable in exit-code fallback",
+      () => {
+
+        const source =
+          readFileSync(
+            join(
+              process.cwd(),
+              "RUN_CAMERA_INTELLIGENCE.ps1"
+            ),
+            "utf8"
+          );
+
+        expect(
+          source,
+          "UNDEFINED_REPORT_PATH_VARIABLE"
+        ).not.toContain(
+          "$ReportPath"
+        );
+
+        expect(
+          source
+        ).toContain(
+          "Test-Path -LiteralPath $Report"
+        );
+      }
+    );
+  }
+);

@@ -3,12 +3,29 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "bin": {
+    "camintel": "./dist/v03/cli/camintel.js"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "camintel": "tsx src/index.ts",
+    "test": "vitest run",
+    "camintel": "tsx src/v03/cli/camintel.ts",
     "check": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.json",
-    "collect": "tsx src/collect.ts"
+    "collect": "tsx src/collect.ts",
+    "test:watch": "vitest",
+    "collect:v02": "tsx src/v02/cli/collectV2.ts",
+    "camintel:v2": "tsx src/v02/cli/camintel.ts",
+    "ai-read": "tsx src/v03/cli/aiRead.ts",
+    "ai-scale": "tsx src/v03/cli/aiScale.ts",
+    "gemini-read": "tsx src/v03/cli/geminiRead.ts",
+    "page-benchmark": "tsx src/v03/cli/pageBenchmark.ts",
+    "agent-browse": "tsx src/v03/cli/agentBrowse.ts",
+    "vision-fast": "tsx src/v03/cli/visionFast.ts",
+    "smart-read": "tsx src/v03/cli/smartRead.ts",
+    "smart-batch": "tsx src/v03/cli/smartBatch.ts",
+    "smart-batch:v2": "tsx src/v03/cli/smartBatchV2.ts",
+    "smart-batch:minimal": "tsx src/v04/cli/smartBatchMinimal.ts",
+    "provider-setup": "tsx src/v03/cli/providerSetup.ts"
   },
   "keywords": [],
   "author": "",
@@ -26,6 +43,7 @@
   "devDependencies": {
     "@types/node": "^22.20.3",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
   }
 }

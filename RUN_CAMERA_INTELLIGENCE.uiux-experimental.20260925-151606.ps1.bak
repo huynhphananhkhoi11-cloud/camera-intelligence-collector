@@ -1,0 +1,528 @@
+param(
+    [string]$InputFile = "",
+
+    [ValidateSet("DIRECT","DISCOVER")]
+    [string]$Mode = "DIRECT",
+
+    [ValidateSet(
+        "LEAN_DELETE_SUCCESS",
+        "AUDIT_KEEP_ALL"
+    )]
+    [string]$Retention = "LEAN_DELETE_SUCCESS",
+
+    [string]$Output = ""
+)
+
+$ErrorActionPreference = "Stop"
+Set-StrictMode -Version 2.0
+
+$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$Downloads = Join-Path $env:USERPROFILE "Downloads"
+
+function Live {
+
+    param(
+        [string]$Prefix,
+        [string]$Message,
+        [ConsoleColor]$Color = [ConsoleColor]::Gray
+    )
+
+    Write-Host (
+        "{0,-10} {1}" -f $Prefix,$Message
+    ) -ForegroundColor $Color
+}
+
+function Prefix {
+
+    param(
+        [int]$Index,
+        [int]$Total
+    )
+
+    return (
+        "[{0:d2}/{1:d2}]" -f (
+            $Index + 1
+        ),$Total
+    )
+}
+
+Write-Host ""
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host " CAMERA INTELLIGENCE - LIVE" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host " Browser       VISIBLE / REALTIME / FULL SPEED" -ForegroundColor Green
+Write-Host " Capture       ONE ACTIVE PRODUCT PAGE" -ForegroundColor Green
+Write-Host " Gemini        PIPELINED" -ForegroundColor Green
+Write-Host " Observer      SIDECARS ONLY / NO STATE LOCK" -ForegroundColor Green
+Write-Host " Retention     $Retention" -ForegroundColor Green
+Write-Host ""
+
+# ============================================================
+# API KEY
+# ============================================================
+
+$TemporaryKey = $false
+
+if (
+    [string]::IsNullOrWhiteSpace($env:GEMINI_AUTH_KEY) -and
+    [string]::IsNullOrWhiteSpace($env:GEMINI_API_KEY)
+) {
+
+    $Secure = Read-Host "Gemini API key" -AsSecureString
+
+    $Ptr =
+        [Runtime.InteropServices.Marshal]::SecureStringToBSTR(
+            $Secure
+        )
+
+    try {
+
+        $Key =
+            [Runtime.InteropServices.Marshal]::PtrToStringBSTR(
+                $Ptr
+            )
+
+        if ([string]::IsNullOrWhiteSpace($Key)) {
+            throw "Empty Gemini API key."
+        }
+
+        $env:GEMINI_API_KEY = $Key
+        $TemporaryKey = $true
+    }
+    finally {
+
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR(
+            $Ptr
+        )
+
+        $Key = $null
+    }
+}
+
+Live "API" "Gemini credential ready" Green
+
+# ============================================================
+# INPUT
+# ============================================================
+
+$Urls = @()
+
+if (-not [string]::IsNullOrWhiteSpace($InputFile)) {
+
+    if (-not (Test-Path -LiteralPath $InputFile)) {
+        throw "Input file missing: $InputFile"
+    }
+
+    $Urls = @(
+        Get-Content -LiteralPath $InputFile |
+        ForEach-Object {
+            ([string]$_).Trim()
+        } |
+        Where-Object {
+            $_ -and
+            -not $_.StartsWith("#")
+        }
+    )
+}
+else {
+
+    Write-Host ""
+    Write-Host "Paste URLs. Empty line starts run." -ForegroundColor Cyan
+
+    while ($true) {
+
+        $U = Read-Host "URL"
+
+        if ([string]::IsNullOrWhiteSpace($U)) {
+            break
+        }
+
+        $Urls += $U.Trim()
+    }
+}
+
+if ($Urls.Count -eq 0) {
+    throw "No URLs supplied."
+}
+
+# ============================================================
+# PATHS
+# ============================================================
+
+$RunId =
+    "live-" +
+    (Get-Date -Format "yyyyMMdd-HHmmss")
+
+$InputRoot =
+    Join-Path $Root ".camintel\ui-inputs"
+
+$CaptureRoot =
+    Join-Path $Root ".camintel\v15-runs"
+
+$RunRoot =
+    Join-Path $CaptureRoot $RunId
+
+$ProductsRoot =
+    Join-Path $RunRoot "products"
+
+$RequestRoot =
+    Join-Path $RunRoot "v15-requests"
+
+$DecisionRoot =
+    Join-Path $RunRoot "v15-decisions"
+
+$ResultRoot =
+    Join-Path $RunRoot "v15-results"
+
+New-Item `
+    -ItemType Directory `
+    -Force `
+    -Path $InputRoot,$CaptureRoot |
+    Out-Null
+
+$GeneratedInput =
+    Join-Path $InputRoot ($RunId + ".txt")
+
+[IO.File]::WriteAllLines(
+    $GeneratedInput,
+    $Urls,
+    (New-Object Text.UTF8Encoding($false))
+)
+
+if ([string]::IsNullOrWhiteSpace($Output)) {
+
+    $OutDir =
+        Join-Path $Downloads "Camera Intelligence Output"
+
+    New-Item `
+        -ItemType Directory `
+        -Force `
+        -Path $OutDir |
+        Out-Null
+
+    $Output =
+        Join-Path `
+            $OutDir `
+            (
+                "CameraIntelligence_" +
+                (Get-Date -Format "yyyyMMdd-HHmmss") +
+                ".xlsx"
+            )
+}
+
+$Output =
+    [IO.Path]::GetFullPath(
+        $Output
+    )
+
+$OutputDir =
+    Split-Path -Parent $Output
+
+New-Item `
+    -ItemType Directory `
+    -Force `
+    -Path $OutputDir |
+    Out-Null
+
+$Report =
+    $Output + ".run-report.json"
+
+Write-Host ""
+Write-Host "------------------------------------------------------------"
+Write-Host "Run ID     : $RunId"
+Write-Host "Mode       : $Mode"
+Write-Host "URLs       : $($Urls.Count)"
+Write-Host "Browser    : VISIBLE"
+Write-Host "Retention  : $Retention"
+Write-Host "Output     : $Output"
+Write-Host "------------------------------------------------------------"
+Write-Host ""
+
+# ============================================================
+# EXISTING FIX13 CLI
+# ============================================================
+
+$Npm =
+    (Get-Command npm.cmd -ErrorAction Stop).Source
+
+$Args = @(
+    "run",
+    "smart-batch:minimal",
+    "--",
+    ('"{0}"' -f $GeneratedInput),
+    "--output",
+    ('"{0}"' -f $Output),
+    "--capture-root",
+    ('"{0}"' -f $CaptureRoot),
+    "--run-id",
+    ('"{0}"' -f $RunId),
+    "--retention",
+    $Retention
+)
+
+if ($Mode -eq "DISCOVER") {
+    $Args += "--discover"
+}
+
+Live "START" "Launching existing FIX13 collector" Cyan
+
+$Process =
+    Start-Process `
+        -FilePath $Npm `
+        -ArgumentList $Args `
+        -WorkingDirectory $Root `
+        -NoNewWindow `
+        -PassThru
+
+# ============================================================
+# NO-LOCK REALTIME OBSERVER
+#
+# DO NOT read mutable atomic state.
+#
+# We only check existence of independent durable artifacts.
+# ============================================================
+
+$CaptureSeen = @{}
+$GeminiSeen = @{}
+$ValidationSeen = @{}
+$ResultSeen = @{}
+$CleanupSeen = @{}
+
+$Total = $Urls.Count
+$Started = Get-Date
+
+try {
+
+    while (-not $Process.HasExited) {
+
+        for ($I = 0; $I -lt $Total; $I++) {
+
+            $N =
+                "{0:d4}" -f ($I + 1)
+
+            $Px =
+                Prefix $I $Total
+
+            $Workspace =
+                Join-Path $ProductsRoot $N
+
+            $Manifest =
+                Join-Path $Workspace "capture_manifest.json"
+
+            $Request =
+                Join-Path `
+                    $RequestRoot `
+                    ($N + ".request.json")
+
+            $Validation =
+                Join-Path `
+                    $DecisionRoot `
+                    ($N + ".validation.json")
+
+            $Result =
+                Join-Path `
+                    $ResultRoot `
+                    ($N + ".result.json")
+
+            if (
+                -not $CaptureSeen.ContainsKey($I) -and
+                (Test-Path -LiteralPath $Manifest)
+            ) {
+
+                $CaptureSeen[$I] = $true
+
+                Live `
+                    $Px `
+                    "CAPTURED  screenshot packet ready" `
+                    Cyan
+            }
+
+            if (
+                -not $GeminiSeen.ContainsKey($I) -and
+                (Test-Path -LiteralPath $Request)
+            ) {
+
+                $GeminiSeen[$I] = $true
+
+                Live `
+                    $Px `
+                    "GEMINI    semantic request started" `
+                    Magenta
+            }
+
+            if (
+                -not $ValidationSeen.ContainsKey($I) -and
+                (Test-Path -LiteralPath $Validation)
+            ) {
+
+                $ValidationSeen[$I] = $true
+
+                Live `
+                    $Px `
+                    "VALIDATE  checkpoint ready" `
+                    Green
+            }
+
+            if (
+                -not $ResultSeen.ContainsKey($I) -and
+                (Test-Path -LiteralPath $Result)
+            ) {
+
+                $ResultSeen[$I] = $true
+
+                Live `
+                    $Px `
+                    "DONE      durable result ready" `
+                    Green
+            }
+
+            if (
+                $Retention -eq "LEAN_DELETE_SUCCESS" -and
+                $CaptureSeen.ContainsKey($I) -and
+                -not $CleanupSeen.ContainsKey($I) -and
+                -not (Test-Path -LiteralPath $Workspace)
+            ) {
+
+                $CleanupSeen[$I] = $true
+
+                Live `
+                    $Px `
+                    "CLEANUP   screenshots deleted" `
+                    DarkGreen
+            }
+        }
+
+        Start-Sleep -Milliseconds 200
+        $Process.Refresh()
+    }
+
+    $Process.WaitForExit()
+}
+finally {
+
+    if (
+        $TemporaryKey -and
+        (Test-Path Env:GEMINI_API_KEY)
+    ) {
+        Remove-Item Env:GEMINI_API_KEY
+    }
+}
+
+$Elapsed =
+    (Get-Date) - $Started
+
+Write-Host ""
+
+$CollectorExitCode = $null
+
+try {
+
+    $Process.Refresh()
+
+    $CollectorExitCode =
+        $Process.ExitCode
+}
+catch {
+
+    $CollectorExitCode = $null
+}
+
+# PROCESS_EXIT_UNKNOWN_REPORT_FALLBACK
+
+if (
+    $null -ne $CollectorExitCode -and
+    $CollectorExitCode -ne 0
+) {
+
+    Write-Host "============================================================" -ForegroundColor Red
+    Write-Host " CAMERA INTELLIGENCE - RUN FAILED" -ForegroundColor Red
+    Write-Host "============================================================" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Exit code : $CollectorExitCode" -ForegroundColor Red
+    Write-Host "Run root  : $RunRoot"
+
+    exit ([int]$CollectorExitCode)
+}
+
+if ($null -eq $CollectorExitCode) {
+
+    if (-not (Test-Path -LiteralPath $Report)) {
+
+        Write-Host "============================================================" -ForegroundColor Red
+        Write-Host " CAMERA INTELLIGENCE - STATUS UNKNOWN" -ForegroundColor Red
+        Write-Host "============================================================" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Child exit code unavailable and run report is missing." -ForegroundColor Red
+        Write-Host "Run root: $RunRoot"
+
+        exit 1
+    }
+
+    Write-Live `
+        "STATUS" `
+        "child exit code unavailable; completed run report found" `
+        DarkYellow
+}
+
+# ============================================================
+# ONLY AFTER CORE PROCESS HAS EXITED:
+# reading run-report is safe.
+# ============================================================
+
+$Summary = $null
+
+if (Test-Path -LiteralPath $Report) {
+
+    try {
+
+        $Json =
+            Get-Content `
+                -LiteralPath $Report `
+                -Raw |
+            ConvertFrom-Json
+
+        $Summary = $Json.summary
+    }
+    catch {}
+}
+
+Write-Host "============================================================" -ForegroundColor Green
+Write-Host " CAMERA INTELLIGENCE - COMPLETE" -ForegroundColor Green
+Write-Host "============================================================" -ForegroundColor Green
+
+if ($null -ne $Summary) {
+
+    Write-Host "Total       : $($Summary.total)"
+    Write-Host "Validated   : $($Summary.validated)"
+    Write-Host "Review      : $($Summary.review)"
+    Write-Host "Non-camera  : $($Summary.skippedNonCamera)"
+    Write-Host "Errors      : $($Summary.errors)"
+    Write-Host "Deferred    : $($Summary.deferred)"
+}
+
+$Seconds =
+    [Math]::Max(
+        1,
+        $Elapsed.TotalSeconds
+    )
+
+$Rate =
+    $Urls.Count /
+    $Seconds *
+    60
+
+Write-Host ""
+Write-Host (
+    "Elapsed     : {0:hh\:mm\:ss}" -f $Elapsed
+)
+
+Write-Host (
+    "Throughput  : {0:N2} URLs/min" -f $Rate
+)
+
+Write-Host ""
+Write-Host "Workbook    : $Output"
+Write-Host "Run report  : $Report"
+Write-Host "Run root    : $RunRoot"
+Write-Host ""
